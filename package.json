@@ -1,0 +1,21 @@
+{
+  "name": "soloops",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "up": "docker compose up --build",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f api worker",
+    "db:push": "npm -w @soloops/api run db:push",
+    "db:studio": "npm -w @soloops/api run db:studio",
+    "seed": "npm -w @soloops/api run seed",
+    "typecheck": "npm -ws --if-present run typecheck"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
