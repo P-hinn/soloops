@@ -24,6 +24,7 @@ import dashboardRoutes from './routes/dashboard.js'
 import searchRoutes from './routes/search.js'
 import calendarAccountRoutes from './routes/calendarAccounts.js'
 import assistantRoutes from './routes/assistant.js'
+import onboardingRoutes from './routes/onboarding.js'
 
 const app = Fastify({
   logger: { level: env.NODE_ENV === 'development' ? 'info' : 'warn' },
@@ -66,6 +67,7 @@ await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
 await app.register(searchRoutes, { prefix: '/api/search' })
 await app.register(calendarAccountRoutes, { prefix: '/api/calendar-accounts' })
 await app.register(assistantRoutes, { prefix: '/api/assistant' })
+await app.register(onboardingRoutes, { prefix: '/api/onboarding' })
 
 await ensureSearchIndexes()
 

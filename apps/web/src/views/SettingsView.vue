@@ -4,8 +4,10 @@ import { api } from '@/api'
 import PageHeader from '@/components/PageHeader.vue'
 import CalendarAccounts from '@/components/CalendarAccounts.vue'
 import { useAuth } from '@/stores/auth'
+import { useOnboarding } from '@/stores/onboarding'
 
 const auth = useAuth()
+const onboarding = useOnboarding()
 const current = ref('')
 const next = ref('')
 const message = ref('')
@@ -40,7 +42,39 @@ const featureLabels: Record<string, string> = {
   <div>
     <PageHeader title="Einstellungen" :subtitle="auth.me?.email" />
 
-    <!-- Kalender zuerst: der Teil, der wirklich Einrichtung braucht -->
+    <!-- Einrichtung -->
+    <section class="card mb-4">
+      <h2 class="eyebrow mb-1">Einrichtung</h2>
+      <p class="mb-4 text-xs text-muted">
+        Die Checkliste auf dem Dashboard liest den echten Zustand — sie hakt nur ab, was
+        tatsächlich existiert.
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <span v-if="onboarding.state" class="font-display text-sm font-semibold tabular-nums">
+          {{ onboarding.state.done }} / {{ onboarding.state.total }} erledigt
+        </span>
+        <button class="btn-ghost" @click="onboarding.openTour()">Rundgang starten</button>
+        <button
+          v-if="onboarding.state?.dismissed"
+          class="btn-ghost"
+          @click="onboarding.dismiss(false)"
+        >
+          Checkliste wieder einblenden
+        </button>
+        <button
+          v-else-if="!onboarding.complete"
+          class="btn-ghost"
+          @click="onboarding.dismiss(true)"
+        >
+          Checkliste ausblenden
+        </button>
+        <span v-if="onboarding.complete" class="text-sm text-good">
+          Alles eingerichtet.
+        </span>
+      </div>
+    </section>
+
+    <!-- Kalender: der Teil, der wirklich Einrichtung braucht -->
     <CalendarAccounts class="mb-4" />
 
     <div class="grid gap-4 lg:grid-cols-2">

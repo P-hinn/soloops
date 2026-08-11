@@ -6,6 +6,8 @@ import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import QuickBar from '@/components/QuickBar.vue'
+import OnboardingChecklist from '@/components/OnboardingChecklist.vue'
+import { useOnboarding } from '@/stores/onboarding'
 
 type Dashboard = {
   today: { events: { id: string; title: string; startsAt: string; endsAt: string; project?: { key: string; color: string } | null }[] }
@@ -28,9 +30,13 @@ type Dashboard = {
 const data = ref<Dashboard | null>(null)
 const loading = ref(true)
 
+const onboarding = useOnboarding()
+
 async function load() {
   data.value = await api.get<Dashboard>('/api/dashboard')
   loading.value = false
+  // Nach jeder Neuanlage kann sich der Einrichtungsstand geändert haben.
+  if (onboarding.loaded) await onboarding.load()
 }
 
 onMounted(load)
@@ -71,6 +77,8 @@ const allGreen = computed(
         </RouterLink>
       </template>
     </PageHeader>
+
+    <OnboardingChecklist class="mb-6" />
 
     <QuickBar class="mb-9" @created="load" />
 

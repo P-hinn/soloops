@@ -108,6 +108,15 @@ ein Monorepo, eine Quelle der Wahrheit, keine doppelten Integrationen.
 
 ## Module
 
+**Onboarding.** Beim ersten Login startet ein Rundgang in sieben Schritten
+(Scheinwerfer auf das jeweilige Element, weiter mit → oder Klick, Esc bricht ab).
+Danach bleibt auf dem Dashboard eine Einrichtungsliste, die den **echten Zustand
+liest**: sie hakt nur ab, was tatsächlich existiert — angelegte Kunden, erfasste
+Zeiten, verbundene Kalender, gesetzte Umgebungsvariablen. Bewusst nichts, was man
+selbst abhaken kann; eine solche Liste sagt nach zwei Wochen nichts mehr über den
+Zustand aus. Der MCP-Schritt erkennt sich selbst, sobald der Server das erste Mal
+zugreift. Ausblenden geht jederzeit, zurückholen unter *Einstellungen*.
+
 **Schnelleingabe.** Ein Feld auf dem Dashboard: „Termin für neues Projekt mit
 Beispiel GmbH nächste Woche" wird zu einem *Plan* — Kunde, Projekt, Termin,
 Videoraum, Meeting, Notiz, offene Punkte. Der Plan ist editierbar und wird erst

@@ -34,6 +34,27 @@ declare module 'fastify' {
  * Zwei Wege hinein: JWT-Cookie/Bearer für die UI, statischer SERVICE_TOKEN
  * für Worker und MCP-Server.
  */
+/**
+ * Erster Zugriff des MCP-Servers wird vermerkt, damit das Onboarding den
+ * Schritt selbst als erledigt erkennt. Höchstens einmal pro Stunde geschrieben —
+ * ein DB-Write pro Anfrage wäre Verschwendung.
+ */
+let mcpSeenWrittenAt = 0
+
+async function noteServiceAccess(): Promise<void> {
+  const now = Date.now()
+  if (now - mcpSeenWrittenAt < 3_600_000) return
+  mcpSeenWrittenAt = now
+  const { prisma } = await import('./db.js')
+  await prisma.appSetting
+    .upsert({
+      where: { key: 'mcp.lastSeenAt' },
+      create: { key: 'mcp.lastSeenAt', value: new Date().toISOString() },
+      update: { value: new Date().toISOString() },
+    })
+    .catch(() => {})
+}
+
 export function registerAuth(app: FastifyInstance): void {
   app.decorate('authenticate', async (req: FastifyRequest, reply: FastifyReply) => {
     const header = req.headers.authorization
@@ -41,6 +62,7 @@ export function registerAuth(app: FastifyInstance): void {
       const token = header.slice(7)
       if (token === env.SERVICE_TOKEN) {
         req.principal = { type: 'service' }
+        void noteServiceAccess()
         return
       }
     }
