@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth / Owner
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  // Passwort-Manager: Salt + Verifier für den clientseitig abgeleiteten Vault-Key.
+  // Der Server sieht niemals das Master-Passwort oder den Key selbst.
+  vaultSalt    String?
+  vaultCheck   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Kunden & Projekte
+// ---------------------------------------------------------------------------
+
+model Client {
+  id                 String   @id @default(cuid())
+  name               String
+  company            String?
+  email              String?
+  phone              String?
+  street             String?
+  zip                String?
+  city               String?
+  country            String   @default("Deutschland")
+  vatId              String?
+  currency           String   @default("EUR")
+  hourlyRateCents    Int?
+  paymentTermDays    Int      @default(14)
+  lexofficeContactId String?
+  notes              String?
+  archived           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  projects   Project[]
+  invoices   Invoice[]
+  timeEntries TimeEntry[]
+  events     CalendarEvent[]
+  meetings   Meeting[]
+  notes_     Note[]
+  vaultItems VaultItem[]
+}
+
+enum ProjectStatus {
+  LEAD
+  ACTIVE
+  PAUSED
+  DONE
+  ARCHIVED
+}
+
+enum RepoProvider {
+  GITHUB
+  GITLAB
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  key             String        @unique // Kurzkürzel, z.B. "ACME-DWH"
+  name            String
+  description     String?
+  status          ProjectStatus @default(ACTIVE)
+  color           String        @default("#6366f1")
+  clientId        String?
+  hourlyRateCents Int?
+  budgetCents     Int?
+  startsOn        DateTime?
+  dueOn           DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  client       Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  timeEntries  TimeEntry[]
+  notes_       Note[]
+  meetings     Meeting[]
+  events       CalendarEvent[]
+  monitors     Monitor[]
+  repos        PipelineRepo[]
+  invoices     Invoice[]
+  actionItems  ActionItem[]
+  vaultItems   VaultItem[]
+  digests      AiDigest[]
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Kalender
+// ---------------------------------------------------------------------------
+
+enum EventKind {
+  FOCUS
+  MEETING
+  ADMIN
+  PERSONAL
+  TRAVEL
+}
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean   @default(false)
+  kind        EventKind @default(FOCUS)
+  projectId   String?
+  clientId    String?
+  externalUid String    @unique @default(cuid()) // stabile UID für den ICS-Feed
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  meeting Meeting?
+
+  @@index([startsAt, endsAt])
+}
+
+// ---------------------------------------------------------------------------
+// Meetings, Aufnahmen, Transkripte
+// ---------------------------------------------------------------------------
+
+enum MeetingStatus {
+  PLANNED
+  RUNNING
+  DONE
+}
+
+model Meeting {
+  id           String        @id @default(cuid())
+  title        String
+  status       MeetingStatus @default(PLANNED)
+  startsAt     DateTime
+  endsAt       DateTime?
+  participants String[]      @default([])
+  agenda       String? // Markdown
+  minutes      String? // Markdown, manuell
+  summary      String? // AI-generiert
+  decisions    Json? // string[]
+  projectId    String?
+  clientId     String?
+  eventId      String?       @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client      Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  event       CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  recording   Recording?
+  transcript  Transcript?
+  actionItems ActionItem[]
+  notes_      Note[]
+
+  @@index([startsAt])
+}
+
+model Recording {
+  id          String   @id @default(cuid())
+  meetingId   String   @unique
+  filename    String
+  mimeType    String
+  sizeBytes   Int
+  durationSec Int?
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+model Transcript {
+  id         String    @id @default(cuid())
+  meetingId  String    @unique
+  language   String    @default("de")
+  model      String    @default("medium")
+  status     JobStatus @default(QUEUED)
+  error      String?
+  text       String    @default("")
+  segments   Json? // [{ start, end, speaker?, text }]
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model ActionItem {
+  id        String    @id @default(cuid())
+  title     String
+  done      Boolean   @default(false)
+  dueOn     DateTime?
+  assignee  String?
+  source    String    @default("MANUAL") // MANUAL | AI | MCP
+  meetingId String?
+  projectId String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([done, dueOn])
+}
+
+// ---------------------------------------------------------------------------
+// Notizen
+// ---------------------------------------------------------------------------
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @default("") // Markdown
+  tags      String[] @default([])
+  pinned    Boolean  @default(false)
+  projectId String?
+  clientId  String?
+  meetingId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([updatedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Uptime (UptimeRobot-Spiegel)
+// ---------------------------------------------------------------------------
+
+model Monitor {
+  id             String    @id @default(cuid())
+  uptimeRobotId  BigInt    @unique
+  friendlyName   String
+  url            String
+  type           Int       @default(1)
+  status         Int       @default(2) // 0 paused, 1 not checked, 2 up, 8 seems down, 9 down
+  intervalSec    Int       @default(300)
+  ratio24h       Float?
+  ratio7d        Float?
+  ratio30d       Float?
+  avgResponseMs  Int?
+  projectId      String?
+  lastCheckedAt  DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  incidents Incident[]
+}
+
+model Incident {
+  id          String    @id @default(cuid())
+  monitorId   String
+  externalId  String
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationSec Int?
+  reason      String?
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, externalId])
+  @@index([startedAt])
+}
+
+// ---------------------------------------------------------------------------
+// CI/CD
+// ---------------------------------------------------------------------------
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+model PipelineRepo {
+  id           String       @id @default(cuid())
+  provider     RepoProvider
+  slug         String // owner/repo bzw. group/project
+  branch       String       @default("main")
+  projectId    String?
+  enabled      Boolean      @default(true)
+  lastSyncedAt DateTime?
+  createdAt    DateTime     @default(now())
+
+  project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  runs    PipelineRun[]
+
+  @@unique([provider, slug])
+}
+
+model PipelineRun {
+  id            String    @id @default(cuid())
+  repoId        String
+  externalId    String
+  name          String
+  branch        String
+  commitSha     String?
+  commitMessage String?
+  status        RunStatus @default(UNKNOWN)
+  url           String?
+  actor         String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  durationSec   Int?
+
+  repo PipelineRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@unique([repoId, externalId])
+  @@index([startedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Zeiterfassung
+// ---------------------------------------------------------------------------
+
+enum TimeSource {
+  TIMER
+  MANUAL
+  MCP
+}
+
+model TimeEntry {
+  id          String     @id @default(cuid())
+  projectId   String
+  clientId    String?
+  description String     @default("")
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationSec Int        @default(0)
+  billable    Boolean    @default(true)
+  rateCents   Int?
+  tags        String[]   @default([])
+  source      TimeSource @default(TIMER)
+  invoiceItemId String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+  @@index([projectId, billable, invoiceItemId])
+}
+
+// ---------------------------------------------------------------------------
+// Rechnungen
+// ---------------------------------------------------------------------------
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  number           String        @unique
+  status           InvoiceStatus @default(DRAFT)
+  clientId         String
+  projectId        String?
+  issueDate        DateTime      @default(now())
+  dueDate          DateTime
+  currency         String        @default("EUR")
+  subtotalCents    Int           @default(0)
+  taxRate          Float         @default(19)
+  taxCents         Int           @default(0)
+  totalCents       Int           @default(0)
+  smallBusiness    Boolean       @default(false)
+  intro            String?
+  notes            String?
+  pdfPath          String?
+  paidAt           DateTime?
+  lexofficeId      String?
+  lexofficeSyncedAt DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items   InvoiceItem[]
+
+  @@index([status, dueDate])
+}
+
+model InvoiceItem {
+  id             String  @id @default(cuid())
+  invoiceId      String
+  position       Int
+  description    String
+  quantity       Decimal @db.Decimal(10, 2)
+  unit           String  @default("Std.")
+  unitPriceCents Int
+  amountCents    Int
+
+  invoice     Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  timeEntries TimeEntry[]
+
+  @@index([invoiceId, position])
+}
+
+// ---------------------------------------------------------------------------
+// Passwort-Manager (Zero-Knowledge: Server speichert nur Ciphertext)
+// ---------------------------------------------------------------------------
+
+model VaultItem {
+  id         String    @id @default(cuid())
+  title      String
+  username   String?
+  url        String?
+  folder     String?
+  tags       String[]  @default([])
+  // AES-256-GCM, im Browser ver-/entschlüsselt. Key = PBKDF2(Master-PW, vaultSalt).
+  cipherText String
+  iv         String
+  projectId  String?
+  clientId   String?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([title])
+}
+
+// ---------------------------------------------------------------------------
+// AI-Digests & Settings
+// ---------------------------------------------------------------------------
+
+model AiDigest {
+  id        String   @id @default(cuid())
+  projectId String?
+  kind      String // project | week | meeting
+  model     String
+  headline  String   @default("")
+  content   String
+  data      Json?
+  createdAt DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([kind, createdAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
