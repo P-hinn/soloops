@@ -3,10 +3,13 @@ import { computed, onMounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import { useTimer } from '@/stores/timer'
+import { useOnboarding } from '@/stores/onboarding'
 import GlobalSearch from '@/components/GlobalSearch.vue'
+import TourOverlay from '@/components/TourOverlay.vue'
 
 const auth = useAuth()
 const timer = useTimer()
+const onboarding = useOnboarding()
 const route = useRoute()
 
 const isPublic = computed(() => route.meta.public === true)
@@ -54,6 +57,7 @@ async function boot() {
   await auth.load()
   await timer.refresh()
   timer.startTicking()
+  await onboarding.load()
 }
 
 onMounted(() => {
@@ -81,7 +85,7 @@ watch(isPublic, (value) => {
         <div class="mt-0.5 truncate text-[11px] text-muted">{{ auth.config?.companyName }}</div>
       </RouterLink>
 
-      <nav class="flex-1 overflow-y-auto py-4">
+      <nav data-tour="nav" class="flex-1 overflow-y-auto py-4">
         <div v-for="group in navGroups" :key="group.label" class="mb-5">
           <div class="eyebrow-muted px-5 pb-1.5">{{ group.label }}</div>
           <!--
@@ -97,6 +101,7 @@ watch(isPublic, (value) => {
           >
             <a
               :href="href"
+              :data-tour="item.to === '/settings' ? 'nav-settings' : undefined"
               class="relative flex items-center px-5 py-1.5 text-sm transition-colors hover:text-ink"
               :class="
                 (item.to === '/' ? isExactActive : isActive)
@@ -117,7 +122,7 @@ watch(isPublic, (value) => {
       </nav>
 
       <!-- Laufender Timer -->
-      <div v-if="timer.running" class="border-t border-ink bg-acid px-5 py-3">
+      <div v-if="timer.running" data-tour="timer" class="border-t border-ink bg-acid px-5 py-3">
         <div class="eyebrow-muted !text-ink/60">läuft</div>
         <div class="mt-0.5 truncate font-display text-sm font-semibold">
           {{ timer.running.project.key }}
@@ -148,7 +153,7 @@ watch(isPublic, (value) => {
     <!-- ------------------------------------------------------------------ -->
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex items-center gap-6 border-b border-line px-8 py-3">
-        <GlobalSearch class="max-w-xl flex-1" />
+        <GlobalSearch data-tour="search" class="max-w-xl flex-1" />
         <div class="ml-auto hidden items-center gap-3 lg:flex">
           <span class="eyebrow-muted">{{ today }}</span>
           <span
@@ -169,5 +174,7 @@ watch(isPublic, (value) => {
         </RouterView>
       </main>
     </div>
+
+    <TourOverlay />
   </div>
 </template>
