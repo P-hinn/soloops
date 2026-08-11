@@ -108,9 +108,29 @@ ein Monorepo, eine Quelle der Wahrheit, keine doppelten Integrationen.
 
 ## Module
 
-**Kalender.** Wochenansicht, Termine mit Projektbezug, ICS-Feed zum Abonnieren in
-Apple/Google Kalender (`/api/calendar/feed.ics?token=<SERVICE_TOKEN>`), plus eine
-Freie-Slots-Berechnung für Terminvorschläge.
+**Schnelleingabe.** Ein Feld auf dem Dashboard: „Termin für neues Projekt mit
+Beispiel GmbH nächste Woche" wird zu einem *Plan* — Kunde, Projekt, Termin,
+Videoraum, Meeting, Notiz, offene Punkte. Der Plan ist editierbar und wird erst
+auf Knopfdruck angelegt. Bewusst zweistufig: unterspezifizierte Sätze sind die
+Regel, und stilles Anlegen produziert mehr Aufräumarbeit als es spart. Daneben
+Schnellaktionen für Timer, Meeting, Termin, Notiz und Abrechnen.
+
+Die KI bekommt als Kontext die bestehenden Kunden und Projekte sowie die echten
+freien Zeitfenster der nächsten zwei Wochen — sie erfindet also weder Kunden neu,
+die es schon gibt, noch Termine, die kollidieren. Was sie geraten hat, steht als
+Liste unter „Angenommen".
+
+**Kalender.** Wochenansicht, Termine mit Projektbezug, Freie-Slots-Berechnung,
+ICS-Feed zum Abonnieren (`/api/calendar/feed.ics?token=<SERVICE_TOKEN>`) — und
+echter Zwei-Wege-Sync mit Google und Apple, siehe unten.
+
+**Videoräume.** Jedes Meeting und jeder Termin kann per Häkchen einen Raum
+bekommen. Standard ist **Jitsi**: kein Konto, keine Einrichtung, der Raumname
+enthält 8 Zufallszeichen (bei Jitsi ist der Name das einzige Geheimnis). Mit
+verbundenem Google-Konto lässt sich stattdessen **Google Meet** erzeugen; ein
+eigener Dauerraum (Zoom, Teams) geht über `VIDEO_CUSTOM_URL` oder pro Meeting
+als eigener Link. Der Raum landet in Meeting, Kalendereintrag, ICS-Feed und in
+beiden Fremdkalendern.
 
 **Meetings & Transkript.** Meeting anlegen (legt optional den Kalendereintrag mit an),
 Aufnahme hochladen → BullMQ-Job → faster-whisper im Nachbarcontainer → Transkript mit
@@ -151,6 +171,57 @@ storniert werden.
 **Buchhaltung.** lexoffice-Adapter: Kontakte anlegen, Rechnungen als finalisiertes
 Dokument übertragen (`finalize=true`), Monatsumsatz netto/USt/brutto für die
 USt-Voranmeldung.
+
+---
+
+## Kalender-Sync in beide Richtungen
+
+Einrichtung unter *Einstellungen*. Der Abgleich läuft danach automatisch
+(`CALENDAR_SYNC_CRON`, Standard alle 10 Minuten) und lässt sich pro Konto auf
+*nur lesen* oder *nur schreiben* stellen.
+
+**Google Calendar** — OAuth mit Scope `calendar`, mehr nicht. Der Abgleich läuft
+inkrementell über Googles `syncToken`; läuft der ab, wird automatisch einmal voll
+gelesen. `singleEvents=true` löst Serien in Einzeltermine auf, dadurch sind auch
+wiederkehrende Termine vollständig editierbar.
+
+Vorbereitung: in der Google Cloud Console die Calendar API aktivieren, eine
+OAuth-Client-ID (Webanwendung) anlegen und als Redirect-URI exakt
+`http://localhost:3000/api/calendar-accounts/google/callback` eintragen.
+
+**Apple / iCloud** — über CalDAV, mit einem *app-spezifischen Passwort*
+(appleid.apple.com → Anmeldung und Sicherheit). Das normale Apple-Passwort
+funktioniert nicht. Änderungen kommen über WebDAV-Sync (RFC 6578); unterstützt
+ein Server das nicht, fällt soloops auf einen ETag-Vergleich zurück und meldet
+das in der Kalenderliste.
+
+Funktioniert genauso gegen Nextcloud, Fastmail oder Radicale — `CALDAV_APPLE_URL`
+zeigen lassen, wohin man will.
+
+### Wie Konflikte entschieden werden
+
+Jede Verknüpfung merkt sich zwei Stände: was zuletzt hinausgeschrieben wurde und
+was zuletzt hereingeholt wurde. Damit erkennt der Sync einen Termin, den er
+gerade selbst gepusht hat, und schreibt ihn nicht erneut — sonst gäbe es eine
+Endlosschleife zwischen den Systemen.
+
+Haben sich **beide Seiten** seit dem letzten Abgleich geändert, gewinnt der
+jüngere Zeitstempel. Es wird nichts feldweise zusammengeführt, und die
+Entscheidung landet im Log und in der Sync-Meldung. Löschungen hinterlassen einen
+Grabstein, damit sie auch dann noch weiterwandern, wenn der lokale Termin schon
+weg ist.
+
+### Zwei bewusste Grenzen
+
+- **Serien aus CalDAV werden nur gelesen.** Sie erscheinen als ein Termin, sind
+  als schreibgeschützt markiert und werden nie zurückgeschrieben. Wiederholungs-
+  regeln korrekt bidirektional zu behandeln (Ausnahmen, verschobene Einzeltermine,
+  Zeitzonenwechsel) ist ein eigenes Projekt. Bei Google stellt sich die Frage
+  nicht, weil dort Instanzen synchronisiert werden.
+- **Ohne WebDAV-Sync erkennt der CalDAV-Fallback keine Löschungen.** Ein auf der
+  Apple-Seite gelöschter Termin bliebe lokal stehen. Statt zu raten (und dabei
+  Termine außerhalb des Zeitfensters zu verlieren) lässt soloops ihn stehen und
+  zeigt beim Verbinden einen Hinweis.
 
 ---
 

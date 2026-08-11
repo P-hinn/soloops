@@ -35,6 +35,20 @@ const schema = z.object({
   LEXOFFICE_API_KEY: z.string().optional(),
   LEXOFFICE_BASE_URL: z.string().default('https://api.lexoffice.io'),
 
+  // --- Kalender-Sync -------------------------------------------------------
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z
+    .string()
+    .default('http://localhost:3000/api/calendar-accounts/google/callback'),
+  CALDAV_APPLE_URL: z.string().default('https://caldav.icloud.com'),
+  CALENDAR_SYNC_CRON: z.string().default('*/10 * * * *'),
+
+  // --- Videokonferenz -----------------------------------------------------
+  VIDEO_PROVIDER: z.enum(['JITSI', 'GOOGLE_MEET', 'CUSTOM']).default('JITSI'),
+  JITSI_BASE_URL: z.string().default('https://meet.jit.si'),
+  VIDEO_CUSTOM_URL: z.string().default(''),
+
   TRANSCRIBE_URL: z.string().default('http://transcribe:8080'),
   WHISPER_MODEL: z.string().default('medium'),
   WHISPER_LANGUAGE: z.string().default('de'),

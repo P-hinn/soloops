@@ -9,6 +9,8 @@ import { prisma } from '../db.js'
 import { env } from '../env.js'
 import { transcribeQueue } from '../queue.js'
 import { summarizeMeeting } from '../ai/digest.js'
+import { createVideoRoom } from '../services/video.js'
+import { tombstoneEvent } from '../services/calendarSync.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -63,6 +65,13 @@ const routes: FastifyPluginAsync = async (app) => {
     const startsAt = new Date(data.startsAt)
     const endsAt = data.endsAt ? new Date(data.endsAt) : new Date(startsAt.getTime() + 3600_000)
 
+    // Videoraum einmal erzeugen und in Termin und Meeting spiegeln
+    const room = data.withVideo
+      ? createVideoRoom(data.title)
+      : data.videoUrl
+        ? { videoUrl: data.videoUrl, videoProvider: 'CUSTOM' as const }
+        : null
+
     // Kalendereintrag zuerst, damit Meeting und Termin dieselbe Zeit teilen.
     const event = data.createEvent
       ? await prisma.calendarEvent.create({
@@ -73,6 +82,8 @@ const routes: FastifyPluginAsync = async (app) => {
             kind: 'MEETING',
             projectId: data.projectId ?? null,
             clientId: data.clientId ?? null,
+            videoUrl: room?.videoUrl ?? null,
+            videoProvider: room?.videoProvider ?? null,
           },
         })
       : null
@@ -89,6 +100,8 @@ const routes: FastifyPluginAsync = async (app) => {
         projectId: data.projectId ?? null,
         clientId: data.clientId ?? null,
         eventId: event?.id ?? null,
+        videoUrl: room?.videoUrl ?? null,
+        videoProvider: room?.videoProvider ?? null,
       },
       include: { event: true },
     })
@@ -129,10 +142,40 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.delete('/:id', async (req, reply) => {
     const { id } = idParam.parse(req.params)
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id } })
     const rec = await prisma.recording.findUnique({ where: { meetingId: id } })
     if (rec) await unlink(rec.storagePath).catch(() => {})
     await prisma.meeting.delete({ where: { id } })
+    // Der Kalendereintrag gehört zum Meeting — mit weg, auch in den Fremdkalendern.
+    if (meeting.eventId) {
+      await tombstoneEvent(meeting.eventId)
+      await prisma.calendarEvent.delete({ where: { id: meeting.eventId } }).catch(() => {})
+    }
     return reply.code(204).send()
+  })
+
+  /** Videoraum nachträglich anlegen oder ersetzen. */
+  app.post('/:id/video', async (req) => {
+    const { id } = idParam.parse(req.params)
+    const body = z.object({ url: z.string().url().optional() }).parse(req.body ?? {})
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id } })
+
+    const room = body.url
+      ? { videoUrl: body.url, videoProvider: 'CUSTOM' as const }
+      : createVideoRoom(meeting.title)
+    if (!room) return { error: 'Kein Videoanbieter konfiguriert' }
+
+    const updated = await prisma.meeting.update({
+      where: { id },
+      data: { videoUrl: room.videoUrl, videoProvider: room.videoProvider },
+    })
+    if (meeting.eventId) {
+      await prisma.calendarEvent.update({
+        where: { id: meeting.eventId },
+        data: { videoUrl: room.videoUrl, videoProvider: room.videoProvider },
+      })
+    }
+    return updated
   })
 
   // --- Aufnahme + Transkript ----------------------------------------------

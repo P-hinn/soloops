@@ -74,6 +74,10 @@ export const eventInput = z.object({
   kind: EventKind.default('FOCUS'),
   projectId: z.string().nullish(),
   clientId: z.string().nullish(),
+  /** true => Server erzeugt einen Videoraum; false => vorhandenen entfernen */
+  withVideo: z.boolean().optional(),
+  /** Eigener Link, wenn kein Raum erzeugt werden soll */
+  videoUrl: z.string().nullish(),
 })
 
 // ---------------------------------------------------------------------------
@@ -91,6 +95,9 @@ export const meetingInput = z.object({
   projectId: z.string().nullish(),
   clientId: z.string().nullish(),
   createEvent: z.boolean().default(true),
+  /** Videoraum anlegen (Jitsi bzw. Google Meet, je nach Konfiguration) */
+  withVideo: z.boolean().default(false),
+  videoUrl: z.string().nullish(),
 })
 
 // ---------------------------------------------------------------------------

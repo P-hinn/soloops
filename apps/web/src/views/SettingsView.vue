@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { api } from '@/api'
 import PageHeader from '@/components/PageHeader.vue'
+import CalendarAccounts from '@/components/CalendarAccounts.vue'
 import { useAuth } from '@/stores/auth'
 
 const auth = useAuth()
@@ -24,7 +25,10 @@ async function changePassword() {
 }
 
 const featureLabels: Record<string, string> = {
-  ai: 'Anthropic (Lageberichte, Meeting-Zusammenfassungen)',
+  ai: 'Anthropic (Lageberichte, Zusammenfassungen, Schnelleingabe)',
+  google: 'Google Kalender (OAuth)',
+  apple: 'Apple / iCloud (CalDAV)',
+  video: 'Videoräume',
   uptime: 'UptimeRobot',
   github: 'GitHub Actions',
   gitlab: 'GitLab CI',
@@ -35,6 +39,9 @@ const featureLabels: Record<string, string> = {
 <template>
   <div>
     <PageHeader title="Einstellungen" :subtitle="auth.me?.email" />
+
+    <!-- Kalender zuerst: der Teil, der wirklich Einrichtung braucht -->
+    <CalendarAccounts class="mb-4" />
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card">

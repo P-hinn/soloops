@@ -77,12 +77,16 @@ const routes: FastifyPluginAsync = async (app) => {
     smallBusiness: env.INVOICE_SMALL_BUSINESS,
     defaultTaxRate: env.INVOICE_DEFAULT_TAX_RATE,
     defaultHourlyRateCents: env.INVOICE_DEFAULT_HOURLY_RATE_CENTS,
+    videoProvider: env.VIDEO_PROVIDER,
     features: {
       ai: !!env.ANTHROPIC_API_KEY,
       uptime: !!env.UPTIMEROBOT_API_KEY,
       github: !!env.GITHUB_TOKEN,
       gitlab: !!env.GITLAB_TOKEN,
       lexoffice: !!env.LEXOFFICE_API_KEY,
+      google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+      apple: true, // CalDAV braucht keine Server-Konfiguration
+      video: env.VIDEO_PROVIDER !== 'CUSTOM' || !!env.VIDEO_CUSTOM_URL,
     },
   }))
 }
