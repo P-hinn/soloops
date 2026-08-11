@@ -51,6 +51,42 @@ docker compose up -d postgres redis api worker web
 
 ---
 
+## Designsystem
+
+Die Oberfläche übernimmt die Bildsprache von philippniestroj.com. Die Tokens
+liegen zentral in [`apps/web/src/style.css`](apps/web/src/style.css) und sind
+1:1 die der Website:
+
+| Token | Wert | Rolle |
+| --- | --- | --- |
+| `--color-paper` | `#f1efe8` | warmes Off-White, Grundfläche |
+| `--color-ink` | `#171714` | Text, Primärbutton, starke Rahmen |
+| `--color-soft` / `--color-muted` | `#575750` / `#6c6b64` | Fließtext, Sekundäres |
+| `--color-acid` | `#d8ff55` | Limette — der eine laute Akzent |
+| `--color-blue` | `#5c76ff` | Kicker-Labels und Links |
+| `--color-line` | `rgba(23,23,20,.15)` | Haarlinie |
+
+Drei Regeln tragen den Look:
+
+1. **Radius 0 überall — außer bei Buttons.** Flächen, Karten, Inputs und Badges
+   sind scharfkantig; Buttons sind immer vollrunde Pillen.
+2. **Linien statt Kästen.** Tabellen und Raster werden durch Haarlinien
+   gegliedert, nicht durch abgesetzte Boxen. Kennzahlen stehen unter einer
+   kräftigen Oberkante, ohne Rahmen.
+3. **Kicker-Labels.** Abschnitte tragen kein `<h2>` in Fließtextgröße, sondern
+   ein kleines, gesperrtes Versal-Label in Blau (`.eyebrow`).
+
+Schrift: **Space Grotesk** (variabel 400–700, selbst gehostet unter
+`apps/web/public/fonts/`) für Überschriften, Zahlen und alles Tabellarische;
+Helvetica Neue/Arial für Fließtext. Ziffern laufen überall tabellarisch, damit
+Beträge und Zeiten in Spalten untereinander stehen.
+
+Wiederverwendbare Klassen: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` /
+`.btn-xs`, `.input`, `.label`, `.badge` (+ `-acid` / `-good` / `-warn` / `-bad` /
+`-blue`), `.table`, `.eyebrow`, `.display-xl`, `.prose-note`.
+
+---
+
 ## Architektur
 
 ```

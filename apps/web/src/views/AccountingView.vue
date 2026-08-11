@@ -83,21 +83,21 @@ onMounted(load)
 
     <div
       class="card mb-4 flex items-center gap-3"
-      :class="status?.connected ? 'border-emerald-900/50' : 'border-zinc-800'"
+      :class="status?.connected ? 'border-ink' : 'border-line'"
     >
-      <span class="badge" :class="status?.connected ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-800 text-zinc-500'">
+      <span class="badge" :class="status?.connected ? 'badge-good' : ''">
         lexoffice
       </span>
       <span v-if="status?.connected" class="text-sm">
         Verbunden mit <strong>{{ status.profile?.companyName }}</strong>
-        <span class="text-zinc-500"> · Steuerart {{ status.profile?.taxType }}</span>
+        <span class="text-muted"> · Steuerart {{ status.profile?.taxType }}</span>
       </span>
-      <span v-else class="text-sm text-zinc-500">
+      <span v-else class="text-sm text-muted">
         Nicht verbunden{{ status?.error ? ` — ${status.error}` : ' (LEXOFFICE_API_KEY setzen)' }}
       </span>
     </div>
 
-    <p v-if="message" class="mb-4 text-sm text-zinc-400">{{ message }}</p>
+    <p v-if="message" class="mb-4 text-sm text-soft">{{ message }}</p>
 
     <div class="grid grid-cols-3 gap-3">
       <StatCard label="Netto" :value="formatMoney(revenue?.totalNetCents ?? 0)" />
@@ -106,17 +106,18 @@ onMounted(load)
     </div>
 
     <section class="card mt-4">
-      <h2 class="mb-4 text-sm font-semibold">Umsatz {{ revenue?.year }}</h2>
+      <h2 class="eyebrow mb-4">Umsatz {{ revenue?.year }}</h2>
       <div class="flex h-48 items-end gap-2">
         <div v-for="m in revenue?.months ?? []" :key="m.month" class="flex flex-1 flex-col items-center gap-1">
           <div class="flex w-full flex-1 items-end">
             <div
-              class="w-full rounded-t bg-indigo-600/70"
-              :style="{ height: `${(m.grossCents / maxGross) * 100}%` }"
+              class="w-full border border-ink transition-colors hover:bg-acid"
+              :class="m.grossCents > 0 ? 'bg-ink' : 'bg-transparent'"
+              :style="{ height: `${Math.max(1, (m.grossCents / maxGross) * 100)}%` }"
               :title="formatMoney(m.grossCents)"
             />
           </div>
-          <span class="text-[10px] text-zinc-500">{{ monthNames[m.month - 1] }}</span>
+          <span class="text-[10px] text-muted">{{ monthNames[m.month - 1] }}</span>
         </div>
       </div>
 

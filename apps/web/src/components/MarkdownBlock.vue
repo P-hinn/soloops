@@ -14,5 +14,5 @@ const html = computed(() => (props.source ? marked.parse(props.source, { async: 
 
 <template>
   <div v-if="html" class="prose-note text-sm" v-html="html" />
-  <p v-else class="text-sm text-zinc-600">—</p>
+  <p v-else class="text-sm text-muted">—</p>
 </template>

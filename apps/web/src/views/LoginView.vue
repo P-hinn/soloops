@@ -25,33 +25,71 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center p-6">
-    <form class="card w-full max-w-sm space-y-4" @submit.prevent="submit">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">soloops</h1>
-        <p class="text-sm text-zinc-500">Anmeldung</p>
+  <div class="flex min-h-screen bg-paper">
+    <!-- Linke Hälfte: die Aussage, wie auf der Website -->
+    <div class="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex">
+      <div class="flex items-baseline gap-2">
+        <span class="font-display text-2xl font-bold tracking-tight">soloops</span>
+        <span class="h-2 w-2 rounded-full bg-acid" />
       </div>
 
       <div>
-        <label class="label">E-Mail</label>
-        <input v-model="email" type="email" class="input" autocomplete="username" required />
-      </div>
-      <div>
-        <label class="label">Passwort</label>
-        <input
-          v-model="password"
-          type="password"
-          class="input"
-          autocomplete="current-password"
-          required
-        />
+        <div class="eyebrow mb-4">Selbstständigkeit · ein Ort · keine Tabs</div>
+        <h1 class="max-w-xl font-display text-6xl font-semibold leading-[0.92] tracking-[-0.03em]">
+          Alles,<br />was der Tag<br />verlangt.
+        </h1>
+        <p class="mt-6 max-w-md text-soft">
+          Kalender, Meetings, Transkripte, Projekte, Zeiten, Rechnungen und Betrieb —
+          in einem System, das dir gehört.
+        </p>
       </div>
 
-      <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+      <div class="flex gap-8 border-t border-line pt-6">
+        <div>
+          <div class="font-display text-lg font-semibold">11</div>
+          <div class="text-xs text-muted">Module</div>
+        </div>
+        <div>
+          <div class="font-display text-lg font-semibold">0</div>
+          <div class="text-xs text-muted">Abos</div>
+        </div>
+        <div>
+          <div class="font-display text-lg font-semibold">lokal</div>
+          <div class="text-xs text-muted">Transkription</div>
+        </div>
+      </div>
+    </div>
 
-      <button class="btn-primary w-full justify-center" :disabled="busy">
-        {{ busy ? 'Anmelden …' : 'Anmelden' }}
-      </button>
-    </form>
+    <!-- Rechte Hälfte: das Formular -->
+    <div class="flex w-full items-center justify-center p-8 lg:w-[460px]">
+      <form class="w-full max-w-sm" @submit.prevent="submit">
+        <div class="eyebrow mb-2">Anmeldung</div>
+        <h2 class="display-lg mb-8">Willkommen zurück.</h2>
+
+        <div class="space-y-5">
+          <div>
+            <label class="label">E-Mail</label>
+            <input v-model="email" type="email" class="input" autocomplete="username" required />
+          </div>
+          <div>
+            <label class="label">Passwort</label>
+            <input
+              v-model="password"
+              type="password"
+              class="input"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+        </div>
+
+        <p v-if="error" class="mt-4 border-l-2 border-bad pl-3 text-sm text-bad">{{ error }}</p>
+
+        <button class="btn-primary mt-8 w-full justify-between" :disabled="busy">
+          <span>{{ busy ? 'Anmelden …' : 'Anmelden' }}</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+      </form>
+    </div>
   </div>
 </template>

@@ -170,9 +170,9 @@ onMounted(load)
       </div>
     </form>
 
-    <p v-if="error" class="mb-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
 
-    <div class="card p-0">
+    <div class="border-t border-line-strong">
       <table class="table">
         <thead>
           <tr>
@@ -186,12 +186,12 @@ onMounted(load)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in clients" :key="c.id" class="hover:bg-zinc-900/60">
+          <tr v-for="c in clients" :key="c.id" class="hover:bg-ink/[0.035]">
             <td>
               <div>{{ c.company ?? c.name }}</div>
-              <div v-if="c.company" class="text-xs text-zinc-500">{{ c.name }}</div>
+              <div v-if="c.company" class="text-xs text-muted">{{ c.name }}</div>
             </td>
-            <td class="text-xs text-zinc-400">
+            <td class="text-xs text-soft">
               {{ c.email ?? '—' }}<br />{{ [c.zip, c.city].filter(Boolean).join(' ') }}
             </td>
             <td class="text-right tabular-nums">
@@ -200,22 +200,22 @@ onMounted(load)
             <td class="text-right tabular-nums">{{ c._count.projects }}</td>
             <td class="text-right tabular-nums">{{ c._count.invoices }}</td>
             <td>
-              <span v-if="c.lexofficeContactId" class="text-xs text-emerald-500">✓</span>
+              <span v-if="c.lexofficeContactId" class="text-xs text-good">✓</span>
               <button
                 v-else-if="auth.config?.features.lexoffice"
-                class="text-xs text-indigo-400 hover:underline"
+                class="text-xs text-blue hover:underline"
                 @click="syncLexoffice(c)"
               >
                 anlegen
               </button>
-              <span v-else class="text-xs text-zinc-600">—</span>
+              <span v-else class="text-xs text-muted">—</span>
             </td>
             <td class="text-right">
-              <button class="btn-ghost px-2 py-1 text-xs" @click="edit(c)">✎</button>
+              <button class="btn-xs" @click="edit(c)">✎</button>
             </td>
           </tr>
           <tr v-if="!clients.length">
-            <td colspan="7" class="py-8 text-center text-zinc-600">Noch keine Kunden.</td>
+            <td colspan="7" class="py-8 text-center text-muted">Noch keine Kunden.</td>
           </tr>
         </tbody>
       </table>

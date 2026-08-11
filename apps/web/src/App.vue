@@ -11,79 +11,162 @@ const route = useRoute()
 
 const isPublic = computed(() => route.meta.public === true)
 
-const nav = [
-  { to: '/', label: 'Dashboard', icon: '◉' },
-  { to: '/calendar', label: 'Kalender', icon: '▦' },
-  { to: '/meetings', label: 'Meetings', icon: '☰' },
-  { to: '/notes', label: 'Notizen', icon: '✎' },
-  { to: '/projects', label: 'Projekte', icon: '◆' },
-  { to: '/time', label: 'Zeiten', icon: '⏱' },
-  { to: '/invoices', label: 'Rechnungen', icon: '€' },
-  { to: '/accounting', label: 'Buchhaltung', icon: '∑' },
-  { to: '/ops', label: 'Betrieb', icon: '⚡' },
-  { to: '/vault', label: 'Passwörter', icon: '🔒' },
-  { to: '/clients', label: 'Kunden', icon: '☺' },
-  { to: '/settings', label: 'Einstellungen', icon: '⚙' },
+/** Navigation in drei Blöcken: Tagesgeschäft, Geld, Betrieb & Ablage. */
+const navGroups = [
+  {
+    label: 'Arbeiten',
+    items: [
+      { to: '/', label: 'Dashboard' },
+      { to: '/calendar', label: 'Kalender' },
+      { to: '/meetings', label: 'Meetings' },
+      { to: '/notes', label: 'Notizen' },
+      { to: '/projects', label: 'Projekte' },
+    ],
+  },
+  {
+    label: 'Abrechnen',
+    items: [
+      { to: '/time', label: 'Zeiten' },
+      { to: '/invoices', label: 'Rechnungen' },
+      { to: '/accounting', label: 'Buchhaltung' },
+      { to: '/clients', label: 'Kunden' },
+    ],
+  },
+  {
+    label: 'Betrieb',
+    items: [
+      { to: '/ops', label: 'Uptime & CI' },
+      { to: '/vault', label: 'Passwörter' },
+      { to: '/settings', label: 'Einstellungen' },
+    ],
+  },
 ]
 
-onMounted(async () => {
-  if (isPublic.value) return
+const today = computed(() =>
+  new Date().toLocaleDateString('de-DE', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }),
+)
+
+async function boot() {
   await auth.load()
   await timer.refresh()
   timer.startTicking()
+}
+
+onMounted(() => {
+  if (!isPublic.value) boot()
 })
 
-watch(isPublic, async (value) => {
-  if (!value && !auth.me) {
-    await auth.load()
-    await timer.refresh()
-    timer.startTicking()
-  }
+watch(isPublic, (value) => {
+  if (!value && !auth.me) boot()
 })
 </script>
 
 <template>
   <RouterView v-if="isPublic" />
 
-  <div v-else class="flex min-h-screen">
-    <aside class="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/40">
-      <div class="px-4 py-5">
-        <div class="text-lg font-semibold tracking-tight">soloops</div>
-        <div class="text-xs text-zinc-500">{{ auth.config?.companyName }}</div>
-      </div>
+  <div v-else class="flex min-h-screen bg-paper">
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Seitenleiste                                                        -->
+    <!-- ------------------------------------------------------------------ -->
+    <aside class="flex w-60 shrink-0 flex-col border-r border-line">
+      <RouterLink to="/" class="block border-b border-line px-5 py-4">
+        <div class="flex items-baseline gap-2">
+          <span class="font-display text-xl font-bold tracking-tight">soloops</span>
+          <span class="h-1.5 w-1.5 rounded-full bg-acid" />
+        </div>
+        <div class="mt-0.5 truncate text-[11px] text-muted">{{ auth.config?.companyName }}</div>
+      </RouterLink>
 
-      <nav class="flex-1 space-y-0.5 px-2">
-        <RouterLink
-          v-for="item in nav"
-          :key="item.to"
-          :to="item.to"
-          class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
-          active-class="bg-zinc-800 text-zinc-100"
-        >
-          <span class="w-4 text-center text-xs opacity-70">{{ item.icon }}</span>
-          {{ item.label }}
-        </RouterLink>
+      <nav class="flex-1 overflow-y-auto py-4">
+        <div v-for="group in navGroups" :key="group.label" class="mb-5">
+          <div class="eyebrow-muted px-5 pb-1.5">{{ group.label }}</div>
+          <!--
+            Eigener Slot statt active-class: "/" darf nur exakt aktiv sein,
+            "/projects" soll auch auf "/projects/:id" markiert bleiben.
+          -->
+          <RouterLink
+            v-for="item in group.items"
+            :key="item.to"
+            v-slot="{ href, navigate, isActive, isExactActive }"
+            :to="item.to"
+            custom
+          >
+            <a
+              :href="href"
+              class="relative flex items-center px-5 py-1.5 text-sm transition-colors hover:text-ink"
+              :class="
+                (item.to === '/' ? isExactActive : isActive)
+                  ? 'font-medium text-ink'
+                  : 'text-soft'
+              "
+              @click="navigate"
+            >
+              <!-- Aktivmarkierung: Acid-Balken links, kein Kasten -->
+              <span
+                v-if="item.to === '/' ? isExactActive : isActive"
+                class="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 bg-acid"
+              />
+              {{ item.label }}
+            </a>
+          </RouterLink>
+        </div>
       </nav>
 
-      <!-- Laufender Timer, immer sichtbar -->
-      <div v-if="timer.running" class="m-2 rounded-lg border border-emerald-900/60 bg-emerald-950/40 p-3">
-        <div class="text-[10px] uppercase tracking-wide text-emerald-500">läuft</div>
-        <div class="truncate text-sm font-medium">{{ timer.running.project.key }}</div>
-        <div class="mt-1 flex items-center justify-between">
-          <span class="font-mono text-lg tabular-nums">{{ timer.display }}</span>
-          <button class="btn-danger px-2 py-1 text-xs" @click="timer.stop()">Stopp</button>
+      <!-- Laufender Timer -->
+      <div v-if="timer.running" class="border-t border-ink bg-acid px-5 py-3">
+        <div class="eyebrow-muted !text-ink/60">läuft</div>
+        <div class="mt-0.5 truncate font-display text-sm font-semibold">
+          {{ timer.running.project.key }}
+        </div>
+        <div class="mt-1 flex items-center justify-between gap-2">
+          <span class="font-display text-2xl font-semibold tabular-nums leading-none">
+            {{ timer.display }}
+          </span>
+          <button
+            class="rounded-full border border-ink px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-ink hover:text-acid"
+            @click="timer.stop()"
+          >
+            Stopp
+          </button>
         </div>
       </div>
 
-      <button class="m-2 mt-0 btn-ghost justify-center" @click="auth.logout()">Abmelden</button>
+      <button
+        class="border-t border-line px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-muted transition-colors hover:bg-ink hover:text-paper"
+        @click="auth.logout()"
+      >
+        Abmelden
+      </button>
     </aside>
 
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Inhalt                                                              -->
+    <!-- ------------------------------------------------------------------ -->
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex items-center gap-4 border-b border-zinc-800 px-6 py-3">
-        <GlobalSearch class="flex-1" />
+      <header class="flex items-center gap-6 border-b border-line px-8 py-3">
+        <GlobalSearch class="max-w-xl flex-1" />
+        <div class="ml-auto hidden items-center gap-3 lg:flex">
+          <span class="eyebrow-muted">{{ today }}</span>
+          <span
+            v-if="timer.running"
+            class="badge badge-acid"
+            :title="timer.running.project.name"
+          >
+            ● {{ timer.display }}
+          </span>
+        </div>
       </header>
-      <main class="min-w-0 flex-1 overflow-y-auto p-6">
-        <RouterView />
+
+      <main class="min-w-0 flex-1 overflow-y-auto px-8 py-8">
+        <RouterView v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
   </div>
