@@ -31,10 +31,17 @@ const form = ref({
 })
 
 const transcriptTone: Record<string, string> = {
-  QUEUED: 'bg-zinc-800 text-zinc-400',
-  RUNNING: 'bg-sky-950 text-sky-400',
-  DONE: 'bg-emerald-950 text-emerald-400',
-  FAILED: 'bg-red-950 text-red-400',
+  QUEUED: '',
+  RUNNING: 'badge-blue',
+  DONE: 'badge-good',
+  FAILED: 'badge-bad',
+}
+
+const transcriptLabel: Record<string, string> = {
+  QUEUED: 'wartet',
+  RUNNING: 'läuft',
+  DONE: 'fertig',
+  FAILED: 'fehlgeschlagen',
 }
 
 async function load() {
@@ -105,7 +112,7 @@ onMounted(async () => {
       </div>
     </form>
 
-    <div class="card p-0">
+    <div class="border-t border-line-strong">
       <table class="table">
         <thead>
           <tr>
@@ -117,27 +124,27 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="m in meetings" :key="m.id" class="hover:bg-zinc-900/60">
-            <td class="whitespace-nowrap font-mono text-xs text-zinc-500">
+          <tr v-for="m in meetings" :key="m.id" class="hover:bg-ink/[0.035]">
+            <td class="whitespace-nowrap font-mono text-xs text-muted">
               {{ new Date(m.startsAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) }}
             </td>
             <td>
-              <RouterLink :to="`/meetings/${m.id}`" class="hover:text-indigo-400">{{ m.title }}</RouterLink>
-              <span v-if="m.client" class="ml-2 text-xs text-zinc-500">{{ m.client.name }}</span>
+              <RouterLink :to="`/meetings/${m.id}`" class="hover:text-blue">{{ m.title }}</RouterLink>
+              <span v-if="m.client" class="ml-2 text-xs text-muted">{{ m.client.name }}</span>
             </td>
             <td>
-              <span v-if="m.project" class="badge bg-zinc-800 text-zinc-400">{{ m.project.key }}</span>
+              <span v-if="m.project" class="badge bg-paper-2 text-soft">{{ m.project.key }}</span>
             </td>
             <td>
               <span v-if="m.transcript" class="badge" :class="transcriptTone[m.transcript.status]">
-                {{ m.transcript.status }}
+                {{ transcriptLabel[m.transcript.status] ?? m.transcript.status }}
               </span>
-              <span v-else class="text-xs text-zinc-600">—</span>
+              <span v-else class="text-xs text-muted">—</span>
             </td>
             <td class="text-right tabular-nums">{{ m._count.actionItems }}</td>
           </tr>
           <tr v-if="!meetings.length">
-            <td colspan="5" class="py-8 text-center text-zinc-600">Noch keine Meetings.</td>
+            <td colspan="5" class="py-8 text-center text-muted">Noch keine Meetings.</td>
           </tr>
         </tbody>
       </table>

@@ -1,67 +1,289 @@
 @import 'tailwindcss';
 
+/* ===========================================================================
+   Designsystem — übernommen aus philippniestroj.com
+   Papier statt Bildschirm: warmes Off-White, Tinte fast schwarz, Haarlinien
+   statt Kästen, scharfe Ecken (radius 0) und ausschließlich Pillen-Buttons.
+   Akzente: Acid für "jetzt", Blau für Labels und Links.
+   =========================================================================== */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-paper: #f1efe8;
+  --color-paper-2: #e9e7df; /* leicht abgesetzt für Tabellenköpfe, Hover */
+  --color-ink: #171714;
+  --color-soft: #575750;
+  --color-muted: #6c6b64;
+  --color-acid: #d8ff55;
+  --color-blue: #5c76ff;
+  --color-line: rgba(23, 23, 20, 0.15);
+  --color-line-strong: rgba(23, 23, 20, 0.3);
+
+  --color-good: #1f7a3d;
+  --color-warn: #a35c00;
+  --color-bad: #b3261e;
+
+  --font-display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Helvetica Neue', Arial, sans-serif;
+
+  --radius-none: 0;
+  --shadow-paper: 0 32px 90px rgba(23, 23, 20, 0.14);
+}
+
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --gutter: clamp(1rem, 2.8vw, 2.75rem);
+  --nav-height: 62px;
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* --- wiederkehrende Bausteine ------------------------------------------- */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Tabellenzahlen und IDs immer im Display-Font — die Ziffern sitzen dort besser */
+.tabular-nums,
+.font-mono {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-acid);
+  color: var(--color-ink);
+}
+
+/* --- Flächen -------------------------------------------------------------- */
 
 .card {
-  @apply rounded-xl border border-zinc-800 bg-zinc-900/60 p-4;
+  @apply border border-line bg-paper p-5;
+  border-radius: 0;
 }
+
+/* Volle Fläche in Tinte — für den einen Block, der herausstechen soll */
+.card-ink {
+  @apply border border-ink bg-ink p-5 text-paper;
+  border-radius: 0;
+}
+
+.hairline {
+  @apply border-t border-line;
+}
+
+/* --- Typografie ----------------------------------------------------------- */
+
+/* Das Kicker-Label über Überschriften: klein, versal, gesperrt, blau */
+.eyebrow {
+  @apply text-[11px] font-bold uppercase tracking-[0.14em] text-blue;
+}
+
+.eyebrow-muted {
+  @apply text-[11px] font-bold uppercase tracking-[0.14em] text-muted;
+}
+
+.display-xl {
+  font-family: var(--font-display);
+  @apply text-4xl leading-[0.95] tracking-[-0.02em];
+  font-weight: 600;
+}
+
+.display-lg {
+  font-family: var(--font-display);
+  @apply text-2xl leading-[1.05] tracking-[-0.02em];
+  font-weight: 600;
+}
+
+/* --- Buttons: ausschließlich Pillen ---------------------------------------- */
 
 .btn,
 .btn-primary,
 .btn-ghost,
+.btn-acid,
 .btn-danger {
-  @apply inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium
-         transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  @apply inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-bold
+         uppercase tracking-[0.09em] transition-all duration-150
+         disabled:cursor-not-allowed disabled:opacity-35;
+  font-family: var(--font-sans);
 }
+
 .btn-primary {
-  @apply bg-indigo-600 text-white hover:bg-indigo-500;
+  @apply bg-ink text-paper hover:bg-ink/85;
 }
+
 .btn-ghost {
-  @apply border border-zinc-800 text-zinc-300 hover:bg-zinc-800;
+  @apply border border-line-strong text-ink hover:border-ink hover:bg-ink hover:text-paper;
 }
+
+/* Der eine laute Button pro Seite */
+.btn-acid {
+  @apply bg-acid text-ink hover:brightness-95;
+}
+
 .btn-danger {
-  @apply border border-red-900/60 text-red-400 hover:bg-red-950;
+  @apply border border-bad/40 text-bad hover:bg-bad hover:text-paper;
 }
+
+/* Kleine Inline-Aktion in Tabellenzeilen */
+.btn-xs {
+  @apply inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1
+         text-[10px] font-bold uppercase tracking-[0.08em] text-soft
+         transition-colors hover:border-ink hover:bg-ink hover:text-paper;
+}
+
+/* --- Formular -------------------------------------------------------------- */
 
 .input {
-  @apply w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm
-         text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-indigo-600;
-}
-.label {
-  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500;
+  @apply w-full border border-line bg-transparent px-3 py-2 text-sm text-ink
+         outline-none transition-colors placeholder:text-muted/70
+         focus:border-ink;
+  border-radius: 0;
 }
 
-.badge {
-  @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium;
+select.input {
+  @apply appearance-none pr-8;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23575750' d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.7rem;
 }
+
+textarea.input {
+  @apply leading-relaxed;
+}
+
+.label {
+  @apply mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-muted;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--color-ink);
+}
+
+/* --- Badges: eckig, Haarlinie, versal --------------------------------------- */
+
+.badge {
+  @apply inline-flex items-center border border-line px-2 py-0.5
+         text-[10px] font-bold uppercase tracking-[0.08em] text-soft;
+  border-radius: 0;
+}
+.badge-acid {
+  @apply border-ink bg-acid text-ink;
+}
+.badge-ink {
+  @apply border-ink bg-ink text-paper;
+}
+.badge-blue {
+  @apply border-blue/40 bg-blue/10 text-blue;
+}
+.badge-good {
+  @apply border-good/35 bg-good/10 text-good;
+}
+.badge-warn {
+  @apply border-warn/35 bg-warn/10 text-warn;
+}
+.badge-bad {
+  @apply border-bad/35 bg-bad/10 text-bad;
+}
+
+/* --- Tabellen: Rasterlinien statt Zebrastreifen ------------------------------ */
 
 .table {
   @apply w-full text-sm;
 }
 .table th {
-  @apply border-b border-zinc-800 px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-zinc-500;
+  @apply border-b border-line-strong px-3 py-2.5 text-left text-[10px] font-bold
+         uppercase tracking-[0.12em] text-muted;
 }
 .table td {
-  @apply border-b border-zinc-900 px-3 py-2 align-top;
+  @apply border-b border-line px-3 py-3 align-top;
+}
+.table tbody tr:hover {
+  background: rgba(23, 23, 20, 0.035);
+}
+.table tbody tr:last-child td {
+  @apply border-b-0;
 }
 
+/* --- Markdown --------------------------------------------------------------- */
+
 .prose-note :is(h1, h2, h3) {
-  @apply mt-4 mb-2 font-semibold text-zinc-100;
+  font-family: var(--font-display);
+  @apply mt-5 mb-2 font-semibold text-ink;
 }
-.prose-note h1 { @apply text-lg; }
-.prose-note h2 { @apply text-base; }
-.prose-note p { @apply my-2 text-zinc-300; }
-.prose-note ul { @apply my-2 list-disc pl-5 text-zinc-300; }
-.prose-note ol { @apply my-2 list-decimal pl-5 text-zinc-300; }
-.prose-note code { @apply rounded bg-zinc-800 px-1 py-0.5 text-xs; }
-.prose-note pre { @apply my-2 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs; }
-.prose-note a { @apply text-indigo-400 underline; }
+.prose-note h1 { @apply text-xl; }
+.prose-note h2 { @apply text-lg; }
+.prose-note h3 { @apply text-base; }
+.prose-note p { @apply my-2.5 leading-relaxed text-soft; }
+.prose-note ul { @apply my-2.5 list-disc pl-5 text-soft; }
+.prose-note ol { @apply my-2.5 list-decimal pl-5 text-soft; }
+.prose-note li { @apply my-1; }
+.prose-note code {
+  @apply border border-line bg-paper-2 px-1 py-0.5 text-[0.85em];
+  font-family: var(--font-display);
+}
+.prose-note pre {
+  @apply my-3 overflow-x-auto border border-line bg-paper-2 p-3 text-xs;
+}
+.prose-note pre code { @apply border-0 bg-transparent p-0; }
+.prose-note a { @apply text-blue underline underline-offset-2; }
+.prose-note strong { @apply font-semibold text-ink; }
+.prose-note blockquote { @apply my-3 border-l-2 border-acid pl-4 text-soft; }
+
+/* Volltext-Treffer werden serverseitig mit «» markiert */
+.prose-note mark,
+mark {
+  background: var(--color-acid);
+  color: var(--color-ink);
+}
+
+/* --- Seitenwechsel ------------------------------------------------------------
+   Dieselbe Blende wie auf der Website, aber kürzer: in einem Werkzeug, das man
+   den ganzen Tag benutzt, wären 250ms pro Richtung spürbar zäh. */
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 140ms ease-in-out;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+/* --- Scrollbar ---------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(23, 23, 20, 0.2);
+  border: 3px solid var(--color-paper);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(23, 23, 20, 0.4);
+}

@@ -26,11 +26,19 @@ const showForm = ref(false)
 const form = ref({ key: '', name: '', clientId: '', description: '', color: '#6366f1' })
 
 const statusTone: Record<string, string> = {
-  LEAD: 'bg-sky-950 text-sky-400',
-  ACTIVE: 'bg-emerald-950 text-emerald-400',
-  PAUSED: 'bg-amber-950 text-amber-400',
-  DONE: 'bg-zinc-800 text-zinc-400',
-  ARCHIVED: 'bg-zinc-800 text-zinc-500',
+  LEAD: 'badge-blue',
+  ACTIVE: 'badge-good',
+  PAUSED: 'badge-warn',
+  DONE: '',
+  ARCHIVED: '',
+}
+
+const statusLabel: Record<string, string> = {
+  LEAD: 'Lead',
+  ACTIVE: 'aktiv',
+  PAUSED: 'pausiert',
+  DONE: 'fertig',
+  ARCHIVED: 'archiviert',
 }
 
 async function load() {
@@ -87,12 +95,12 @@ onMounted(async () => {
         <input v-model="form.description" class="input" />
       </div>
       <div class="flex items-end gap-2">
-        <input v-model="form.color" type="color" class="h-9 w-12 rounded border border-zinc-800 bg-zinc-950" />
+        <input v-model="form.color" type="color" class="h-9 w-12 rounded border border-line bg-paper" />
         <button class="btn-primary">Anlegen</button>
       </div>
     </form>
 
-    <div class="card p-0">
+    <div class="border-t border-line-strong">
       <table class="table">
         <thead>
           <tr>
@@ -105,28 +113,28 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in projects" :key="p.id" class="hover:bg-zinc-900/60">
+          <tr v-for="p in projects" :key="p.id" class="hover:bg-ink/[0.035]">
             <td>
-              <RouterLink :to="`/projects/${p.id}`" class="flex items-center gap-2 hover:text-indigo-400">
+              <RouterLink :to="`/projects/${p.id}`" class="flex items-center gap-2 hover:text-blue">
                 <span class="h-2.5 w-2.5 rounded-full" :style="{ background: p.color }" />
-                <span class="font-mono text-xs text-zinc-500">{{ p.key }}</span>
+                <span class="font-mono text-xs text-muted">{{ p.key }}</span>
                 <span>{{ p.name }}</span>
               </RouterLink>
             </td>
-            <td class="text-zinc-400">{{ p.client?.company ?? p.client?.name ?? 'intern' }}</td>
+            <td class="text-soft">{{ p.client?.company ?? p.client?.name ?? 'intern' }}</td>
             <td>
-              <span class="badge" :class="statusTone[p.status]">{{ p.status }}</span>
+              <span class="badge" :class="statusTone[p.status]">{{ statusLabel[p.status] ?? p.status }}</span>
             </td>
             <td class="text-right tabular-nums">{{ formatDuration(p.trackedSec) }} h</td>
-            <td class="text-right tabular-nums" :class="p.unbilledSec > 0 ? 'text-amber-400' : 'text-zinc-600'">
+            <td class="text-right tabular-nums" :class="p.unbilledSec > 0 ? 'text-warn' : 'text-muted'">
               {{ formatDuration(p.unbilledSec) }} h
             </td>
             <td class="text-right">
-              <button class="btn-ghost px-2 py-1 text-xs" @click="startTimer(p.id)">▶ Timer</button>
+              <button class="btn-xs" @click="startTimer(p.id)">▶ Timer</button>
             </td>
           </tr>
           <tr v-if="!projects.length">
-            <td colspan="6" class="py-8 text-center text-zinc-600">Noch keine Projekte.</td>
+            <td colspan="6" class="py-8 text-center text-muted">Noch keine Projekte.</td>
           </tr>
         </tbody>
       </table>

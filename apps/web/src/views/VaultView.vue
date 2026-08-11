@@ -143,24 +143,24 @@ onMounted(async () => {
 
     <!-- Ersteinrichtung -->
     <div v-if="vault.locked && !vault.initialized" class="card max-w-md">
-      <h2 class="mb-1 text-sm font-semibold">Vault einrichten</h2>
-      <p class="mb-4 text-xs text-zinc-500">
+      <h2 class="eyebrow mb-1">Vault einrichten</h2>
+      <p class="mb-4 text-xs text-muted">
         Das Master-Passwort wird nirgends gespeichert. Wenn du es verlierst, sind die Einträge
         unwiederbringlich verloren — der Server kennt nur den Ciphertext.
       </p>
       <div class="space-y-3">
         <input v-model="master" type="password" class="input" placeholder="Master-Passwort" />
         <input v-model="masterRepeat" type="password" class="input" placeholder="Wiederholen" />
-        <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+        <p v-if="error" class="text-sm text-bad">{{ error }}</p>
         <button class="btn-primary w-full justify-center" @click="setup">Einrichten</button>
       </div>
     </div>
 
     <!-- Entsperren -->
     <form v-else-if="vault.locked" class="card max-w-md" @submit.prevent="unlock">
-      <h2 class="mb-4 text-sm font-semibold">Vault entsperren</h2>
+      <h2 class="eyebrow mb-4">Vault entsperren</h2>
       <input v-model="master" type="password" class="input" placeholder="Master-Passwort" autofocus />
-      <p v-if="error" class="mt-2 text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="mt-2 text-sm text-bad">{{ error }}</p>
       <button class="btn-primary mt-3 w-full justify-center">Entsperren</button>
     </form>
 
@@ -224,9 +224,9 @@ onMounted(async () => {
         @input="vault.list(query)"
       />
 
-      <p v-if="error" class="mb-4 text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
 
-      <div class="card p-0">
+      <div class="border-t border-line-strong">
         <table class="table">
           <thead>
             <tr>
@@ -238,28 +238,28 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in vault.items" :key="item.id" class="hover:bg-zinc-900/60">
+            <tr v-for="item in vault.items" :key="item.id" class="hover:bg-ink/[0.035]">
               <td>
                 <div>{{ item.title }}</div>
-                <a v-if="item.url" :href="item.url" target="_blank" class="text-xs text-zinc-600 hover:text-indigo-400">
+                <a v-if="item.url" :href="item.url" target="_blank" class="text-xs text-muted hover:text-blue">
                   {{ item.url }}
                 </a>
               </td>
               <td class="font-mono text-xs">{{ item.username ?? '—' }}</td>
               <td class="font-mono text-xs">
                 <span v-if="revealed[item.id]">{{ revealed[item.id]?.password }}</span>
-                <span v-else class="text-zinc-600">••••••••••</span>
+                <span v-else class="text-muted">••••••••••</span>
               </td>
-              <td class="text-xs text-zinc-500">{{ item.folder ?? '—' }}</td>
+              <td class="text-xs text-muted">{{ item.folder ?? '—' }}</td>
               <td class="whitespace-nowrap text-right">
-                <button class="btn-ghost px-2 py-1 text-xs" @click="reveal(item)">Zeigen</button>
-                <button class="btn-ghost ml-1 px-2 py-1 text-xs" @click="copyPassword(item)">Kopieren</button>
-                <button class="btn-ghost ml-1 px-2 py-1 text-xs" @click="edit(item)">✎</button>
-                <button class="btn-danger ml-1 px-2 py-1 text-xs" @click="remove(item)">✕</button>
+                <button class="btn-xs" @click="reveal(item)">Zeigen</button>
+                <button class="btn-xs ml-1" @click="copyPassword(item)">Kopieren</button>
+                <button class="btn-xs ml-1" @click="edit(item)">✎</button>
+                <button class="btn-xs ml-1 !border-bad/40 !text-bad hover:!bg-bad hover:!text-paper" @click="remove(item)">✕</button>
               </td>
             </tr>
             <tr v-if="!vault.items.length">
-              <td colspan="5" class="py-8 text-center text-zinc-600">Vault ist leer.</td>
+              <td colspan="5" class="py-8 text-center text-muted">Vault ist leer.</td>
             </tr>
           </tbody>
         </table>

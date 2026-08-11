@@ -120,7 +120,7 @@ onMounted(async () => {
       </div>
       <div class="md:col-span-5 flex items-center gap-3">
         <label class="flex items-center gap-2 text-sm">
-          <input v-model="manual.billable" type="checkbox" class="accent-indigo-600" /> abrechenbar
+          <input v-model="manual.billable" type="checkbox" class="accent-ink" /> abrechenbar
         </label>
         <button class="btn-primary">Eintragen</button>
       </div>
@@ -145,7 +145,7 @@ onMounted(async () => {
     </div>
 
     <div class="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
-      <div class="card p-0">
+      <div class="border-t border-line-strong">
         <table class="table">
           <thead>
             <tr>
@@ -157,8 +157,8 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="e in entries" :key="e.id" class="hover:bg-zinc-900/60">
-              <td class="whitespace-nowrap text-xs text-zinc-500">
+            <tr v-for="e in entries" :key="e.id" class="hover:bg-ink/[0.035]">
+              <td class="whitespace-nowrap text-xs text-muted">
                 {{ date(e.startedAt) }}
                 <span class="block">{{ time(e.startedAt) }}–{{ e.endedAt ? time(e.endedAt) : '…' }}</span>
               </td>
@@ -169,14 +169,14 @@ onMounted(async () => {
               </td>
               <td>
                 {{ e.description || '—' }}
-                <span v-if="e.invoiceItemId" class="ml-1 badge bg-zinc-800 text-zinc-500">fakturiert</span>
-                <span v-else-if="!e.billable" class="ml-1 badge bg-zinc-800 text-zinc-500">nicht abrechenbar</span>
+                <span v-if="e.invoiceItemId" class="ml-1 badge bg-paper-2 text-muted">fakturiert</span>
+                <span v-else-if="!e.billable" class="ml-1 badge bg-paper-2 text-muted">nicht abrechenbar</span>
               </td>
               <td class="text-right tabular-nums">{{ formatDuration(e.durationSec) }}</td>
               <td class="text-right">
                 <button
                   v-if="!e.invoiceItemId"
-                  class="text-xs text-red-400 hover:underline"
+                  class="text-xs text-bad hover:underline"
                   @click="remove(e)"
                 >
                   ✕
@@ -184,21 +184,21 @@ onMounted(async () => {
               </td>
             </tr>
             <tr v-if="!entries.length">
-              <td colspan="5" class="py-8 text-center text-zinc-600">Keine Einträge im Zeitraum.</td>
+              <td colspan="5" class="py-8 text-center text-muted">Keine Einträge im Zeitraum.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="card">
-        <h2 class="mb-3 text-sm font-semibold">Nach Projekt</h2>
+        <h2 class="eyebrow mb-3">Nach Projekt</h2>
         <ul class="space-y-2 text-sm">
           <li v-for="r in report?.rows ?? []" :key="r.projectId">
             <div class="flex items-baseline justify-between">
-              <span class="font-mono text-xs text-zinc-500">{{ r.projectKey }}</span>
+              <span class="font-mono text-xs text-muted">{{ r.projectKey }}</span>
               <span class="tabular-nums">{{ r.hours }} h</span>
             </div>
-            <div class="flex items-baseline justify-between text-xs text-zinc-500">
+            <div class="flex items-baseline justify-between text-xs text-muted">
               <span class="truncate">{{ r.clientName ?? 'intern' }}</span>
               <span>{{ formatMoney(r.valueCents) }}</span>
             </div>

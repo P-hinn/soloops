@@ -34,6 +34,13 @@ const error = ref('')
 const newAction = ref('')
 let poll: ReturnType<typeof setInterval> | null = null
 
+const transcriptLabel: Record<string, string> = {
+  QUEUED: 'wartet',
+  RUNNING: 'läuft',
+  DONE: 'fertig',
+  FAILED: 'fehlgeschlagen',
+}
+
 async function load() {
   meeting.value = await api.get<Meeting>(`/api/meetings/${route.params.id}`)
   minutes.value = meeting.value.minutes ?? ''
@@ -121,24 +128,24 @@ onUnmounted(() => {
       </template>
     </PageHeader>
 
-    <p v-if="error" class="mb-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
 
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="space-y-4 lg:col-span-2">
-        <section v-if="meeting.summary" class="card border-indigo-900/50">
-          <h2 class="mb-2 text-sm font-semibold">Zusammenfassung</h2>
-          <p class="text-sm text-zinc-300">{{ meeting.summary }}</p>
+        <section v-if="meeting.summary" class="card border-ink">
+          <h2 class="eyebrow mb-2">Zusammenfassung</h2>
+          <p class="text-sm text-soft">{{ meeting.summary }}</p>
 
           <template v-if="meeting.decisions?.length">
-            <h3 class="mt-4 mb-1.5 text-xs uppercase tracking-wide text-zinc-500">Entscheidungen</h3>
-            <ul class="list-disc space-y-1 pl-4 text-sm text-zinc-300">
+            <h3 class="eyebrow-muted mt-5 mb-2">Entscheidungen</h3>
+            <ul class="list-disc space-y-1 pl-4 text-sm text-soft">
               <li v-for="(d, i) in meeting.decisions" :key="i">{{ d }}</li>
             </ul>
           </template>
         </section>
 
         <section class="card">
-          <h2 class="mb-2 text-sm font-semibold">Mitschrift</h2>
+          <h2 class="eyebrow mb-2">Mitschrift</h2>
           <textarea v-model="minutes" rows="8" class="input font-mono text-xs" placeholder="Markdown …" />
           <div class="mt-2 flex justify-end">
             <button class="btn-ghost" @click="saveMinutes">Speichern</button>
@@ -147,42 +154,42 @@ onUnmounted(() => {
 
         <section v-if="meeting.transcript" class="card">
           <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-sm font-semibold">Transkript</h2>
-            <span class="badge bg-zinc-800 text-zinc-400">{{ meeting.transcript.status }}</span>
+            <h2 class="eyebrow">Transkript</h2>
+            <span class="badge" :class="{ 'badge-blue': meeting.transcript.status === 'RUNNING', 'badge-good': meeting.transcript.status === 'DONE', 'badge-bad': meeting.transcript.status === 'FAILED' }">{{ transcriptLabel[meeting.transcript.status] ?? meeting.transcript.status }}</span>
           </div>
 
-          <p v-if="meeting.transcript.error" class="text-sm text-red-400">
+          <p v-if="meeting.transcript.error" class="text-sm text-bad">
             {{ meeting.transcript.error }}
           </p>
           <p
             v-else-if="meeting.transcript.status === 'QUEUED' || meeting.transcript.status === 'RUNNING'"
-            class="text-sm text-zinc-500"
+            class="text-sm text-muted"
           >
             Läuft lokal in faster-whisper — Seite aktualisiert sich automatisch.
           </p>
 
           <div v-else-if="meeting.transcript.segments?.length" class="max-h-96 space-y-1 overflow-y-auto">
             <p v-for="(s, i) in meeting.transcript.segments" :key="i" class="text-sm">
-              <span class="mr-2 font-mono text-xs text-zinc-600">{{ clock(s.start) }}</span>
-              <span class="text-zinc-300">{{ s.text }}</span>
+              <span class="mr-2 font-mono text-xs text-muted">{{ clock(s.start) }}</span>
+              <span class="text-soft">{{ s.text }}</span>
             </p>
           </div>
-          <p v-else class="text-sm text-zinc-300">{{ meeting.transcript.text }}</p>
+          <p v-else class="text-sm text-soft">{{ meeting.transcript.text }}</p>
         </section>
 
         <section v-if="meeting.agenda" class="card">
-          <h2 class="mb-2 text-sm font-semibold">Agenda</h2>
+          <h2 class="eyebrow mb-2">Agenda</h2>
           <MarkdownBlock :source="meeting.agenda" />
         </section>
       </div>
 
       <div class="space-y-4">
         <section class="card">
-          <h2 class="mb-2 text-sm font-semibold">Action Items</h2>
+          <h2 class="eyebrow mb-2">Action Items</h2>
           <ul class="space-y-1.5 text-sm">
             <li v-for="a in meeting.actionItems" :key="a.id" class="flex items-start gap-2">
-              <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" :class="a.done ? 'bg-zinc-600' : 'bg-amber-500'" />
-              <span :class="a.done ? 'text-zinc-600 line-through' : ''">{{ a.title }}</span>
+              <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" :class="a.done ? 'bg-muted' : 'bg-warn'" />
+              <span :class="a.done ? 'text-muted line-through' : ''">{{ a.title }}</span>
             </li>
           </ul>
           <form class="mt-3 flex gap-2" @submit.prevent="addAction">
@@ -192,22 +199,22 @@ onUnmounted(() => {
         </section>
 
         <section class="card">
-          <h2 class="mb-2 text-sm font-semibold">Details</h2>
+          <h2 class="eyebrow mb-2">Details</h2>
           <dl class="space-y-1.5 text-sm">
             <div class="flex justify-between">
-              <dt class="text-zinc-500">Kunde</dt>
+              <dt class="text-muted">Kunde</dt>
               <dd>{{ meeting.client?.name ?? '—' }}</dd>
             </div>
             <div class="flex justify-between">
-              <dt class="text-zinc-500">Teilnehmende</dt>
+              <dt class="text-muted">Teilnehmende</dt>
               <dd class="text-right">{{ meeting.participants.join(', ') || '—' }}</dd>
             </div>
             <div class="flex justify-between">
-              <dt class="text-zinc-500">Aufnahme</dt>
+              <dt class="text-muted">Aufnahme</dt>
               <dd>{{ meeting.recording ? meeting.recording.filename : '—' }}</dd>
             </div>
             <div v-if="meeting.recording?.durationSec" class="flex justify-between">
-              <dt class="text-zinc-500">Dauer</dt>
+              <dt class="text-muted">Dauer</dt>
               <dd>{{ clock(meeting.recording.durationSec) }}</dd>
             </div>
           </dl>

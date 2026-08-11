@@ -36,11 +36,19 @@ const draft = ref({
 })
 
 const statusTone: Record<string, string> = {
-  DRAFT: 'bg-zinc-800 text-zinc-400',
-  SENT: 'bg-sky-950 text-sky-400',
-  PAID: 'bg-emerald-950 text-emerald-400',
-  OVERDUE: 'bg-red-950 text-red-400',
-  CANCELLED: 'bg-zinc-800 text-zinc-600',
+  DRAFT: '',
+  SENT: 'badge-blue',
+  PAID: 'badge-good',
+  OVERDUE: 'badge-bad',
+  CANCELLED: '',
+}
+
+const statusLabel: Record<string, string> = {
+  DRAFT: 'Entwurf',
+  SENT: 'gestellt',
+  PAID: 'bezahlt',
+  OVERDUE: 'überfällig',
+  CANCELLED: 'storniert',
 }
 
 async function load() {
@@ -99,12 +107,12 @@ onMounted(async () => {
       </div>
       <div class="flex items-end gap-3">
         <label class="flex items-center gap-2 text-sm">
-          <input v-model="draft.groupByProject" type="checkbox" class="accent-indigo-600" />
+          <input v-model="draft.groupByProject" type="checkbox" class="accent-ink" />
           pro Projekt
         </label>
         <button class="btn-primary">Entwurf</button>
       </div>
-      <p v-if="error" class="md:col-span-4 text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="md:col-span-4 text-sm text-bad">{{ error }}</p>
     </form>
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -117,7 +125,7 @@ onMounted(async () => {
       />
     </div>
 
-    <div class="card mt-4 p-0">
+    <div class="mt-6 border-t border-line-strong">
       <table class="table">
         <thead>
           <tr>
@@ -131,24 +139,24 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="i in invoices" :key="i.id" class="hover:bg-zinc-900/60">
+          <tr v-for="i in invoices" :key="i.id" class="hover:bg-ink/[0.035]">
             <td>
-              <RouterLink :to="`/invoices/${i.id}`" class="font-mono text-xs hover:text-indigo-400">
+              <RouterLink :to="`/invoices/${i.id}`" class="font-mono text-xs hover:text-blue">
                 {{ i.number }}
               </RouterLink>
             </td>
             <td>{{ i.client.company ?? i.client.name }}</td>
-            <td class="text-xs text-zinc-500">{{ new Date(i.issueDate).toLocaleDateString('de-DE') }}</td>
-            <td class="text-xs text-zinc-500">{{ new Date(i.dueDate).toLocaleDateString('de-DE') }}</td>
-            <td><span class="badge" :class="statusTone[i.status]">{{ i.status }}</span></td>
+            <td class="text-xs text-muted">{{ new Date(i.issueDate).toLocaleDateString('de-DE') }}</td>
+            <td class="text-xs text-muted">{{ new Date(i.dueDate).toLocaleDateString('de-DE') }}</td>
+            <td><span class="badge" :class="statusTone[i.status]">{{ statusLabel[i.status] ?? i.status }}</span></td>
             <td>
-              <span v-if="i.lexofficeId" class="text-xs text-emerald-500">✓</span>
-              <span v-else class="text-xs text-zinc-600">—</span>
+              <span v-if="i.lexofficeId" class="text-xs text-good">✓</span>
+              <span v-else class="text-xs text-muted">—</span>
             </td>
             <td class="text-right tabular-nums">{{ formatMoney(i.totalCents) }}</td>
           </tr>
           <tr v-if="!invoices.length">
-            <td colspan="7" class="py-8 text-center text-zinc-600">Noch keine Rechnungen.</td>
+            <td colspan="7" class="py-8 text-center text-muted">Noch keine Rechnungen.</td>
           </tr>
         </tbody>
       </table>

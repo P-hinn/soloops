@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/api'
 
@@ -9,6 +9,7 @@ const router = useRouter()
 const query = ref('')
 const hits = ref<Hit[]>([])
 const open = ref(false)
+const field = ref<HTMLInputElement | null>(null)
 let handle: ReturnType<typeof setTimeout> | null = null
 
 watch(query, (value) => {
@@ -31,6 +32,17 @@ function go(hit: Hit) {
   router.push(hit.url)
 }
 
+/** ⌘K / Strg+K fokussiert die Suche von überall. */
+function onKeydown(event: KeyboardEvent) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    field.value?.focus()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
 const typeLabel: Record<string, string> = {
   note: 'Notiz',
   meeting: 'Meeting',
@@ -43,29 +55,38 @@ const typeLabel: Record<string, string> = {
 
 <template>
   <div class="relative">
-    <input
-      v-model="query"
-      class="input"
-      placeholder="Suche über Notizen, Transkripte, Projekte, Rechnungen …"
-      @focus="open = hits.length > 0"
-      @keydown.escape="open = false"
-    />
+    <div class="flex items-center gap-3 border border-line px-3 focus-within:border-ink">
+      <span class="text-muted">⌕</span>
+      <input
+        ref="field"
+        v-model="query"
+        class="w-full bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted/70"
+        placeholder="Notizen, Transkripte, Projekte, Rechnungen …"
+        @focus="open = hits.length > 0"
+        @keydown.escape="open = false"
+      />
+      <kbd
+        class="hidden shrink-0 border border-line px-1.5 py-0.5 font-display text-[10px] text-muted md:block"
+      >
+        ⌘K
+      </kbd>
+    </div>
 
     <div
       v-if="open && hits.length"
-      class="absolute z-30 mt-1 max-h-96 w-full overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+      class="absolute z-30 mt-px max-h-96 w-full overflow-y-auto border border-ink bg-paper shadow-paper"
     >
       <button
         v-for="hit in hits"
         :key="`${hit.type}-${hit.id}`"
-        class="block w-full border-b border-zinc-800/60 px-4 py-2.5 text-left last:border-0 hover:bg-zinc-800"
+        class="block w-full border-b border-line px-4 py-2.5 text-left transition-colors last:border-0 hover:bg-acid"
         @click="go(hit)"
       >
         <div class="flex items-center gap-2">
-          <span class="badge bg-zinc-800 text-zinc-400">{{ typeLabel[hit.type] ?? hit.type }}</span>
+          <span class="badge">{{ typeLabel[hit.type] ?? hit.type }}</span>
           <span class="truncate text-sm font-medium">{{ hit.title }}</span>
         </div>
-        <div v-if="hit.snippet" class="mt-0.5 line-clamp-2 text-xs text-zinc-500" v-html="hit.snippet" />
+        <div v-if="hit.snippet" class="mt-0.5 line-clamp-2 text-xs text-muted" v-html="hit.snippet" />
       </button>
     </div>
 

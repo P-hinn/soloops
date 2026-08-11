@@ -43,6 +43,14 @@ const busy = ref(false)
 const error = ref('')
 const pdfUrl = ref('')
 
+const statusLabel: Record<string, string> = {
+  DRAFT: 'Entwurf',
+  SENT: 'gestellt',
+  PAID: 'bezahlt',
+  OVERDUE: 'überfällig',
+  CANCELLED: 'storniert',
+}
+
 async function load() {
   invoice.value = await api.get<Invoice>(`/api/invoices/${route.params.id}`)
 }
@@ -93,7 +101,7 @@ onMounted(load)
   <div v-if="invoice">
     <PageHeader
       :title="`Rechnung ${invoice.number}`"
-      :subtitle="`${invoice.client.company ?? invoice.client.name} · ${invoice.status}`"
+      :subtitle="`${invoice.client.company ?? invoice.client.name} · ${statusLabel[invoice.status] ?? invoice.status}`"
     >
       <template #actions>
         <button class="btn-ghost" @click="openPdf">PDF</button>
@@ -115,14 +123,14 @@ onMounted(load)
       </template>
     </PageHeader>
 
-    <p v-if="error" class="mb-4 text-sm text-red-400">{{ error }}</p>
-    <p v-if="invoice.lexofficeId" class="mb-4 text-sm text-emerald-500">
+    <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
+    <p v-if="invoice.lexofficeId" class="mb-4 text-sm text-good">
       An lexoffice übertragen ({{ new Date(invoice.lexofficeSyncedAt!).toLocaleString('de-DE') }})
     </p>
 
     <div class="grid gap-4 lg:grid-cols-[1fr_300px]">
       <div class="card">
-        <p v-if="invoice.intro" class="mb-4 text-sm text-zinc-400">{{ invoice.intro }}</p>
+        <p v-if="invoice.intro" class="mb-4 text-sm text-soft">{{ invoice.intro }}</p>
 
         <table class="table">
           <thead>
@@ -136,7 +144,7 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="item in invoice.items" :key="item.id">
-              <td class="text-zinc-500">{{ item.position }}</td>
+              <td class="text-muted">{{ item.position }}</td>
               <td class="whitespace-pre-line">{{ item.description }}</td>
               <td class="text-right tabular-nums">{{ Number(item.quantity) }} {{ item.unit }}</td>
               <td class="text-right tabular-nums">{{ formatMoney(item.unitPriceCents, invoice.currency) }}</td>
@@ -147,43 +155,43 @@ onMounted(load)
 
         <div class="mt-4 ml-auto w-64 space-y-1 text-sm">
           <div class="flex justify-between">
-            <span class="text-zinc-500">Zwischensumme</span>
+            <span class="text-muted">Zwischensumme</span>
             <span class="tabular-nums">{{ formatMoney(invoice.subtotalCents, invoice.currency) }}</span>
           </div>
           <div v-if="!invoice.smallBusiness" class="flex justify-between">
-            <span class="text-zinc-500">USt {{ invoice.taxRate }} %</span>
+            <span class="text-muted">USt {{ invoice.taxRate }} %</span>
             <span class="tabular-nums">{{ formatMoney(invoice.taxCents, invoice.currency) }}</span>
           </div>
-          <div class="flex justify-between border-t border-zinc-800 pt-1 text-base font-semibold">
+          <div class="flex justify-between border-t border-line pt-1 text-base font-semibold">
             <span>Gesamt</span>
             <span class="tabular-nums">{{ formatMoney(invoice.totalCents, invoice.currency) }}</span>
           </div>
         </div>
 
-        <p v-if="invoice.smallBusiness" class="mt-4 text-xs text-zinc-500">
+        <p v-if="invoice.smallBusiness" class="mt-4 text-xs text-muted">
           Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.
         </p>
       </div>
 
       <div class="card h-fit">
-        <h2 class="mb-3 text-sm font-semibold">Details</h2>
+        <h2 class="eyebrow mb-3">Details</h2>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Rechnungsdatum</dt>
+            <dt class="text-muted">Rechnungsdatum</dt>
             <dd>{{ new Date(invoice.issueDate).toLocaleDateString('de-DE') }}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Fällig</dt>
+            <dt class="text-muted">Fällig</dt>
             <dd>{{ new Date(invoice.dueDate).toLocaleDateString('de-DE') }}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Projekt</dt>
+            <dt class="text-muted">Projekt</dt>
             <dd>{{ invoice.project?.key ?? '—' }}</dd>
           </div>
         </dl>
 
-        <h3 class="mt-4 mb-1 text-xs uppercase tracking-wide text-zinc-500">Empfänger</h3>
-        <address class="text-sm not-italic text-zinc-300">
+        <h3 class="eyebrow-muted mt-5 mb-1.5">Empfänger</h3>
+        <address class="text-sm not-italic text-soft">
           {{ invoice.client.company ?? invoice.client.name }}<br />
           <template v-if="invoice.client.street">{{ invoice.client.street }}<br /></template>
           {{ invoice.client.zip }} {{ invoice.client.city }}

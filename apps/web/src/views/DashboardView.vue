@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api'
 import { formatDuration, formatMoney } from '@soloops/shared'
@@ -36,26 +36,54 @@ const time = (iso: string) =>
   new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+
+/** Ein Satz oben: was heute wirklich zählt, nach Dringlichkeit sortiert. */
+const headline = computed(() => {
+  const d = data.value
+  if (!d) return ''
+  if (d.ops.monitorsDown.length) return `${d.ops.monitorsDown.length} Dienst(e) sind unten.`
+  if (d.money.overdue.length) return `${d.money.overdue.length} Rechnung(en) überfällig.`
+  if (d.time.unbilledCents > 0)
+    return `${formatMoney(d.time.unbilledCents)} liegen unfakturiert herum.`
+  if (d.today.events.length) return `${d.today.events.length} Termin(e) stehen heute an.`
+  return 'Nichts brennt.'
+})
+
+const allGreen = computed(
+  () => !data.value?.ops.monitorsDown.length && !data.value?.ops.failedRuns.length,
+)
 </script>
 
 <template>
   <div>
     <PageHeader
+      eyebrow="Lage"
       title="Dashboard"
       :subtitle="`${data?.activeProjects ?? 0} aktive Projekte`"
-    />
+    >
+      <template #actions>
+        <RouterLink to="/time" class="btn-ghost">Zeiten</RouterLink>
+        <RouterLink to="/invoices" class="btn-primary">
+          <span>Abrechnen</span><span aria-hidden="true">↗</span>
+        </RouterLink>
+      </template>
+    </PageHeader>
 
-    <p v-if="loading" class="text-sm text-zinc-500">Lade …</p>
+    <p v-if="loading" class="text-sm text-muted">Lade …</p>
 
     <template v-else-if="data">
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <p class="mb-9 max-w-3xl font-display text-3xl font-semibold leading-[1.1] tracking-[-0.02em]">
+        {{ headline }}
+      </p>
+
+      <div class="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4">
         <StatCard label="Diese Woche" :value="formatDuration(data.time.weekSec) + ' h'" />
         <StatCard label="Diesen Monat" :value="formatDuration(data.time.monthSec) + ' h'" />
         <StatCard
           label="Nicht abgerechnet"
           :value="formatMoney(data.time.unbilledCents)"
           :hint="formatDuration(data.time.unbilledSec) + ' h offen'"
-          tone="warn"
+          :tone="data.time.unbilledCents > 0 ? 'warn' : 'default'"
         />
         <StatCard
           label="Offene Rechnungen"
@@ -64,94 +92,108 @@ const day = (iso: string) =>
         />
       </div>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-3">
-        <!-- Heute -->
-        <section class="card">
-          <h2 class="mb-3 text-sm font-semibold">Heute</h2>
-          <ul v-if="data.today.events.length" class="space-y-2">
-            <li v-for="e in data.today.events" :key="e.id" class="flex items-start gap-2 text-sm">
-              <span class="font-mono text-xs text-zinc-500">{{ time(e.startsAt) }}</span>
+      <!-- Drei Spalten, getrennt durch Haarlinien statt durch Kästen -->
+      <div class="mt-10 grid gap-px border border-line bg-line lg:grid-cols-3">
+        <section class="bg-paper p-5">
+          <h2 class="eyebrow mb-4">Heute</h2>
+          <ul v-if="data.today.events.length" class="space-y-2.5">
+            <li v-for="e in data.today.events" :key="e.id" class="flex items-start gap-2.5 text-sm">
+              <span class="font-display text-xs tabular-nums text-muted">{{ time(e.startsAt) }}</span>
               <span
-                class="mt-1 h-2 w-2 shrink-0 rounded-full"
-                :style="{ background: e.project?.color ?? '#52525b' }"
+                class="mt-1.5 h-1.5 w-1.5 shrink-0"
+                :style="{ background: e.project?.color ?? '#6c6b64' }"
               />
               <span class="min-w-0 flex-1 truncate">{{ e.title }}</span>
             </li>
           </ul>
-          <p v-else class="text-sm text-zinc-600">Keine Termine.</p>
+          <p v-else class="text-sm text-muted">Keine Termine.</p>
 
-          <h3 class="mt-4 mb-2 text-xs uppercase tracking-wide text-zinc-500">Nächste Meetings</h3>
-          <ul class="space-y-1.5">
-            <li v-for="m in data.upcomingMeetings" :key="m.id" class="text-sm">
-              <RouterLink :to="`/meetings/${m.id}`" class="hover:text-indigo-400">
-                <span class="font-mono text-xs text-zinc-500">{{ day(m.startsAt) }}</span>
-                {{ m.title }}
-                <span v-if="m.client" class="text-zinc-500">· {{ m.client.name }}</span>
-              </RouterLink>
-            </li>
-          </ul>
-        </section>
-
-        <!-- Geld -->
-        <section class="card">
-          <h2 class="mb-3 text-sm font-semibold">Geld</h2>
-          <div v-if="data.money.overdue.length">
-            <div class="mb-1 text-xs uppercase tracking-wide text-red-400">Überfällig</div>
+          <template v-if="data.upcomingMeetings.length">
+            <h3 class="eyebrow-muted mt-6 mb-2">Nächste Meetings</h3>
             <ul class="space-y-1.5">
-              <li v-for="i in data.money.overdue" :key="i.id" class="text-sm">
-                <RouterLink :to="`/invoices/${i.id}`" class="hover:text-indigo-400">
-                  {{ i.number }} · {{ i.client }}
-                  <span class="text-red-400">{{ formatMoney(i.totalCents) }}</span>
-                  <span class="text-zinc-500">({{ i.daysLate }} Tage)</span>
+              <li v-for="m in data.upcomingMeetings" :key="m.id" class="text-sm">
+                <RouterLink :to="`/meetings/${m.id}`" class="hover:text-blue">
+                  <span class="font-display text-xs tabular-nums text-muted">{{ day(m.startsAt) }}</span>
+                  {{ m.title }}
+                  <span v-if="m.client" class="text-muted">· {{ m.client.name }}</span>
                 </RouterLink>
               </li>
             </ul>
-          </div>
-          <p v-else class="text-sm text-zinc-600">Nichts überfällig.</p>
-
-          <RouterLink to="/invoices" class="btn-ghost mt-4 w-full justify-center">
-            Rechnungen öffnen
-          </RouterLink>
+          </template>
         </section>
 
-        <!-- Betrieb -->
-        <section class="card">
-          <h2 class="mb-3 text-sm font-semibold">Betrieb</h2>
-          <div v-if="data.ops.monitorsDown.length" class="mb-3">
-            <div class="mb-1 text-xs uppercase tracking-wide text-red-400">Down</div>
-            <ul class="space-y-1 text-sm">
-              <li v-for="m in data.ops.monitorsDown" :key="m.id" class="truncate">
-                {{ m.friendlyName }}
+        <section class="bg-paper p-5">
+          <h2 class="eyebrow mb-4">Geld</h2>
+          <div v-if="data.money.overdue.length">
+            <h3 class="eyebrow-muted mb-2 !text-bad">Überfällig</h3>
+            <ul class="space-y-2">
+              <li v-for="i in data.money.overdue" :key="i.id" class="text-sm">
+                <RouterLink :to="`/invoices/${i.id}`" class="group flex items-baseline gap-2">
+                  <span class="font-display text-xs text-muted">{{ i.number }}</span>
+                  <span class="min-w-0 flex-1 truncate group-hover:text-blue">{{ i.client }}</span>
+                  <span class="font-display tabular-nums text-bad">{{ formatMoney(i.totalCents) }}</span>
+                </RouterLink>
+                <span class="text-xs text-muted">seit {{ i.daysLate }} Tagen</span>
               </li>
             </ul>
           </div>
-          <div v-if="data.ops.failedRuns.length">
-            <div class="mb-1 text-xs uppercase tracking-wide text-amber-400">Pipelines rot</div>
-            <ul class="space-y-1 text-sm">
-              <li v-for="r in data.ops.failedRuns" :key="r.id" class="truncate">
-                <a :href="r.url ?? '#'" target="_blank" class="hover:text-indigo-400">
-                  {{ r.repo.slug }} · {{ r.branch }}
-                </a>
-              </li>
-            </ul>
+          <p v-else class="text-sm text-muted">Nichts überfällig.</p>
+
+          <div v-if="data.time.unbilledCents > 0" class="mt-6 border-t border-line pt-4">
+            <div class="eyebrow-muted mb-1">Bereit zur Rechnung</div>
+            <div class="font-display text-xl font-semibold tabular-nums">
+              {{ formatMoney(data.time.unbilledCents) }}
+            </div>
+            <RouterLink to="/invoices" class="btn-acid mt-3">
+              <span>Rechnung erstellen</span><span aria-hidden="true">↗</span>
+            </RouterLink>
           </div>
-          <p
-            v-if="!data.ops.monitorsDown.length && !data.ops.failedRuns.length"
-            class="text-sm text-emerald-500"
-          >
-            Alles grün.
-          </p>
+        </section>
+
+        <section class="bg-paper p-5">
+          <h2 class="eyebrow mb-4">Betrieb</h2>
+
+          <template v-if="!allGreen">
+            <div v-if="data.ops.monitorsDown.length" class="mb-4">
+              <h3 class="eyebrow-muted mb-2 !text-bad">Down</h3>
+              <ul class="space-y-1 text-sm">
+                <li v-for="m in data.ops.monitorsDown" :key="m.id" class="truncate">
+                  {{ m.friendlyName }}
+                </li>
+              </ul>
+            </div>
+            <div v-if="data.ops.failedRuns.length">
+              <h3 class="eyebrow-muted mb-2 !text-warn">Pipelines rot</h3>
+              <ul class="space-y-1 text-sm">
+                <li v-for="r in data.ops.failedRuns" :key="r.id" class="truncate">
+                  <a :href="r.url ?? '#'" target="_blank" class="hover:text-blue">
+                    {{ r.repo.slug }} · {{ r.branch }}
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </template>
+
+          <div v-else class="flex items-center gap-2 text-sm">
+            <span class="h-2 w-2 rounded-full bg-acid" />
+            <span class="text-soft">Alle Dienste laufen, alle Pipelines grün.</span>
+          </div>
         </section>
       </div>
 
-      <!-- Offene Action Items -->
-      <section v-if="data.openActions.length" class="card mt-4">
-        <h2 class="mb-3 text-sm font-semibold">Offene Punkte</h2>
-        <ul class="space-y-1.5">
-          <li v-for="a in data.openActions" :key="a.id" class="flex items-center gap-2 text-sm">
-            <span v-if="a.project" class="badge bg-zinc-800 text-zinc-400">{{ a.project.key }}</span>
+      <section v-if="data.openActions.length" class="mt-10">
+        <h2 class="eyebrow mb-3">Offene Punkte</h2>
+        <ul class="border-t border-line-strong">
+          <li
+            v-for="a in data.openActions"
+            :key="a.id"
+            class="flex items-center gap-3 border-b border-line py-2.5 text-sm"
+          >
+            <span v-if="a.project" class="badge">{{ a.project.key }}</span>
             <span class="flex-1">{{ a.title }}</span>
-            <span v-if="a.dueOn" class="text-xs text-zinc-500">{{ day(a.dueOn) }}</span>
+            <span v-if="a.dueOn" class="font-display text-xs tabular-nums text-muted">
+              {{ day(a.dueOn) }}
+            </span>
           </li>
         </ul>
       </section>

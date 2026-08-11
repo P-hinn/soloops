@@ -40,12 +40,12 @@ const newRepo = ref({ provider: 'GITHUB', slug: '', branch: 'main', projectId: '
 
 const statusLabel: Record<number, string> = { 0: 'pausiert', 1: 'neu', 2: 'up', 8: 'wackelt', 9: 'down' }
 const runTone: Record<string, string> = {
-  SUCCESS: 'bg-emerald-500',
-  FAILED: 'bg-red-500',
-  RUNNING: 'bg-sky-500',
-  QUEUED: 'bg-zinc-600',
-  CANCELLED: 'bg-zinc-700',
-  UNKNOWN: 'bg-zinc-700',
+  SUCCESS: 'bg-good',
+  FAILED: 'bg-bad',
+  RUNNING: 'bg-blue',
+  QUEUED: 'bg-muted',
+  CANCELLED: 'bg-muted',
+  UNKNOWN: 'bg-muted',
 }
 
 async function load() {
@@ -115,13 +115,13 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <p v-if="error" class="mb-4 text-sm text-red-400">{{ error }}</p>
-    <p v-if="!uptimeConfigured" class="mb-4 text-sm text-zinc-500">
+    <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
+    <p v-if="!uptimeConfigured" class="mb-4 text-sm text-muted">
       UPTIMEROBOT_API_KEY ist nicht gesetzt — Monitore bleiben leer.
     </p>
 
-    <section class="card mb-4 p-0">
-      <h2 class="border-b border-zinc-800 px-4 py-3 text-sm font-semibold">Monitore</h2>
+    <section class="mb-8">
+      <h2 class="eyebrow mb-3">Monitore</h2>
       <table class="table">
         <thead>
           <tr>
@@ -137,12 +137,12 @@ onMounted(async () => {
           <tr v-for="m in monitors" :key="m.id">
             <td>
               <div>{{ m.friendlyName }}</div>
-              <a :href="m.url" target="_blank" class="text-xs text-zinc-600 hover:text-indigo-400">{{ m.url }}</a>
+              <a :href="m.url" target="_blank" class="text-xs text-muted hover:text-blue">{{ m.url }}</a>
             </td>
             <td>
               <span
                 class="badge"
-                :class="m.status === 2 ? 'bg-emerald-950 text-emerald-400' : m.status === 0 ? 'bg-zinc-800 text-zinc-500' : 'bg-red-950 text-red-400'"
+                :class="m.status === 2 ? 'bg-good/10 text-good' : m.status === 0 ? 'bg-paper-2 text-muted' : 'bg-bad/10 text-bad'"
               >
                 {{ statusLabel[m.status] ?? m.status }}
               </span>
@@ -162,14 +162,14 @@ onMounted(async () => {
             </td>
           </tr>
           <tr v-if="!monitors.length">
-            <td colspan="6" class="py-8 text-center text-zinc-600">Keine Monitore synchronisiert.</td>
+            <td colspan="6" class="py-8 text-center text-muted">Keine Monitore synchronisiert.</td>
           </tr>
         </tbody>
       </table>
     </section>
 
     <section class="card">
-      <h2 class="mb-3 text-sm font-semibold">CI/CD</h2>
+      <h2 class="eyebrow mb-3">CI/CD</h2>
 
       <form class="mb-4 grid gap-3 md:grid-cols-5" @submit.prevent="addRepo">
         <select v-model="newRepo.provider" class="input">
@@ -188,15 +188,15 @@ onMounted(async () => {
         <div
           v-for="repo in repos"
           :key="repo.id"
-          class="rounded-lg border border-zinc-800 bg-zinc-950/40 p-3"
+          class="border border-line bg-paper-2 p-3"
         >
           <div class="flex items-center justify-between">
             <div>
-              <span class="badge bg-zinc-800 text-zinc-400">{{ repo.provider }}</span>
+              <span class="badge bg-paper-2 text-soft">{{ repo.provider }}</span>
               <span class="ml-2 font-mono text-sm">{{ repo.slug }}</span>
-              <span v-if="repo.project" class="ml-2 text-xs text-zinc-500">{{ repo.project.key }}</span>
+              <span v-if="repo.project" class="ml-2 text-xs text-muted">{{ repo.project.key }}</span>
             </div>
-            <span class="text-xs text-zinc-600">
+            <span class="text-xs text-muted">
               {{ repo.lastSyncedAt ? new Date(repo.lastSyncedAt).toLocaleString('de-DE') : 'nie' }}
             </span>
           </div>
@@ -206,16 +206,16 @@ onMounted(async () => {
               :key="run.id"
               :href="run.url ?? '#'"
               target="_blank"
-              class="flex items-center gap-1.5 rounded-md bg-zinc-900 px-2 py-1 text-xs hover:bg-zinc-800"
+              class="flex items-center gap-1.5 bg-paper-2 px-2 py-1 text-xs hover:bg-ink/5"
               :title="`${run.name} · ${run.branch} · ${run.status}`"
             >
-              <span class="h-2 w-2 rounded-sm" :class="runTone[run.status]" />
-              <span class="text-zinc-400">{{ run.branch }}</span>
+              <span class="h-2 w-2 " :class="runTone[run.status]" />
+              <span class="text-soft">{{ run.branch }}</span>
             </a>
-            <span v-if="!repo.runs.length" class="text-xs text-zinc-600">noch keine Läufe</span>
+            <span v-if="!repo.runs.length" class="text-xs text-muted">noch keine Läufe</span>
           </div>
         </div>
-        <p v-if="!repos.length" class="text-sm text-zinc-600">
+        <p v-if="!repos.length" class="text-sm text-muted">
           Noch kein Repository hinterlegt.
           <span v-if="!ciConfigured.github && !ciConfigured.gitlab">
             Erst GITHUB_TOKEN bzw. GITLAB_TOKEN setzen.

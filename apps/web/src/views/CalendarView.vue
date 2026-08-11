@@ -160,37 +160,37 @@ onMounted(async () => {
       <div
         v-for="d in days"
         :key="d.toISOString()"
-        class="min-h-48 rounded-xl border p-2"
-        :class="isToday(d) ? 'border-indigo-700 bg-indigo-950/20' : 'border-zinc-800 bg-zinc-900/40'"
+        class="min-h-48 border p-2"
+        :class="isToday(d) ? 'border-ink bg-acid/25' : 'border-line bg-paper'"
       >
-        <div class="mb-2 text-xs font-medium text-zinc-400">
+        <div class="mb-2 text-xs font-medium text-soft">
           {{ d.toLocaleDateString('de-DE', { weekday: 'short' }) }}
-          <span class="text-zinc-600">{{ d.getDate() }}.</span>
+          <span class="text-muted">{{ d.getDate() }}.</span>
         </div>
         <div
           v-for="e in eventsFor(d)"
           :key="e.id"
-          class="group mb-1 rounded-md border-l-2 bg-zinc-800/60 px-2 py-1 text-xs"
+          class="group mb-1 border-l-2 bg-paper-2 px-2 py-1 text-xs"
           :style="{ borderColor: e.project?.color ?? '#6366f1' }"
         >
           <div class="flex items-start justify-between gap-1">
-            <span class="font-mono text-[10px] text-zinc-500">{{ time(e.startsAt) }}</span>
+            <span class="font-mono text-[10px] text-muted">{{ time(e.startsAt) }}</span>
             <button
-              class="hidden text-[10px] text-red-400 group-hover:block"
+              class="hidden text-[10px] text-bad group-hover:block"
               @click="remove(e.id)"
             >
               ✕
             </button>
           </div>
           <div class="truncate">{{ e.title }}</div>
-          <div v-if="e.project" class="text-[10px] text-zinc-500">{{ e.project.key }}</div>
+          <div v-if="e.project" class="text-[10px] text-muted">{{ e.project.key }}</div>
         </div>
       </div>
     </div>
 
-    <p class="mt-4 text-xs text-zinc-600">
+    <p class="mt-4 text-xs text-muted">
       ICS-Abo für Apple/Google Kalender:
-      <code class="rounded bg-zinc-900 px-1.5 py-0.5">{{ feedUrl }}</code>
+      <code class="rounded bg-paper-2 px-1.5 py-0.5">{{ feedUrl }}</code>
     </p>
   </div>
 </template>

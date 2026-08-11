@@ -38,10 +38,10 @@ const featureLabels: Record<string, string> = {
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card">
-        <h2 class="mb-3 text-sm font-semibold">Angebundene Dienste</h2>
-        <p class="mb-3 text-xs text-zinc-500">
-          Konfiguration läuft über die <code class="rounded bg-zinc-800 px-1">.env</code>. Nach
-          Änderungen <code class="rounded bg-zinc-800 px-1">docker compose up -d</code> ausführen.
+        <h2 class="eyebrow mb-3">Angebundene Dienste</h2>
+        <p class="mb-3 text-xs text-muted">
+          Konfiguration läuft über die <code class="rounded bg-paper-2 px-1">.env</code>. Nach
+          Änderungen <code class="rounded bg-paper-2 px-1">docker compose up -d</code> ausführen.
         </p>
         <ul class="space-y-2 text-sm">
           <li
@@ -52,7 +52,7 @@ const featureLabels: Record<string, string> = {
             <span>{{ label }}</span>
             <span
               class="badge"
-              :class="auth.config?.features[key] ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-800 text-zinc-500'"
+              :class="auth.config?.features[key] ? 'bg-good/10 text-good' : 'bg-paper-2 text-muted'"
             >
               {{ auth.config?.features[key] ? 'aktiv' : 'nicht konfiguriert' }}
             </span>
@@ -61,29 +61,29 @@ const featureLabels: Record<string, string> = {
       </section>
 
       <section class="card">
-        <h2 class="mb-3 text-sm font-semibold">Rechnungsstellung</h2>
+        <h2 class="eyebrow mb-3">Rechnungsstellung</h2>
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Firmenname</dt>
+            <dt class="text-muted">Firmenname</dt>
             <dd>{{ auth.config?.companyName }}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Kleinunternehmer §19</dt>
+            <dt class="text-muted">Kleinunternehmer §19</dt>
             <dd>{{ auth.config?.smallBusiness ? 'ja' : 'nein' }}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Standard-USt</dt>
+            <dt class="text-muted">Standard-USt</dt>
             <dd>{{ auth.config?.defaultTaxRate }} %</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-500">Standard-Stundensatz</dt>
+            <dt class="text-muted">Standard-Stundensatz</dt>
             <dd>{{ ((auth.config?.defaultHourlyRateCents ?? 0) / 100).toFixed(2) }} €</dd>
           </div>
         </dl>
       </section>
 
       <section class="card">
-        <h2 class="mb-3 text-sm font-semibold">Passwort ändern</h2>
+        <h2 class="eyebrow mb-3">Passwort ändern</h2>
         <form class="space-y-3" @submit.prevent="changePassword">
           <div>
             <label class="label">Aktuelles Passwort</label>
@@ -93,21 +93,21 @@ const featureLabels: Record<string, string> = {
             <label class="label">Neues Passwort (min. 10 Zeichen)</label>
             <input v-model="next" type="password" class="input" autocomplete="new-password" />
           </div>
-          <p v-if="message" class="text-sm text-emerald-400">{{ message }}</p>
-          <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+          <p v-if="message" class="text-sm text-good">{{ message }}</p>
+          <p v-if="error" class="text-sm text-bad">{{ error }}</p>
           <button class="btn-primary">Ändern</button>
         </form>
-        <p class="mt-3 text-xs text-zinc-500">
+        <p class="mt-3 text-xs text-muted">
           Das Master-Passwort des Vaults ist davon unabhängig und wird nicht geändert.
         </p>
       </section>
 
       <section class="card">
-        <h2 class="mb-3 text-sm font-semibold">MCP-Server</h2>
-        <p class="mb-2 text-xs text-zinc-500">
+        <h2 class="eyebrow mb-3">MCP-Server</h2>
+        <p class="mb-2 text-xs text-muted">
           Claude Code bekommt Zugriff auf Projekte, Zeiten, Notizen und Rechnungen:
         </p>
-        <pre class="overflow-x-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-300">
+        <pre class="overflow-x-auto bg-paper p-3 text-xs text-soft">
 SOLOOPS_URL=http://localhost:3000 \
 SOLOOPS_TOKEN=&lt;SERVICE_TOKEN&gt; \
 claude mcp add soloops -- npx tsx apps/mcp/src/index.ts</pre>

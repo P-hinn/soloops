@@ -103,7 +103,7 @@ onMounted(async () => {
         <div class="flex flex-wrap gap-1">
           <button
             class="badge"
-            :class="activeTag === '' ? 'bg-indigo-950 text-indigo-400' : 'bg-zinc-800 text-zinc-400'"
+            :class="activeTag === '' ? 'badge-acid' : 'hover:border-ink'"
             @click="activeTag = ''"
           >
             alle
@@ -112,31 +112,31 @@ onMounted(async () => {
             v-for="t in tags"
             :key="t.tag"
             class="badge"
-            :class="activeTag === t.tag ? 'bg-indigo-950 text-indigo-400' : 'bg-zinc-800 text-zinc-400'"
+            :class="activeTag === t.tag ? 'badge-acid' : 'hover:border-ink'"
             @click="activeTag = t.tag"
           >
             {{ t.tag }} · {{ t.count }}
           </button>
         </div>
 
-        <div class="card max-h-[70vh] space-y-1 overflow-y-auto p-2">
+        <div class="max-h-[70vh] overflow-y-auto border border-line">
           <button
             v-for="n in notes"
             :key="n.id"
-            class="block w-full rounded-lg px-3 py-2 text-left hover:bg-zinc-800"
-            :class="selected?.id === n.id ? 'bg-zinc-800' : ''"
+            class="block w-full px-3 py-2 text-left hover:bg-ink/5"
+            :class="selected?.id === n.id ? 'border-l-2 border-ink bg-paper-2' : 'border-l-2 border-transparent'"
             @click="open(n)"
           >
             <div class="flex items-center gap-2">
-              <span v-if="n.pinned" class="text-xs text-amber-400">★</span>
+              <span v-if="n.pinned" class="text-xs text-warn">★</span>
               <span class="truncate text-sm font-medium">{{ n.title }}</span>
             </div>
-            <div class="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
+            <div class="mt-0.5 flex items-center gap-2 text-xs text-muted">
               <span v-if="n.project">{{ n.project.key }}</span>
               <span>{{ new Date(n.updatedAt).toLocaleDateString('de-DE') }}</span>
             </div>
           </button>
-          <p v-if="!notes.length" class="p-4 text-center text-sm text-zinc-600">Nichts gefunden.</p>
+          <p v-if="!notes.length" class="p-4 text-center text-sm text-muted">Nichts gefunden.</p>
         </div>
       </div>
 
@@ -173,7 +173,7 @@ onMounted(async () => {
             <div>
               <h2 class="text-lg font-semibold">{{ selected.title }}</h2>
               <div class="mt-1 flex flex-wrap gap-1">
-                <span v-for="t in selected.tags" :key="t" class="badge bg-zinc-800 text-zinc-400">
+                <span v-for="t in selected.tags" :key="t" class="badge bg-paper-2 text-soft">
                   {{ t }}
                 </span>
               </div>
@@ -186,7 +186,7 @@ onMounted(async () => {
           <MarkdownBlock :source="selected.body" />
         </template>
 
-        <p v-else class="py-16 text-center text-sm text-zinc-600">
+        <p v-else class="py-16 text-center text-sm text-muted">
           Notiz links auswählen oder neue anlegen.
         </p>
       </div>
