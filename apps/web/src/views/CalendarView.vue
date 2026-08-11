@@ -11,6 +11,8 @@ type Event = {
   allDay: boolean
   kind: string
   location: string | null
+  videoUrl: string | null
+  readOnly: boolean
   project?: { id: string; key: string; color: string } | null
 }
 type Project = { id: string; key: string; name: string }
@@ -28,6 +30,7 @@ const form = ref({
   kind: 'FOCUS',
   projectId: '',
   location: '',
+  withVideo: false,
 })
 
 function startOfWeek(offset: number): Date {
@@ -84,7 +87,7 @@ async function create() {
     endsAt: new Date(form.value.endsAt).toISOString(),
   })
   showForm.value = false
-  form.value = { title: '', startsAt: '', endsAt: '', kind: 'FOCUS', projectId: '', location: '' }
+  form.value = { title: '', startsAt: '', endsAt: '', kind: 'FOCUS', projectId: '', location: '', withVideo: false }
   await load()
 }
 
@@ -151,7 +154,10 @@ onMounted(async () => {
         <label class="label">Ort</label>
         <input v-model="form.location" class="input" />
       </div>
-      <div class="flex items-end">
+      <div class="flex items-end gap-3">
+        <label class="flex items-center gap-2 pb-2 text-sm">
+          <input v-model="form.withVideo" type="checkbox" /> Videoraum
+        </label>
         <button class="btn-primary">Anlegen</button>
       </div>
     </form>
@@ -176,6 +182,7 @@ onMounted(async () => {
           <div class="flex items-start justify-between gap-1">
             <span class="font-mono text-[10px] text-muted">{{ time(e.startsAt) }}</span>
             <button
+              v-if="!e.readOnly"
               class="hidden text-[10px] text-bad group-hover:block"
               @click="remove(e.id)"
             >
@@ -183,7 +190,19 @@ onMounted(async () => {
             </button>
           </div>
           <div class="truncate">{{ e.title }}</div>
-          <div v-if="e.project" class="text-[10px] text-muted">{{ e.project.key }}</div>
+          <div class="flex items-center gap-1.5">
+            <span v-if="e.project" class="text-[10px] text-muted">{{ e.project.key }}</span>
+            <a
+              v-if="e.videoUrl"
+              :href="e.videoUrl"
+              target="_blank"
+              class="text-[10px] font-bold uppercase tracking-wide text-blue hover:underline"
+              title="Videoraum öffnen"
+            >
+              ▶ Video
+            </a>
+            <span v-if="e.readOnly" class="text-[10px] text-muted" title="Serie aus einem Fremdkalender">⤓</span>
+          </div>
         </div>
       </div>
     </div>

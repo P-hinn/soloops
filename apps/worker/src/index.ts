@@ -8,6 +8,7 @@ import { prisma } from '../../api/src/db.js'
 import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
 import { buildProjectDigest } from '../../api/src/ai/digest.js'
+import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
 import { runTranscription } from './jobs/transcribe.js'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
@@ -99,14 +100,50 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[digest]', err.message))
 
 // ---------------------------------------------------------------------------
+// Kalender-Sync (Google + Apple)
+// ---------------------------------------------------------------------------
+
+new Worker(
+  'calendar',
+  async (job) => {
+    const data = job.data as { accountId?: string }
+    const results = data.accountId ? [await syncAccount(data.accountId)] : await syncAllAccounts()
+
+    for (const r of results) {
+      const parts = [
+        r.pulled && `${r.pulled} rein`,
+        r.pushed && `${r.pushed} raus`,
+        r.deletedLocal && `${r.deletedLocal} lokal gelöscht`,
+        r.deletedRemote && `${r.deletedRemote} entfernt gelöscht`,
+        r.conflicts && `${r.conflicts} Konflikt(e)`,
+        r.skippedSeries && `${r.skippedSeries} Serie(n) nur gelesen`,
+      ].filter(Boolean)
+      if (r.error) console.error(`[calendar] ${r.account}: ${r.error}`)
+      else if (parts.length) log('calendar', `${r.account}: ${parts.join(', ')}`)
+    }
+    return results
+  },
+  // Sequenziell: zwei parallele Läufe auf demselben Konto würden sich
+  // gegenseitig die Sync-Token unter den Füßen wegziehen.
+  { connection, concurrency: 1 },
+).on('failed', (_job, err) => console.error('[calendar]', err.message))
+
+// ---------------------------------------------------------------------------
 // Wiederkehrende Jobs
 // ---------------------------------------------------------------------------
 
 const uptimeQueue = new Queue('uptime', { connection })
 const pipelineQueue = new Queue('pipelines', { connection })
 const digestQueue = new Queue('digest', { connection })
+const calendarQueue = new Queue('calendar', { connection })
 
 async function scheduleRepeatables() {
+  await calendarQueue.add(
+    'sync-all',
+    {},
+    { repeat: { pattern: env.CALENDAR_SYNC_CRON }, removeOnComplete: 20, removeOnFail: 20 },
+  )
+
   if (env.UPTIMEROBOT_API_KEY) {
     await uptimeQueue.add(
       'sync',

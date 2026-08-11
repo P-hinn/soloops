@@ -14,6 +14,7 @@ type Meeting = {
   client?: { name: string } | null
   transcript?: { status: string } | null
   recording?: { durationSec: number | null } | null
+  videoUrl?: string | null
   _count: { actionItems: number }
 }
 type Project = { id: string; key: string; name: string }
@@ -28,6 +29,7 @@ const form = ref({
   projectId: '',
   participants: '',
   agenda: '',
+  withVideo: true,
 })
 
 const transcriptTone: Record<string, string> = {
@@ -59,9 +61,10 @@ async function create() {
       .map((s) => s.trim())
       .filter(Boolean),
     agenda: form.value.agenda || null,
+    withVideo: form.value.withVideo,
   })
   showForm.value = false
-  form.value = { title: '', startsAt: '', endsAt: '', projectId: '', participants: '', agenda: '' }
+  form.value = { title: '', startsAt: '', endsAt: '', projectId: '', participants: '', agenda: '', withVideo: true }
   await load()
 }
 
@@ -103,7 +106,10 @@ onMounted(async () => {
         <label class="label">Teilnehmende (kommagetrennt)</label>
         <input v-model="form.participants" class="input" />
       </div>
-      <div class="flex items-end">
+      <div class="flex items-end gap-3">
+        <label class="flex items-center gap-2 pb-2 text-sm" title="Erzeugt einen Jitsi-Raum, kein Konto nötig">
+          <input v-model="form.withVideo" type="checkbox" /> Videoraum
+        </label>
         <button class="btn-primary">Anlegen</button>
       </div>
       <div class="md:col-span-3">
@@ -119,6 +125,7 @@ onMounted(async () => {
             <th>Datum</th>
             <th>Meeting</th>
             <th>Projekt</th>
+            <th>Video</th>
             <th>Transkript</th>
             <th class="text-right">Punkte</th>
           </tr>
@@ -136,6 +143,18 @@ onMounted(async () => {
               <span v-if="m.project" class="badge bg-paper-2 text-soft">{{ m.project.key }}</span>
             </td>
             <td>
+              <a
+                v-if="m.videoUrl"
+                :href="m.videoUrl"
+                target="_blank"
+                class="btn-xs"
+                @click.stop
+              >
+                ▶ Beitreten
+              </a>
+              <span v-else class="text-xs text-muted">—</span>
+            </td>
+            <td>
               <span v-if="m.transcript" class="badge" :class="transcriptTone[m.transcript.status]">
                 {{ transcriptLabel[m.transcript.status] ?? m.transcript.status }}
               </span>
@@ -144,7 +163,7 @@ onMounted(async () => {
             <td class="text-right tabular-nums">{{ m._count.actionItems }}</td>
           </tr>
           <tr v-if="!meetings.length">
-            <td colspan="5" class="py-8 text-center text-muted">Noch keine Meetings.</td>
+            <td colspan="6" class="py-8 text-center text-muted">Noch keine Meetings.</td>
           </tr>
         </tbody>
       </table>

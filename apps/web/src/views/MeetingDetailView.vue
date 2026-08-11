@@ -17,6 +17,8 @@ type Meeting = {
   minutes: string | null
   summary: string | null
   decisions: string[] | null
+  videoUrl: string | null
+  videoProvider: string | null
   project: { id: string; key: string; name: string } | null
   client: { id: string; name: string } | null
   recording: { filename: string; durationSec: number | null; sizeBytes: number } | null
@@ -30,8 +32,10 @@ const meeting = ref<Meeting | null>(null)
 const minutes = ref('')
 const uploading = ref(false)
 const summarizing = ref(false)
+const copied = ref(false)
 const error = ref('')
 const newAction = ref('')
+const customVideo = ref('')
 let poll: ReturnType<typeof setInterval> | null = null
 
 const transcriptLabel: Record<string, string> = {
@@ -88,6 +92,24 @@ async function summarize() {
   } finally {
     summarizing.value = false
   }
+}
+
+async function createVideo(url?: string) {
+  error.value = ''
+  try {
+    await api.post(`/api/meetings/${route.params.id}/video`, url ? { url } : {})
+    customVideo.value = ''
+    await load()
+  } catch (err) {
+    error.value = (err as Error).message
+  }
+}
+
+async function copyVideo() {
+  if (!meeting.value?.videoUrl) return
+  await navigator.clipboard.writeText(meeting.value.videoUrl)
+  copied.value = true
+  setTimeout(() => (copied.value = false), 1500)
 }
 
 async function addAction() {
@@ -184,6 +206,42 @@ onUnmounted(() => {
       </div>
 
       <div class="space-y-4">
+        <!-- Videoraum -->
+        <section class="card" :class="meeting.videoUrl ? 'border-ink' : ''">
+          <h2 class="eyebrow mb-2">Videoraum</h2>
+
+          <template v-if="meeting.videoUrl">
+            <a
+              :href="meeting.videoUrl"
+              target="_blank"
+              class="btn-acid w-full justify-between"
+            >
+              <span>Jetzt beitreten</span><span aria-hidden="true">↗</span>
+            </a>
+            <p class="mt-2 break-all font-display text-[11px] text-muted">{{ meeting.videoUrl }}</p>
+            <div class="mt-2 flex gap-2">
+              <button class="btn-xs" @click="copyVideo">
+                {{ copied ? 'kopiert' : 'Link kopieren' }}
+              </button>
+              <button class="btn-xs" @click="createVideo()">Neuer Raum</button>
+            </div>
+          </template>
+
+          <template v-else>
+            <button class="btn-primary w-full justify-center" @click="createVideo()">
+              Raum anlegen
+            </button>
+            <form class="mt-3 flex gap-2" @submit.prevent="createVideo(customVideo)">
+              <input
+                v-model="customVideo"
+                class="input"
+                placeholder="oder eigener Link (Zoom, Teams …)"
+              />
+              <button class="btn-xs" :disabled="!customVideo">+</button>
+            </form>
+          </template>
+        </section>
+
         <section class="card">
           <h2 class="eyebrow mb-2">Action Items</h2>
           <ul class="space-y-1.5 text-sm">

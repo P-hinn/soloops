@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
+import QuickBar from '@/components/QuickBar.vue'
 
 type Dashboard = {
   today: { events: { id: string; title: string; startsAt: string; endsAt: string; project?: { key: string; color: string } | null }[] }
@@ -27,10 +28,12 @@ type Dashboard = {
 const data = ref<Dashboard | null>(null)
 const loading = ref(true)
 
-onMounted(async () => {
+async function load() {
   data.value = await api.get<Dashboard>('/api/dashboard')
   loading.value = false
-})
+}
+
+onMounted(load)
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
@@ -68,6 +71,8 @@ const allGreen = computed(
         </RouterLink>
       </template>
     </PageHeader>
+
+    <QuickBar class="mb-9" @created="load" />
 
     <p v-if="loading" class="text-sm text-muted">Lade …</p>
 

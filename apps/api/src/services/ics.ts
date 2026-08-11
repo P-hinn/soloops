@@ -7,6 +7,7 @@ type IcsEvent = {
   endsAt: Date
   allDay: boolean
   updatedAt: Date
+  videoUrl?: string | null
   project?: { key: string } | null
 }
 
@@ -58,8 +59,18 @@ export function buildIcs(events: IcsEvent[]): string {
       lines.push(`DTEND:${stamp(e.endsAt)}`)
     }
     lines.push(fold(`SUMMARY:${escape(title)}`))
-    if (e.description) lines.push(fold(`DESCRIPTION:${escape(e.description)}`))
+
+    // Videoraum in die Beschreibung spiegeln — Apple und Google verlinken ihn
+    // dann direkt in der Terminansicht.
+    const description = [e.description, e.videoUrl ? `Videoraum: ${e.videoUrl}` : null]
+      .filter(Boolean)
+      .join('\n\n')
+    if (description) lines.push(fold(`DESCRIPTION:${escape(description)}`))
     if (e.location) lines.push(fold(`LOCATION:${escape(e.location)}`))
+    if (e.videoUrl) {
+      lines.push(fold(`URL:${e.videoUrl}`))
+      lines.push(fold(`CONFERENCE;VALUE=URI;FEATURE=VIDEO:${e.videoUrl}`))
+    }
     lines.push('END:VEVENT')
   }
 

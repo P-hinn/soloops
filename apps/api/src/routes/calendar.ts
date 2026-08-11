@@ -4,6 +4,8 @@ import { eventInput } from '@soloops/shared'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
 import { buildIcs } from '../services/ics.js'
+import { tombstoneEvent } from '../services/calendarSync.js'
+import { createVideoRoom } from '../services/video.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -60,27 +62,61 @@ const routes: FastifyPluginAsync = async (app) => {
 
     secured.post('/', async (req, reply) => {
       const data = eventInput.parse(req.body)
+      const room = data.withVideo ? createVideoRoom(data.title) : null
       const created = await prisma.calendarEvent.create({
-        data: { ...data, startsAt: new Date(data.startsAt), endsAt: new Date(data.endsAt) },
+        data: {
+          title: data.title,
+          description: data.description ?? null,
+          location: data.location ?? null,
+          startsAt: new Date(data.startsAt),
+          endsAt: new Date(data.endsAt),
+          allDay: data.allDay,
+          kind: data.kind,
+          projectId: data.projectId ?? null,
+          clientId: data.clientId ?? null,
+          videoUrl: room?.videoUrl ?? data.videoUrl ?? null,
+          videoProvider: room?.videoProvider ?? null,
+        },
       })
       return reply.code(201).send(created)
     })
 
-    secured.patch('/:id', async (req) => {
+    secured.patch('/:id', async (req, reply) => {
       const { id } = idParam.parse(req.params)
       const data = eventInput.partial().parse(req.body)
+      const current = await prisma.calendarEvent.findUniqueOrThrow({ where: { id } })
+      if (current.readOnly) {
+        return reply
+          .code(409)
+          .send({ error: 'Serie aus einem Fremdkalender — bitte dort bearbeiten' })
+      }
+
+      // Videoraum nachträglich anfordern
+      const room =
+        data.withVideo && !current.videoUrl ? createVideoRoom(data.title ?? current.title) : null
+
       return prisma.calendarEvent.update({
         where: { id },
         data: {
-          ...data,
+          title: data.title,
+          description: data.description,
+          location: data.location,
+          allDay: data.allDay,
+          kind: data.kind,
+          projectId: data.projectId,
+          clientId: data.clientId,
           startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
           endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+          ...(room ? { videoUrl: room.videoUrl, videoProvider: room.videoProvider } : {}),
+          ...(data.withVideo === false ? { videoUrl: null, videoProvider: null } : {}),
         },
       })
     })
 
     secured.delete('/:id', async (req, reply) => {
       const { id } = idParam.parse(req.params)
+      // Erst merken, was in den Fremdkalendern noch wegmuss — danach löschen.
+      await tombstoneEvent(id)
       await prisma.calendarEvent.delete({ where: { id } })
       return reply.code(204).send()
     })

@@ -123,15 +123,124 @@ model CalendarEvent {
   kind        EventKind @default(FOCUS)
   projectId   String?
   clientId    String?
-  externalUid String    @unique @default(cuid()) // stabile UID für den ICS-Feed
+  externalUid String    @unique @default(cuid()) // stabile UID für ICS-Feed und CalDAV
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  // Videokonferenz
+  videoUrl      String?
+  videoProvider VideoProvider?
+
+  // Sync-Metadaten
+  /// Serie aus einem fremden Kalender: wird gelesen, aber nie zurückgeschrieben.
+  recurring    Boolean   @default(false)
+  readOnly     Boolean   @default(false)
+  /// Zeitpunkt des letzten Pushes — verhindert Echo-Schleifen beim 2-Wege-Sync.
+  lastPushedAt DateTime?
+
+  project Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
   meeting Meeting?
+  links   EventLink[]
 
   @@index([startsAt, endsAt])
+  @@index([updatedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Kalender-Sync (Google Calendar, Apple/iCloud über CalDAV)
+// ---------------------------------------------------------------------------
+
+enum CalendarProvider {
+  GOOGLE
+  APPLE
+}
+
+enum SyncDirection {
+  PULL // nur lesen
+  PUSH // nur schreiben
+  BOTH
+}
+
+enum VideoProvider {
+  JITSI
+  GOOGLE_MEET
+  CUSTOM
+}
+
+model CalendarAccount {
+  id        String           @id @default(cuid())
+  provider  CalendarProvider
+  label     String
+  /// Kennung des Kontos (Google-E-Mail bzw. Apple-ID) — nur zur Anzeige.
+  accountId String
+  direction SyncDirection    @default(BOTH)
+  enabled   Boolean          @default(true)
+
+  // --- Google OAuth (Tokens verschlüsselt at rest, siehe services/secretbox.ts)
+  accessTokenEnc  String?
+  refreshTokenEnc String?
+  tokenExpiresAt  DateTime?
+
+  // --- CalDAV (Apple): Passwort verschlüsselt at rest
+  caldavBaseUrl  String?
+  caldavUsername String?
+  caldavPassEnc  String?
+
+  /// Google: calendarId. CalDAV: Href der Kalender-Collection.
+  remoteCalendarId String?
+  remoteCalendarName String?
+
+  /// Google: syncToken. CalDAV: WebDAV-Sync-Token.
+  syncToken   String?
+  /// CalDAV-Fallback, wenn der Server kein sync-collection unterstützt.
+  ctag        String?
+  lastSyncAt  DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  links EventLink[]
+
+  @@unique([provider, accountId, remoteCalendarId])
+}
+
+/// Verknüpfung eines lokalen Termins mit seinem Gegenstück im Fremdkalender.
+model EventLink {
+  id        String @id @default(cuid())
+  accountId String
+  eventId   String
+
+  /// Google: event.id. CalDAV: Href der .ics-Ressource.
+  remoteId  String
+  /// CalDAV: ETag. Google: etag.
+  remoteEtag String?
+  /// Stand, den wir zuletzt von der Gegenseite gesehen haben.
+  remoteUpdatedAt DateTime?
+  /// Stand, den wir zuletzt dorthin geschrieben haben.
+  pushedUpdatedAt DateTime?
+
+  account CalendarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  event   CalendarEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, eventId])
+  @@unique([accountId, remoteId])
+}
+
+/**
+ * Grabstein für lokal gelöschte Termine.
+ *
+ * Ohne das wäre die Löschung beim Sync unsichtbar: mit dem Termin verschwindet
+ * auch sein EventLink, und der Fremdkalender behielte den Eintrag für immer.
+ */
+model SyncTombstone {
+  id        String   @id @default(cuid())
+  accountId String
+  remoteId  String
+  remoteEtag String?
+  createdAt DateTime @default(now())
+
+  @@unique([accountId, remoteId])
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +269,10 @@ model Meeting {
   eventId      String?       @unique
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  // Videokonferenz — wird beim Anlegen in den Kalendereintrag gespiegelt
+  videoUrl      String?
+  videoProvider VideoProvider?
 
   project     Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client      Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
