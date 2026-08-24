@@ -191,6 +191,10 @@ model CalendarAccount {
   remoteCalendarId String?
   remoteCalendarName String?
 
+  /// Farbe in Wochen- und Monatsansicht. Wird beim Verbinden aus einer
+  /// Palette vergeben, lässt sich danach pro Kalender ändern.
+  color String @default("#5c76ff")
+
   /// Google: syncToken. CalDAV: WebDAV-Sync-Token.
   syncToken   String?
   /// CalDAV-Fallback, wenn der Server kein sync-collection unterstützt.

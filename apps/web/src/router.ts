@@ -4,7 +4,7 @@ import { getToken } from '@/api'
 const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
   { path: '/', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
-  { path: '/calendar', name: 'calendar', component: () => import('@/views/CalendarView.vue') },
+  { path: '/calendar', name: 'calendar', component: () => import('@/views/CalendarView.vue'), meta: { fullBleed: true } },
   { path: '/meetings', name: 'meetings', component: () => import('@/views/MeetingsView.vue') },
   { path: '/meetings/:id', name: 'meeting', component: () => import('@/views/MeetingDetailView.vue') },
   { path: '/notes', name: 'notes', component: () => import('@/views/NotesView.vue') },

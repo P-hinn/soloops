@@ -9,6 +9,28 @@ import { syncAccount, syncAllAccounts } from '../services/calendarSync.js'
 
 const idParam = z.object({ id: z.string() })
 
+/**
+ * Farbpalette für verbundene Kalender. Gewählt für den Papierhintergrund:
+ * kräftig genug für den Balken am Termin, ruhig genug für die Füllung bei 12 %.
+ */
+const CALENDAR_PALETTE = [
+  '#5c76ff', // CI-Blau
+  '#c2410c', // Rost
+  '#1f7a3d', // Tanne
+  '#7c3aed', // Violett
+  '#0e7490', // Petrol
+  '#a16207', // Ocker
+  '#be123c', // Karmin
+]
+
+/** Die nächste noch nicht vergebene Farbe. */
+async function nextCalendarColor(): Promise<string> {
+  const used = new Set(
+    (await prisma.calendarAccount.findMany({ select: { color: true } })).map((a) => a.color),
+  )
+  return CALENDAR_PALETTE.find((c) => !used.has(c)) ?? CALENDAR_PALETTE[used.size % CALENDAR_PALETTE.length]!
+}
+
 const routes: FastifyPluginAsync = async (app) => {
   // -------------------------------------------------------------------------
   // Google-Callback: kommt als Browser-Redirect, kann keinen Header mitbringen.
@@ -54,6 +76,7 @@ const routes: FastifyPluginAsync = async (app) => {
           accessTokenEnc: seal(tokens.accessToken),
           refreshTokenEnc: tokens.refreshToken ? seal(tokens.refreshToken) : null,
           tokenExpiresAt: tokens.expiresAt,
+          color: await nextCalendarColor(),
         },
         update: {
           accessTokenEnc: seal(tokens.accessToken),
@@ -96,6 +119,7 @@ const routes: FastifyPluginAsync = async (app) => {
           label: a.label,
           accountId: a.accountId,
           calendar: a.remoteCalendarName,
+          color: a.color,
           direction: a.direction,
           enabled: a.enabled,
           lastSyncAt: a.lastSyncAt,
@@ -170,6 +194,7 @@ const routes: FastifyPluginAsync = async (app) => {
           caldavPassEnc: seal(body.password),
           remoteCalendarId: body.calendarHref,
           remoteCalendarName: body.calendarName,
+          color: await nextCalendarColor(),
         },
         update: {
           label: `Apple · ${body.calendarName}`,

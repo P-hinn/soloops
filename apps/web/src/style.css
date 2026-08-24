@@ -287,3 +287,62 @@ mark {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(23, 23, 20, 0.4);
 }
+
+/* ===========================================================================
+   Feinschliff
+   =========================================================================== */
+
+/* Papierstruktur: ein kaum sichtbares Punktraster. Karten und der Kalender
+   liegen mit deckendem Papier darüber — das erzeugt die Schichtung, die dem
+   Flächenlayout sonst fehlt. */
+body {
+  background-image: radial-gradient(rgba(23, 23, 20, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+
+/* Tastaturfokus sichtbar machen — der Acid-Ring ist unverwechselbar und
+   stört den Mausbetrieb nicht, weil :focus-visible greift. */
+:focus-visible {
+  outline: 2px solid var(--color-acid);
+  outline-offset: 2px;
+}
+.btn-primary:focus-visible,
+.btn-acid:focus-visible {
+  outline-color: var(--color-ink);
+}
+
+/* Buttons dürfen sich beim Drücken kurz bewegen. */
+.btn:active,
+.btn-primary:active,
+.btn-ghost:active,
+.btn-acid:active,
+.btn-danger:active {
+  transform: translateY(1px);
+}
+
+/* Karte, die zu einem Ziel führt */
+.card-link {
+  @apply transition-all duration-150;
+}
+.card-link:hover {
+  border-color: var(--color-ink);
+  box-shadow: 4px 4px 0 0 var(--color-ink);
+  transform: translate(-2px, -2px);
+}
+
+/* Leerer Zustand: nicht bloß grauer Text, sondern eine gerahmte Fläche */
+.empty-state {
+  @apply flex flex-col items-center justify-center gap-2 border border-dashed border-line-strong
+         px-6 py-12 text-center;
+}
+.empty-state p {
+  @apply max-w-sm text-sm text-muted;
+}
+
+/* Zahlen in Überschriften sollen nicht springen */
+h1,
+h2,
+h3 {
+  font-variant-numeric: tabular-nums;
+}

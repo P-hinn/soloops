@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import BrandMark from '@/components/brand/BrandMark.vue'
 
 const auth = useAuth()
 const router = useRouter()
@@ -28,9 +29,14 @@ async function submit() {
   <div class="flex min-h-screen bg-paper">
     <!-- Linke Hälfte: die Aussage, wie auf der Website -->
     <div class="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex">
-      <div class="flex items-baseline gap-2">
-        <span class="font-display text-2xl font-bold tracking-tight">soloops</span>
-        <span class="h-2 w-2 rounded-full bg-acid" />
+      <div class="flex items-center gap-3">
+        <span class="flex h-11 w-11 items-center justify-center bg-ink text-paper">
+          <BrandMark :size="26" />
+        </span>
+        <span class="flex items-baseline gap-2">
+          <span class="font-display text-2xl font-bold tracking-tight">soloops</span>
+          <span class="h-2 w-2 rounded-full bg-acid" />
+        </span>
       </div>
 
       <div>
