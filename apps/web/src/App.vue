@@ -5,6 +5,7 @@ import { useAuth } from '@/stores/auth'
 import { useTimer } from '@/stores/timer'
 import { useOnboarding } from '@/stores/onboarding'
 import GlobalSearch from '@/components/GlobalSearch.vue'
+import BrandMark from '@/components/brand/BrandMark.vue'
 import TourOverlay from '@/components/TourOverlay.vue'
 
 const auth = useAuth()
@@ -79,16 +80,23 @@ watch(isPublic, (value) => {
     <!-- Seitenleiste                                                        -->
     <!-- ------------------------------------------------------------------ -->
     <aside class="flex w-[196px] shrink-0 flex-col border-r border-line bg-shell">
+      <!--
+        Die Bildmarke braucht 40px und hellen Grund: im invertierten Kasten
+        laufen die Innenräume von P und N zu (nachgemessen, siehe BrandMark).
+      -->
       <RouterLink
         to="/"
-        class="block border-b border-line px-4 py-3.5 transition-colors hover:bg-ink/[0.04]"
+        class="flex items-center gap-3 border-b border-line px-4 py-3.5 transition-colors hover:bg-ink/[0.04]"
       >
-        <span class="flex items-baseline gap-1.5">
-          <span class="font-display text-lg font-bold leading-none tracking-tight">soloops</span>
-          <span class="mb-0.5 h-1.5 w-1.5 rounded-full bg-acid" />
-        </span>
-        <span class="mt-1 block truncate text-[10px] uppercase tracking-[0.1em] text-muted">
-          {{ auth.config?.companyName }}
+        <BrandMark :size="40" class="shrink-0 text-ink" />
+        <span class="min-w-0">
+          <span class="flex items-baseline gap-1.5">
+            <span class="font-display text-lg font-bold leading-none tracking-tight">soloops</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-acid" />
+          </span>
+          <span class="mt-1 block truncate text-[10px] uppercase tracking-[0.1em] text-muted">
+            {{ auth.config?.companyName }}
+          </span>
         </span>
       </RouterLink>
 

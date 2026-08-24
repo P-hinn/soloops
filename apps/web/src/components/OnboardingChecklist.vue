@@ -1,58 +1,91 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useOnboarding } from '@/stores/onboarding'
 
+/**
+ * Standardmäßig eine Zeile, nicht zwölf.
+ *
+ * Ausgeklappt war die Liste das Erste und Größte auf dem Dashboard — eine Wand
+ * aus grauem Kleintext, die den eigentlichen Arbeitsbereich nach unten drückt.
+ * Sichtbar bleibt deshalb nur der Fortschritt und der nächste Schritt; alles
+ * andere auf Klick.
+ */
 const onboarding = useOnboarding()
+const open = ref(false)
 
 const state = computed(() => onboarding.state)
 const essential = computed(() => state.value?.steps.filter((s) => s.essential) ?? [])
 const optional = computed(() => state.value?.steps.filter((s) => !s.essential) ?? [])
+const nextStep = computed(() => state.value?.steps.find((s) => s.id === state.value?.next) ?? null)
 const progress = computed(() =>
   state.value ? Math.round((state.value.done / state.value.total) * 100) : 0,
 )
 </script>
 
 <template>
-  <section v-if="onboarding.visible && state" data-tour="checklist" class="border-2 border-ink">
-    <header class="flex flex-wrap items-center gap-3 border-b border-ink bg-acid px-4 py-2.5">
+  <section v-if="onboarding.visible && state" data-tour="checklist" class="border border-ink">
+    <!-- Kopfzeile: immer sichtbar, eine Zeile -->
+    <header class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-acid px-4 py-2.5">
       <span class="eyebrow-muted !text-ink">Einrichtung</span>
-      <span class="font-display text-sm font-semibold tabular-nums">
-        {{ state.done }} / {{ state.total }}
-      </span>
-      <div class="h-1.5 w-32 border border-ink">
-        <div class="h-full bg-ink" :style="{ width: `${progress}%` }" />
-      </div>
-      <span v-if="state.essentialDone < state.essentialTotal" class="text-xs text-ink/70">
-        {{ state.essentialTotal - state.essentialDone }} Pflichtschritt(e) offen
-      </span>
-      <span v-else class="text-xs text-ink/70">Grundgerüst steht — der Rest ist Kür.</span>
 
-      <div class="ml-auto flex gap-2">
+      <span class="flex items-center gap-2">
+        <span class="font-display text-sm font-semibold tabular-nums">
+          {{ state.done }}/{{ state.total }}
+        </span>
+        <span class="h-1.5 w-24 border border-ink/60">
+          <span class="block h-full bg-ink" :style="{ width: `${progress}%` }" />
+        </span>
+      </span>
+
+      <button
+        v-if="nextStep"
+        class="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+        @click="open = !open"
+      >
+        <span class="text-ink/60">Als Nächstes:</span>
+        <span class="font-medium">{{ nextStep.title }}</span>
+      </button>
+      <span v-else class="flex-1 text-sm">Alles erledigt.</span>
+
+      <RouterLink v-if="nextStep?.action" :to="nextStep.action.url" class="btn-primary !py-1.5">
+        <span>{{ nextStep.action.label }}</span><span aria-hidden="true">↗</span>
+      </RouterLink>
+
+      <div class="flex items-center gap-1">
         <button
-          class="border border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] hover:bg-ink hover:text-acid"
-          @click="onboarding.openTour()"
+          class="border border-ink px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-ink hover:text-acid"
+          @click="open = !open"
         >
-          Tour starten
+          {{ open ? 'Zuklappen' : 'Alle Schritte' }}
         </button>
         <button
-          class="border border-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] hover:bg-ink hover:text-acid"
+          class="border border-ink px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-ink hover:text-acid"
+          @click="onboarding.openTour()"
+        >
+          Tour
+        </button>
+        <button
+          class="border border-ink px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors hover:bg-ink hover:text-acid"
+          title="Ausblenden — in den Einstellungen wieder einblendbar"
           @click="onboarding.dismiss()"
         >
-          Ausblenden
+          ✕
         </button>
       </div>
     </header>
 
-    <div class="grid gap-x-8 gap-y-0 px-4 py-3 lg:grid-cols-2">
+    <!-- Details erst auf Wunsch -->
+    <div v-if="open" class="grid gap-x-8 bg-raised px-4 py-3 lg:grid-cols-2">
       <div>
-        <h3 class="eyebrow-muted mb-2">Grundgerüst</h3>
+        <h3 class="eyebrow-muted mb-1.5">
+          Grundgerüst · {{ state.essentialDone }}/{{ state.essentialTotal }}
+        </h3>
         <ul>
           <li
             v-for="step in essential"
             :key="step.id"
-            class="flex items-start gap-3 border-b border-line py-2.5 last:border-0"
-            :class="step.id === state.next ? 'bg-acid/25 -mx-2 px-2' : ''"
+            class="flex items-start gap-2.5 border-b border-line py-2 last:border-0"
           >
             <span
               class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] font-bold"
@@ -77,13 +110,12 @@ const progress = computed(() =>
       </div>
 
       <div>
-        <h3 class="eyebrow-muted mb-2">Danach</h3>
+        <h3 class="eyebrow-muted mb-1.5">Danach</h3>
         <ul>
           <li
             v-for="step in optional"
             :key="step.id"
-            class="flex items-start gap-3 border-b border-line py-2.5 last:border-0"
-            :class="step.id === state.next ? 'bg-acid/25 -mx-2 px-2' : ''"
+            class="flex items-start gap-2.5 border-b border-line py-2 last:border-0"
           >
             <span
               class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] font-bold"

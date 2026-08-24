@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { prisma } from '../db.js'
+import { listEventsInRange } from '../services/calendarRead.js'
 
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
@@ -15,7 +16,11 @@ const routes: FastifyPluginAsync = async (app) => {
     weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
+    const weekEnd = new Date(todayStart)
+    weekEnd.setDate(weekEnd.getDate() + 7)
+
     const [
+      weekEvents,
       todayEvents,
       upcomingMeetings,
       runningTimer,
@@ -29,11 +34,10 @@ const routes: FastifyPluginAsync = async (app) => {
       openActions,
       activeProjects,
     ] = await Promise.all([
-      prisma.calendarEvent.findMany({
-        where: { startsAt: { lt: todayEnd }, endsAt: { gt: todayStart } },
-        orderBy: { startsAt: 'asc' },
-        include: { project: { select: { key: true, color: true } } },
-      }),
+      // Derselbe Leser wie im Kalender — sonst meldet das Dashboard einen
+      // freien Tag, an dem der Kalender Serientermine zeigt.
+      listEventsInRange(todayStart, weekEnd, { take: 120 }),
+      listEventsInRange(todayStart, todayEnd),
       prisma.meeting.findMany({
         where: { startsAt: { gte: now }, status: { not: 'DONE' } },
         orderBy: { startsAt: 'asc' },
@@ -89,6 +93,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
     return {
       today: { events: todayEvents },
+      weekEvents,
       upcomingMeetings,
       runningTimer,
       time: {
