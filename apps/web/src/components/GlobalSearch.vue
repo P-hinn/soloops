@@ -55,7 +55,7 @@ const typeLabel: Record<string, string> = {
 
 <template>
   <div class="relative">
-    <div class="flex items-center gap-3 border border-line px-3 focus-within:border-ink">
+    <div class="flex items-center gap-3 border border-line bg-raised px-3 focus-within:border-ink">
       <span class="text-muted">⌕</span>
       <input
         ref="field"
@@ -74,7 +74,7 @@ const typeLabel: Record<string, string> = {
 
     <div
       v-if="open && hits.length"
-      class="absolute z-30 mt-px max-h-96 w-full overflow-y-auto border border-ink bg-paper shadow-paper"
+      class="popover absolute z-30 mt-px max-h-96 w-full overflow-y-auto"
     >
       <button
         v-for="hit in hits"

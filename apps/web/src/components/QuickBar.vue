@@ -148,7 +148,7 @@ const willCreate = computed(() => {
 </script>
 
 <template>
-  <section data-tour="quickbar" class="border-2 border-ink">
+  <section data-tour="quickbar" class="border-2 border-ink bg-raised shadow-[var(--shadow-raise)]">
     <!-- Eingabe -->
     <form class="flex items-stretch gap-0 border-b border-line" @submit.prevent="askPlan">
       <span class="flex items-center pl-4 pr-2 font-display text-lg text-blue">✳</span>
@@ -165,7 +165,7 @@ const willCreate = computed(() => {
     </form>
 
     <!-- Schnellaktionen -->
-    <div data-tour="quick-actions" class="flex flex-wrap items-center gap-2 px-4 py-3">
+    <div data-tour="quick-actions" class="flex flex-wrap items-center gap-2 border-b border-line bg-shell/50 px-4 py-2.5">
       <span class="eyebrow-muted mr-1">Schnell</span>
       <button
         v-if="timer.running"

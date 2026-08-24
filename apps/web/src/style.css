@@ -16,8 +16,15 @@
 }
 
 @theme {
+  /* Drei Ebenen aus derselben warmen Familie. Ohne diese Staffelung liegt
+     alles auf einer Fläche und das Werkzeug wirkt flach:
+       shell   — Rahmen der Anwendung (Navigation, Kopfzeile)
+       paper   — Arbeitsfläche, die CI-Grundfarbe
+       raised  — was darüber liegt: Karten, Dialoge, Menüs */
+  --color-shell: #dbd7ca;
   --color-paper: #f1efe8;
-  --color-paper-2: #e9e7df; /* leicht abgesetzt für Tabellenköpfe, Hover */
+  --color-raised: #fbfaf7;
+  --color-paper-2: #e9e7df; /* Tabellenköpfe, Hover */
   --color-ink: #171714;
   --color-soft: #575750;
   --color-muted: #6c6b64;
@@ -35,6 +42,8 @@
 
   --radius-none: 0;
   --shadow-paper: 0 32px 90px rgba(23, 23, 20, 0.14);
+  /* Warmer, weicher Schatten — hebt Flächen, ohne nach Material Design zu riechen */
+  --shadow-raise: 0 1px 2px rgba(23, 23, 20, 0.05), 0 4px 16px -6px rgba(23, 23, 20, 0.12);
 }
 
 :root {
@@ -78,8 +87,11 @@ h3,
 /* --- Flächen -------------------------------------------------------------- */
 
 .card {
-  @apply border border-line bg-paper p-5;
+  @apply border border-line bg-raised p-5;
   border-radius: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    var(--shadow-raise);
 }
 
 /* Volle Fläche in Tinte — für den einen Block, der herausstechen soll */
@@ -213,8 +225,8 @@ input[type='checkbox'] {
   @apply w-full text-sm;
 }
 .table th {
-  @apply border-b border-line-strong px-3 py-2.5 text-left text-[10px] font-bold
-         uppercase tracking-[0.12em] text-muted;
+  @apply border-b border-line-strong bg-shell/70 px-3 py-2.5 text-left text-[10px]
+         font-bold uppercase tracking-[0.12em] text-muted;
 }
 .table td {
   @apply border-b border-line px-3 py-3 align-top;
@@ -295,9 +307,10 @@ mark {
 /* Papierstruktur: ein kaum sichtbares Punktraster. Karten und der Kalender
    liegen mit deckendem Papier darüber — das erzeugt die Schichtung, die dem
    Flächenlayout sonst fehlt. */
-body {
-  background-image: radial-gradient(rgba(23, 23, 20, 0.05) 1px, transparent 1px);
-  background-size: 24px 24px;
+/* Papierstruktur nur auf der Arbeitsfläche. Auf dem Rahmen wäre sie Unruhe. */
+main {
+  background-image: radial-gradient(rgba(23, 23, 20, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
   background-position: -1px -1px;
 }
 
@@ -345,4 +358,46 @@ h1,
 h2,
 h3 {
   font-variant-numeric: tabular-nums;
+}
+
+/* --- Flächen-Hilfsklassen ---------------------------------------------------
+   Damit Ansichten die Staffelung benutzen können, ohne Hexwerte zu streuen. */
+
+.surface-shell {
+  background: var(--color-shell);
+}
+
+/* Die Seitenleiste bekommt einen kaum merklichen Verlauf — genug, damit die
+   Fläche nicht wie ein Farbeimer wirkt, zu wenig, um als Effekt aufzufallen. */
+aside {
+  background-image: linear-gradient(180deg, #e3dfd3 0%, var(--color-shell) 50%, #d4d0c2 100%);
+}
+.surface-raised {
+  background: var(--color-raised);
+}
+
+/* Dialoge und Menüs liegen ganz oben */
+.popover {
+  @apply border-2 border-ink bg-raised;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 24px 60px rgba(23, 23, 20, 0.18);
+}
+
+/* Rasterflächen, die durch Fugen getrennt sind (Dashboard, Kalenderköpfe).
+   Die Fuge ist die Linienfarbe, die Kacheln liegen darüber. */
+.tile-grid {
+  @apply gap-px border border-line bg-line;
+  display: grid;
+  box-shadow: var(--shadow-raise);
+}
+.tile {
+  @apply bg-raised p-5;
+}
+
+/* Aktiver Navigationspunkt liegt auf einer eigenen Fläche — die Leiste wird
+   dadurch als Bedienfeld lesbar statt als Textliste. */
+.nav-active {
+  background: linear-gradient(90deg, rgba(251, 250, 247, 0.95), rgba(251, 250, 247, 0.55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }

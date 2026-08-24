@@ -6,7 +6,6 @@ import { useTimer } from '@/stores/timer'
 import { useOnboarding } from '@/stores/onboarding'
 import GlobalSearch from '@/components/GlobalSearch.vue'
 import TourOverlay from '@/components/TourOverlay.vue'
-import BrandMark from '@/components/brand/BrandMark.vue'
 
 const auth = useAuth()
 const timer = useTimer()
@@ -79,30 +78,23 @@ watch(isPublic, (value) => {
     <!-- ------------------------------------------------------------------ -->
     <!-- Seitenleiste                                                        -->
     <!-- ------------------------------------------------------------------ -->
-    <aside class="flex w-60 shrink-0 flex-col border-r border-line">
+    <aside class="flex w-[196px] shrink-0 flex-col border-r border-line bg-shell">
       <RouterLink
         to="/"
-        class="group flex items-center gap-3 border-b border-line px-5 py-4 transition-colors hover:bg-ink/[0.03]"
+        class="block border-b border-line px-4 py-3.5 transition-colors hover:bg-ink/[0.04]"
       >
-        <span
-          class="flex h-9 w-9 shrink-0 items-center justify-center bg-ink text-paper transition-colors group-hover:bg-acid group-hover:text-ink"
-        >
-          <BrandMark :size="20" />
+        <span class="flex items-baseline gap-1.5">
+          <span class="font-display text-lg font-bold leading-none tracking-tight">soloops</span>
+          <span class="mb-0.5 h-1.5 w-1.5 rounded-full bg-acid" />
         </span>
-        <span class="min-w-0">
-          <span class="flex items-baseline gap-1.5">
-            <span class="font-display text-xl font-bold leading-none tracking-tight">soloops</span>
-            <span class="h-1.5 w-1.5 rounded-full bg-acid" />
-          </span>
-          <span class="mt-1 block truncate text-[11px] text-muted">
-            {{ auth.config?.companyName }}
-          </span>
+        <span class="mt-1 block truncate text-[10px] uppercase tracking-[0.1em] text-muted">
+          {{ auth.config?.companyName }}
         </span>
       </RouterLink>
 
-      <nav data-tour="nav" class="flex-1 overflow-y-auto py-4">
-        <div v-for="group in navGroups" :key="group.label" class="mb-5">
-          <div class="eyebrow-muted px-5 pb-1.5">{{ group.label }}</div>
+      <nav data-tour="nav" class="flex-1 overflow-y-auto py-3">
+        <div v-for="group in navGroups" :key="group.label" class="mb-4">
+          <div class="eyebrow-muted px-4 pb-1">{{ group.label }}</div>
           <!--
             Eigener Slot statt active-class: "/" darf nur exakt aktiv sein,
             "/projects" soll auch auf "/projects/:id" markiert bleiben.
@@ -117,10 +109,10 @@ watch(isPublic, (value) => {
             <a
               :href="href"
               :data-tour="item.to === '/settings' ? 'nav-settings' : undefined"
-              class="relative flex items-center px-5 py-1.5 text-sm transition-colors hover:text-ink"
+              class="relative flex items-center px-4 py-1.5 text-[13px] transition-colors hover:text-ink"
               :class="
                 (item.to === '/' ? isExactActive : isActive)
-                  ? 'font-medium text-ink'
+                  ? 'nav-active font-medium text-ink'
                   : 'text-soft'
               "
               @click="navigate"
@@ -137,7 +129,7 @@ watch(isPublic, (value) => {
       </nav>
 
       <!-- Laufender Timer -->
-      <div v-if="timer.running" data-tour="timer" class="border-t border-ink bg-acid px-5 py-3">
+      <div v-if="timer.running" data-tour="timer" class="border-t border-ink bg-acid px-4 py-3">
         <div class="eyebrow-muted !text-ink/60">läuft</div>
         <div class="mt-0.5 truncate font-display text-sm font-semibold">
           {{ timer.running.project.key }}
@@ -156,7 +148,7 @@ watch(isPublic, (value) => {
       </div>
 
       <button
-        class="border-t border-line px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-muted transition-colors hover:bg-ink hover:text-paper"
+        class="border-t border-line px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition-colors hover:bg-ink hover:text-paper"
         @click="auth.logout()"
       >
         Abmelden
@@ -167,7 +159,7 @@ watch(isPublic, (value) => {
     <!-- Inhalt                                                              -->
     <!-- ------------------------------------------------------------------ -->
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex items-center gap-6 border-b border-line px-8 py-3">
+      <header class="flex shrink-0 items-center gap-6 border-b border-line-strong bg-shell px-6 py-2.5">
         <GlobalSearch data-tour="search" class="max-w-xl flex-1" />
         <div class="ml-auto hidden items-center gap-3 lg:flex">
           <span class="eyebrow-muted">{{ today }}</span>
@@ -182,8 +174,8 @@ watch(isPublic, (value) => {
       </header>
 
       <main
-        class="min-w-0 flex-1"
-        :class="isFullBleed ? 'overflow-hidden' : 'overflow-y-auto px-8 py-8'"
+        class="min-w-0 flex-1 bg-paper"
+        :class="isFullBleed ? 'overflow-hidden' : 'overflow-y-auto px-7 py-7'"
       >
         <RouterView v-slot="{ Component }">
           <Transition name="page" mode="out-in">
