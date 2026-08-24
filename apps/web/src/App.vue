@@ -42,7 +42,6 @@ const navGroups = [
     label: 'Betrieb',
     items: [
       { to: '/ops', label: 'Uptime & CI' },
-      { to: '/vault', label: 'Passwörter' },
       { to: '/settings', label: 'Einstellungen' },
     ],
   },

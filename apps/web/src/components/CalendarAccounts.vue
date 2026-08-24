@@ -15,6 +15,8 @@ type Account = {
   lastError: string | null
   linkedEvents: number
   hasRefreshToken: boolean
+  isDefault: boolean
+  allowRemoteDelete: boolean
 }
 type Overview = {
   googleConfigured: boolean
@@ -133,6 +135,26 @@ async function setDirection(account: Account, direction: string) {
   await load()
 }
 
+/** Zielkalender für alles, was in soloops entsteht. Genau einer. */
+async function makeDefault(account: Account) {
+  await api.patch(`/api/calendar-accounts/${account.id}`, { isDefault: true })
+  info.value = `Neue Termine gehen ab jetzt nach „${account.calendar ?? account.label}".`
+  await load()
+}
+
+async function toggleDelete(account: Account) {
+  const next = !account.allowRemoteDelete
+  if (
+    next &&
+    !confirm(
+      `Wenn du einen Termin in soloops löschst, wird er dann auch in „${account.calendar ?? account.label}" entfernt — und damit auf allen Geräten. Wirklich freigeben?`,
+    )
+  )
+    return
+  await api.patch(`/api/calendar-accounts/${account.id}`, { allowRemoteDelete: next })
+  await load()
+}
+
 async function toggle(account: Account) {
   await api.patch(`/api/calendar-accounts/${account.id}`, { enabled: !account.enabled })
   await load()
@@ -168,7 +190,9 @@ onMounted(async () => {
     <h2 class="eyebrow mb-1">Kalender-Sync</h2>
     <p class="mb-4 text-xs text-muted">
       Abgleich läuft automatisch (<code class="border border-line bg-paper-2 px-1">{{ data?.syncCron }}</code>).
-      Termine gehen in beide Richtungen; Serien aus Apple-Kalendern werden nur gelesen.
+      Was in soloops entsteht, geht in den <strong>Zielkalender</strong> — nur in diesen einen.
+      Termine aus einem Fremdkalender werden nie in einen anderen kopiert, Serien nur gelesen,
+      und gelöscht wird dort drüben nur, wo du es ausdrücklich freigibst.
     </p>
 
     <p v-if="info" class="mb-3 border-l-2 border-acid bg-acid/20 px-3 py-2 text-sm">{{ info }}</p>
@@ -184,6 +208,9 @@ onMounted(async () => {
           <span class="text-sm font-medium">{{ a.calendar ?? a.label }}</span>
           <span class="text-xs text-muted">{{ a.accountId }}</span>
           <span v-if="!a.enabled" class="badge badge-warn">pausiert</span>
+          <span v-if="a.isDefault" class="badge badge-acid" title="Neue Termine landen hier">
+            Zielkalender
+          </span>
 
           <select
             class="input ml-auto w-auto py-1 text-xs"
@@ -197,6 +224,7 @@ onMounted(async () => {
           <button class="btn-xs" :disabled="busy === a.id" @click="syncOne(a)">
             {{ busy === a.id ? '…' : 'Jetzt' }}
           </button>
+          <button v-if="!a.isDefault" class="btn-xs" @click="makeDefault(a)">Als Ziel</button>
           <button class="btn-xs" @click="toggle(a)">{{ a.enabled ? 'Pause' : 'Weiter' }}</button>
           <button class="btn-xs" title="Vollabgleich erzwingen" @click="resetToken(a)">Neu lesen</button>
           <button
@@ -206,8 +234,16 @@ onMounted(async () => {
             Trennen
           </button>
         </div>
-        <div class="mt-1 flex flex-wrap gap-4 text-xs text-muted">
+        <div class="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted">
           <span>{{ a.linkedEvents }} verknüpfte Termine</span>
+          <label class="flex cursor-pointer items-center gap-1.5" :class="a.allowRemoteDelete ? 'text-bad' : ''">
+            <input
+              type="checkbox"
+              :checked="a.allowRemoteDelete"
+              @change="toggleDelete(a)"
+            />
+            Löschen dort erlauben
+          </label>
           <span>
             letzter Abgleich:
             {{ a.lastSyncAt ? new Date(a.lastSyncAt).toLocaleString('de-DE') : 'nie' }}

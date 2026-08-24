@@ -25,7 +25,6 @@ type Step = {
 
 const SETTING_DISMISSED = 'onboarding.dismissed'
 const SETTING_TOUR_SEEN = 'onboarding.tourSeen'
-export const SETTING_MCP_SEEN = 'mcp.lastSeenAt'
 
 async function flag(key: string): Promise<boolean> {
   const row = await prisma.appSetting.findUnique({ where: { key } })
@@ -57,8 +56,6 @@ const routes: FastifyPluginAsync = async (app) => {
       calendarAccounts,
       monitors,
       repos,
-      vaultItems,
-      mcpSeen,
       dismissed,
       tourSeen,
     ] = await Promise.all([
@@ -72,8 +69,6 @@ const routes: FastifyPluginAsync = async (app) => {
       prisma.calendarAccount.count({ where: { enabled: true } }),
       prisma.monitor.count(),
       prisma.pipelineRepo.count(),
-      prisma.vaultItem.count(),
-      prisma.appSetting.findUnique({ where: { key: SETTING_MCP_SEEN } }),
       flag(SETTING_DISMISSED),
       flag(SETTING_TOUR_SEEN),
     ])
@@ -155,14 +150,6 @@ const routes: FastifyPluginAsync = async (app) => {
         action: { label: 'Meetings öffnen', url: '/meetings' },
       },
       {
-        id: 'vault',
-        title: 'Passwort-Vault einrichten',
-        why: 'Master-Passwort einmal setzen. Danach liegen Zugangsdaten verschlüsselt hier statt im Notizzettel.',
-        done: !!user?.vaultSalt || vaultItems > 0,
-        essential: false,
-        action: { label: 'Passwörter öffnen', url: '/vault' },
-      },
-      {
         id: 'ops',
         title: 'Betrieb anbinden',
         why: 'UptimeRobot-Monitore und CI-Repos landen dann in der Projektübersicht.',
@@ -177,15 +164,6 @@ const routes: FastifyPluginAsync = async (app) => {
         done: notes > 0,
         essential: false,
         action: { label: 'Notizen öffnen', url: '/notes' },
-      },
-      {
-        id: 'mcp',
-        title: 'MCP-Server in Claude registrieren',
-        why: 'Danach kann Claude Zeiten buchen, Projekte lesen und Rechnungsentwürfe bauen.',
-        done: !!mcpSeen,
-        essential: false,
-        action: { label: 'Anleitung', url: '/settings' },
-        hint: 'Wird automatisch erkannt, sobald der MCP-Server das erste Mal zugreift.',
       },
     ]
 

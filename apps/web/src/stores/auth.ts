@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api, setToken } from '@/api'
 
-export type Me = { id: string; email: string; name: string; vaultReady: boolean }
+export type Me = { id: string; email: string; name: string }
 export type Config = {
   companyName: string
   currency: string

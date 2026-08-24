@@ -2,7 +2,7 @@
 
 Ein selbst gehostetes Betriebssystem für die Solo-Selbstständigkeit: Kalender,
 Meetings mit lokalem Transkript, Notizen, Projektübersichten mit AI-Lagebericht,
-Uptime, CI/CD, Passwort-Manager, Zeiterfassung, Rechnungen und lexoffice-Anbindung —
+Uptime, CI/CD, Zeiterfassung, Rechnungen und lexoffice-Anbindung —
 plus ein MCP-Server, damit Claude auf all das zugreifen kann.
 
 TypeScript überall, Vue 3 im Frontend, alles über `docker compose`.
@@ -114,8 +114,9 @@ Danach bleibt auf dem Dashboard eine Einrichtungsliste, die den **echten Zustand
 liest**: sie hakt nur ab, was tatsächlich existiert — angelegte Kunden, erfasste
 Zeiten, verbundene Kalender, gesetzte Umgebungsvariablen. Bewusst nichts, was man
 selbst abhaken kann; eine solche Liste sagt nach zwei Wochen nichts mehr über den
-Zustand aus. Der MCP-Schritt erkennt sich selbst, sobald der Server das erste Mal
-zugreift. Ausblenden geht jederzeit, zurückholen unter *Einstellungen*.
+Zustand aus. Standardmäßig ist sie eine Zeile — Fortschritt und nächster Schritt;
+alle Schritte auf Klick. Ausblenden geht jederzeit, zurückholen unter
+*Einstellungen*.
 
 **Schnelleingabe.** Ein Feld auf dem Dashboard: „Termin für neues Projekt mit
 Beispiel GmbH nächste Woche" wird zu einem *Plan* — Kunde, Projekt, Termin,
@@ -160,15 +161,18 @@ lassen sich Projekten zuordnen und tauchen dann in der Projektansicht auf.
 **CI/CD.** GitHub Actions und GitLab Pipelines, alle 3 Minuten gepollt, ebenfalls
 projektbezogen.
 
-**Passwort-Manager.** Zero-Knowledge: PBKDF2-SHA-512 (600.000 Iterationen) aus dem
-Master-Passwort + serverseitigem Salt, AES-256-GCM pro Eintrag. Der Server speichert
-ausschließlich Ciphertext, IV und Klartext-Metadaten (Titel, URL, Ordner, Tags) für
-die Suche. Der Schlüssel liegt nur im Speicher der Browser-Session — Reload heißt
-neu entsperren. Master-Passwort verloren = Einträge verloren.
+**Zeiterfassung.** Stoppuhr oben auf *Zeiten*: Projekt (das zuletzt bebuchte ist
+vorgewählt), Beschreibung, Start. Während sie läuft, lässt sich die Beschreibung
+nachtragen; „Verwerfen" stoppt und löscht in einem Zug, damit keine
+Zwei-Sekunden-Buchung in der Auswertung landet. „Weiter mit" nimmt die zuletzt
+gebuchten Kombinationen per Klick wieder auf. Der laufende Timer ist in
+Seitenleiste und Kopfzeile sichtbar; Start auf einem Projekt stoppt einen
+laufenden automatisch. Dazu Nachträge und Wochen-/Monatsauswertung mit Gegenwert
+in Euro. Stundensatz: Projekt > Kunde > globaler Default.
 
-**Zeiterfassung.** Ein globaler Timer, überall sichtbar; Start auf einem Projekt
-stoppt einen laufenden automatisch. Nachträge und Wochen-/Monatsauswertung mit
-Gegenwert in Euro. Stundensatz: Projekt > Kunde > globaler Default.
+Einen Passwort-Manager gibt es bewusst nicht — dafür ist 1Password da. soloops
+speichert nur die Zugangsdaten, die es selbst zum Synchronisieren braucht
+(Kalender-Tokens, verschlüsselt at rest).
 
 **Rechnungen.** „Aus Zeiten erstellen" nimmt alle offenen, abrechenbaren Einträge
 eines Kunden im Zeitraum, gruppiert sie pro Projekt und verknüpft die Zeiteinträge
@@ -219,6 +223,17 @@ jüngere Zeitstempel. Es wird nichts feldweise zusammengeführt, und die
 Entscheidung landet im Log und in der Sync-Meldung. Löschungen hinterlassen einen
 Grabstein, damit sie auch dann noch weiterwandern, wenn der lokale Termin schon
 weg ist.
+
+### Was geschrieben wird, und was nicht
+
+Genau ein Konto trägt die Markierung **Zielkalender**. Nur dorthin gehen Termine,
+die in soloops entstehen. Ein Termin, der aus Kalender A stammt, wird nie nach
+Kalender B kopiert — sonst vervielfältigt sich bei mehreren verbundenen
+Kalendern jeder Eintrag über alle hinweg.
+
+**Gelöscht wird in der Gegenstelle nur mit ausdrücklicher Freigabe** pro Konto,
+Standard ist aus. Ein Fehlgriff in soloops soll nicht Termine auf allen Geräten
+entfernen.
 
 ### Zwei bewusste Grenzen
 

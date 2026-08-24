@@ -16,7 +16,6 @@ import meetingRoutes from './routes/meetings.js'
 import noteRoutes from './routes/notes.js'
 import uptimeRoutes from './routes/uptime.js'
 import pipelineRoutes from './routes/pipelines.js'
-import vaultRoutes from './routes/vault.js'
 import timeRoutes from './routes/time.js'
 import invoiceRoutes from './routes/invoices.js'
 import accountingRoutes from './routes/accounting.js'
@@ -59,7 +58,6 @@ await app.register(meetingRoutes, { prefix: '/api/meetings' })
 await app.register(noteRoutes, { prefix: '/api/notes' })
 await app.register(uptimeRoutes, { prefix: '/api/uptime' })
 await app.register(pipelineRoutes, { prefix: '/api/pipelines' })
-await app.register(vaultRoutes, { prefix: '/api/vault' })
 await app.register(timeRoutes, { prefix: '/api/time' })
 await app.register(invoiceRoutes, { prefix: '/api/invoices' })
 await app.register(accountingRoutes, { prefix: '/api/accounting' })

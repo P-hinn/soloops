@@ -16,10 +16,6 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
-  // Passwort-Manager: Salt + Verifier für den clientseitig abgeleiteten Vault-Key.
-  // Der Server sieht niemals das Master-Passwort oder den Key selbst.
-  vaultSalt    String?
-  vaultCheck   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -54,7 +50,6 @@ model Client {
   events     CalendarEvent[]
   meetings   Meeting[]
   notes_     Note[]
-  vaultItems VaultItem[]
 }
 
 enum ProjectStatus {
@@ -94,7 +89,6 @@ model Project {
   repos        PipelineRepo[]
   invoices     Invoice[]
   actionItems  ActionItem[]
-  vaultItems   VaultItem[]
   digests      AiDigest[]
 
   @@index([status])
@@ -191,6 +185,15 @@ model CalendarAccount {
   accountId String
   direction SyncDirection    @default(BOTH)
   enabled   Boolean          @default(true)
+
+  /// Zielkalender für alles, was in soloops entsteht. Ohne diese Markierung
+  /// landete ein neues Meeting bei mehreren verbundenen Konten in jedem
+  /// einzelnen. Genau ein Konto trägt sie.
+  isDefault Boolean @default(false)
+
+  /// Darf der Sync im Fremdkalender löschen? Standard nein: ein Fehlgriff in
+  /// soloops soll nicht die Termine auf allen Geräten entfernen.
+  allowRemoteDelete Boolean @default(false)
 
   // --- Google OAuth (Tokens verschlüsselt at rest, siehe services/secretbox.ts)
   accessTokenEnc  String?
@@ -559,32 +562,6 @@ model InvoiceItem {
   timeEntries TimeEntry[]
 
   @@index([invoiceId, position])
-}
-
-// ---------------------------------------------------------------------------
-// Passwort-Manager (Zero-Knowledge: Server speichert nur Ciphertext)
-// ---------------------------------------------------------------------------
-
-model VaultItem {
-  id         String    @id @default(cuid())
-  title      String
-  username   String?
-  url        String?
-  folder     String?
-  tags       String[]  @default([])
-  // AES-256-GCM, im Browser ver-/entschlüsselt. Key = PBKDF2(Master-PW, vaultSalt).
-  cipherText String
-  iv         String
-  projectId  String?
-  clientId   String?
-  lastUsedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-
-  @@index([title])
 }
 
 // ---------------------------------------------------------------------------
