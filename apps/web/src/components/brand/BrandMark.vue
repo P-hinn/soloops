@@ -3,11 +3,11 @@
  * Bildmarke aus philippniestroj.com — dieselbe Pfaddefinition wie auf der
  * Website.
  *
- * ACHTUNG Mindestgröße: unter etwa 48px laufen die Innenräume von P und N zu
- * und die Marke wird zum Klecks. Sie gehört auf Anmeldeseite und Druckstücke,
- * nicht in eine 20px-Navigationszeile — dort steht die Wortmarke.
+ * ACHTUNG Mindestgröße: 40px, und nur als Tinte auf hellem Grund. Invertiert
+ * im dunklen Kasten laufen die Innenräume von P und N schon bei 44px zu — beide
+ * Varianten wurden nebeneinander gemessen. Darunter bitte die Wortmarke nehmen.
  */
-withDefaults(defineProps<{ size?: number | string }>(), { size: 64 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 40 })
 </script>
 
 <template>
