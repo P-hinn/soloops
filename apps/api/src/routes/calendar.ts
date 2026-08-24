@@ -55,6 +55,8 @@ const routes: FastifyPluginAsync = async (app) => {
           project: { select: { id: true, key: true, name: true, color: true } },
           client: { select: { id: true, name: true } },
           meeting: { select: { id: true, status: true } },
+          // Über welchen Kalender kam der Termin? Trägt die Farbgebung.
+          links: { select: { accountId: true } },
         },
         orderBy: { startsAt: 'asc' },
       })
@@ -119,6 +121,47 @@ const routes: FastifyPluginAsync = async (app) => {
       await tombstoneEvent(id)
       await prisma.calendarEvent.delete({ where: { id } })
       return reply.code(204).send()
+    })
+
+    /**
+     * Die Kalender, zwischen denen die Ansicht farblich unterscheidet:
+     * das lokale soloops plus jedes verbundene Konto.
+     */
+    secured.get('/sources', async () => {
+      const accounts = await prisma.calendarAccount.findMany({
+        orderBy: [{ provider: 'asc' }, { label: 'asc' }],
+        select: {
+          id: true,
+          label: true,
+          provider: true,
+          color: true,
+          enabled: true,
+          remoteCalendarName: true,
+        },
+      })
+      return [
+        {
+          id: 'local',
+          label: 'soloops',
+          provider: 'LOCAL' as const,
+          color: '#d8ff55',
+          enabled: true,
+          remoteCalendarName: null,
+        },
+        ...accounts,
+      ]
+    })
+
+    /** Farbe eines Kalenders ändern. */
+    secured.patch('/sources/:id/color', async (req, reply) => {
+      const { id } = idParam.parse(req.params)
+      const body = z.object({ color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).parse(req.body)
+      if (id === 'local') return reply.code(400).send({ error: 'Die lokale Farbe ist fest' })
+      return prisma.calendarAccount.update({
+        where: { id },
+        data: { color: body.color },
+        select: { id: true, color: true },
+      })
     })
 
     /**

@@ -6,6 +6,7 @@ import { useTimer } from '@/stores/timer'
 import { useOnboarding } from '@/stores/onboarding'
 import GlobalSearch from '@/components/GlobalSearch.vue'
 import TourOverlay from '@/components/TourOverlay.vue'
+import BrandMark from '@/components/brand/BrandMark.vue'
 
 const auth = useAuth()
 const timer = useTimer()
@@ -13,6 +14,8 @@ const onboarding = useOnboarding()
 const route = useRoute()
 
 const isPublic = computed(() => route.meta.public === true)
+/** Kalender & Co. bringen ihr eigenes Layout mit und wollen die volle Fläche. */
+const isFullBleed = computed(() => route.meta.fullBleed === true)
 
 /** Navigation in drei Blöcken: Tagesgeschäft, Geld, Betrieb & Ablage. */
 const navGroups = [
@@ -72,17 +75,29 @@ watch(isPublic, (value) => {
 <template>
   <RouterView v-if="isPublic" />
 
-  <div v-else class="flex min-h-screen bg-paper">
+  <div v-else class="flex h-screen overflow-hidden bg-paper">
     <!-- ------------------------------------------------------------------ -->
     <!-- Seitenleiste                                                        -->
     <!-- ------------------------------------------------------------------ -->
     <aside class="flex w-60 shrink-0 flex-col border-r border-line">
-      <RouterLink to="/" class="block border-b border-line px-5 py-4">
-        <div class="flex items-baseline gap-2">
-          <span class="font-display text-xl font-bold tracking-tight">soloops</span>
-          <span class="h-1.5 w-1.5 rounded-full bg-acid" />
-        </div>
-        <div class="mt-0.5 truncate text-[11px] text-muted">{{ auth.config?.companyName }}</div>
+      <RouterLink
+        to="/"
+        class="group flex items-center gap-3 border-b border-line px-5 py-4 transition-colors hover:bg-ink/[0.03]"
+      >
+        <span
+          class="flex h-9 w-9 shrink-0 items-center justify-center bg-ink text-paper transition-colors group-hover:bg-acid group-hover:text-ink"
+        >
+          <BrandMark :size="20" />
+        </span>
+        <span class="min-w-0">
+          <span class="flex items-baseline gap-1.5">
+            <span class="font-display text-xl font-bold leading-none tracking-tight">soloops</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-acid" />
+          </span>
+          <span class="mt-1 block truncate text-[11px] text-muted">
+            {{ auth.config?.companyName }}
+          </span>
+        </span>
       </RouterLink>
 
       <nav data-tour="nav" class="flex-1 overflow-y-auto py-4">
@@ -166,7 +181,10 @@ watch(isPublic, (value) => {
         </div>
       </header>
 
-      <main class="min-w-0 flex-1 overflow-y-auto px-8 py-8">
+      <main
+        class="min-w-0 flex-1"
+        :class="isFullBleed ? 'overflow-hidden' : 'overflow-y-auto px-8 py-8'"
+      >
         <RouterView v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />
