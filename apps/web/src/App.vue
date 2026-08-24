@@ -138,10 +138,12 @@ watch(isPublic, (value) => {
 
       <!-- Laufender Timer -->
       <div v-if="timer.running" data-tour="timer" class="border-t border-ink bg-acid px-4 py-3">
-        <div class="eyebrow-muted !text-ink/60">läuft</div>
-        <div class="mt-0.5 truncate font-display text-sm font-semibold">
-          {{ timer.running.project.key }}
-        </div>
+        <RouterLink to="/time" class="block">
+          <div class="eyebrow-muted !text-ink/60">läuft</div>
+          <div class="mt-0.5 truncate font-display text-sm font-semibold hover:underline">
+            {{ timer.running.project.key }}
+          </div>
+        </RouterLink>
         <div class="mt-1 flex items-center justify-between gap-2">
           <span class="font-display text-2xl font-semibold tabular-nums leading-none">
             {{ timer.display }}

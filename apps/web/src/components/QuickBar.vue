@@ -174,7 +174,9 @@ const willCreate = computed(() => {
       >
         ■ Timer stoppen · {{ timer.display }}
       </button>
-      <button class="btn-xs" @click="router.push('/projects')">▶ Timer starten</button>
+      <button v-if="!timer.running" class="btn-xs" @click="router.push('/time')">
+        ▶ Timer starten
+      </button>
       <button class="btn-xs" @click="router.push('/meetings')">+ Meeting</button>
       <button class="btn-xs" @click="router.push('/calendar')">+ Termin</button>
       <button class="btn-xs" @click="router.push('/notes')">+ Notiz</button>

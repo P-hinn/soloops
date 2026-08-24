@@ -6,9 +6,13 @@ export type RunningTimer = {
   id: string
   projectId: string
   description: string
+  billable: boolean
   startedAt: string
   project: { id: string; key: string; name: string; color: string }
 } | null
+
+/** Zuletzt bebuchtes Projekt — der Timer startet fast immer auf demselben. */
+const LAST_PROJECT = 'soloops.lastProjectId'
 
 /** Ein globaler Timer, überall in der App sichtbar. */
 export const useTimer = defineStore('timer', () => {
@@ -39,6 +43,7 @@ export const useTimer = defineStore('timer', () => {
       description,
       billable,
     })
+    localStorage.setItem(LAST_PROJECT, projectId)
   }
 
   async function stop() {
@@ -47,9 +52,43 @@ export const useTimer = defineStore('timer', () => {
     running.value = null
   }
 
+  /** Beschreibung nachziehen, während die Uhr läuft. */
+  async function describe(description: string) {
+    if (!running.value) return
+    await api.patch(`/api/time/${running.value.id}`, { description })
+    running.value = { ...running.value, description }
+  }
+
+  /**
+   * Versehentlich gestartet: Eintrag stoppen und gleich löschen, statt eine
+   * Zwei-Sekunden-Buchung in der Auswertung stehen zu lassen.
+   */
+  async function discard() {
+    if (!running.value) return
+    const id = running.value.id
+    running.value = null
+    await api.post('/api/time/stop', { id }).catch(() => {})
+    await api.del(`/api/time/${id}`)
+  }
+
+  function lastProjectId(): string | null {
+    return localStorage.getItem(LAST_PROJECT)
+  }
+
   function startTicking() {
     ticker ??= setInterval(() => (now.value = Date.now()), 1000)
   }
 
-  return { running, elapsedSec, display, refresh, start, stop, startTicking }
+  return {
+    running,
+    elapsedSec,
+    display,
+    refresh,
+    start,
+    stop,
+    describe,
+    discard,
+    lastProjectId,
+    startTicking,
+  }
 })

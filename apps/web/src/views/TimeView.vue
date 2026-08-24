@@ -4,10 +4,12 @@ import { api } from '@/api'
 import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
+import TimerControl from '@/components/TimerControl.vue'
 import { useTimer } from '@/stores/timer'
 
 type Entry = {
   id: string
+  projectId: string
   description: string
   startedAt: string
   endedAt: string | null
@@ -89,14 +91,16 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader title="Zeiten" subtitle="Erfassung und Auswertung">
+    <PageHeader title="Zeiten" subtitle="Stoppuhr, Nachträge und Auswertung">
       <template #actions>
-        <button class="btn-ghost" @click="showManual = !showManual">Nachtragen</button>
-        <button v-if="timer.running" class="btn-danger" @click="timer.stop().then(load)">
-          Timer stoppen
+        <button class="btn-ghost" @click="showManual = !showManual">
+          {{ showManual ? 'Nachtrag schließen' : 'Zeit nachtragen' }}
         </button>
       </template>
     </PageHeader>
+
+    <!-- Die Stoppuhr gehört hierher, nicht in eine Projektzeile. -->
+    <TimerControl class="mb-6" :projects="projects" :recent="entries" @changed="load" />
 
     <form v-if="showManual" class="card mb-4 grid gap-3 md:grid-cols-5" @submit.prevent="addManual">
       <div>
