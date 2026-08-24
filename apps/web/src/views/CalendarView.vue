@@ -13,6 +13,7 @@ import {
   isToday,
   isWeekend,
   isoWeek,
+  allDayCoversDay,
   layoutOverlaps,
   minutesOfDay,
   readableOn,
@@ -186,6 +187,7 @@ function eventsOn(day: Date, opts: { allDay: boolean }): EventItem[] {
   const to = from + 86_400_000
   return visibleEvents.value.filter((e) => {
     if (e.allDay !== opts.allDay) return false
+    if (e.allDay) return allDayCoversDay(new Date(e.startsAt), new Date(e.endsAt), day)
     return new Date(e.startsAt).getTime() < to && new Date(e.endsAt).getTime() > from
   })
 }

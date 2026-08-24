@@ -51,6 +51,31 @@ export function isWeekend(d: Date): boolean {
   return day === 0 || day === 6
 }
 
+/**
+ * Kalendertag als YYYY-MM-DD.
+ *
+ * Ganztägige Termine sind Datumsangaben ohne Zeitpunkt; gespeichert werden sie
+ * als UTC-Mitternacht. Vergleicht man sie gegen lokale Tagesgrenzen, ragt jeder
+ * von ihnen in den Folgetag hinein (bei UTC+2 um zwei Stunden). Deshalb wird
+ * hier auf Datumsebene verglichen statt auf Zeitpunkten.
+ */
+export function dayKeyLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function dayKeyUtc(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+/** DTEND ist bei Ganztägigem exklusiv: 25.->26. bedeutet nur den 25. */
+export function allDayCoversDay(startsAt: Date, endsAt: Date, day: Date): boolean {
+  const key = dayKeyLocal(day)
+  const from = dayKeyUtc(startsAt)
+  const to = dayKeyUtc(endsAt)
+  return key >= from && (key < to || from === to)
+}
+
 /** Minuten seit Mitternacht — Basis für die Positionierung im Zeitraster. */
 export function minutesOfDay(d: Date): number {
   return d.getHours() * 60 + d.getMinutes()

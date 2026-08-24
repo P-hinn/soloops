@@ -135,6 +135,21 @@ model CalendarEvent {
   /// Serie aus einem fremden Kalender: wird gelesen, aber nie zurückgeschrieben.
   recurring    Boolean   @default(false)
   readOnly     Boolean   @default(false)
+
+  // --- Serien -------------------------------------------------------------
+  /// UID aus der Quelle. Verbindet einen überschriebenen Einzeltermin
+  /// (RECURRENCE-ID) mit seiner Serie.
+  sourceUid    String?
+  /// Rohe RRULE. Die Wiederholungen werden beim Lesen aufgespannt, nicht
+  /// als Zeilen materialisiert — eine Zeile pro Serie statt tausend.
+  rrule        String?
+  /// Ursprungszeitzone der Serie. Ohne sie verschiebt die Zeitumstellung
+  /// jede Wiederholung um eine Stunde.
+  timeZone     String?
+  /// Ausgenommene Starttermine (EXDATE + überschriebene Instanzen).
+  exDates      DateTime[]
+  /// Gesetzt, wenn dieser Termin eine einzelne Instanz einer Serie ersetzt.
+  recurrenceId DateTime?
   /// Zeitpunkt des letzten Pushes — verhindert Echo-Schleifen beim 2-Wege-Sync.
   lastPushedAt DateTime?
 

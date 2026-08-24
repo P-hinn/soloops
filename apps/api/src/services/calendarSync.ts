@@ -266,10 +266,7 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
     for (const resource of fetched) {
       if (!resource.data) continue
       for (const parsed of parseIcs(resource.data)) {
-        if (parsed.recurring) {
-          // Serien nur lesen, nie zurückschreiben.
-          result.skippedSeries++
-        }
+        if (parsed.recurring) result.skippedSeries++
         await applyRemote(account, result, {
           remoteId: resource.href,
           remoteEtag: resource.etag,
@@ -283,7 +280,15 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
           allDay: parsed.allDay,
           videoUrl: parsed.videoUrl,
           recurring: parsed.recurring,
-          readOnly: parsed.recurring,
+          // Serien und überschriebene Einzelinstanzen bleiben schreibgeschützt:
+          // sie als eigenständigen VEVENT zurückzuschreiben würde die Serie
+          // in der Gegenstelle zerlegen.
+          readOnly: parsed.recurring || parsed.recurrenceId !== null,
+          sourceUid: parsed.uid,
+          rrule: parsed.rrule,
+          timeZone: parsed.timeZone,
+          exDates: parsed.exDates,
+          recurrenceId: parsed.recurrenceId,
         })
         result.pulled++
         break // eine Ressource = ein Termin (Serien nicht expandieren)
@@ -353,6 +358,12 @@ type RemoteEvent = {
   videoUrl: string | null
   recurring: boolean
   readOnly: boolean
+  // Serien-Metadaten; bei Google immer leer, weil dort Instanzen kommen.
+  sourceUid?: string | null
+  rrule?: string | null
+  timeZone?: string | null
+  exDates?: Date[]
+  recurrenceId?: Date | null
 }
 
 /** Einen Fremdtermin lokal anwenden — anlegen, aktualisieren oder verwerfen. */
@@ -376,6 +387,11 @@ async function applyRemote(
     videoUrl: remote.videoUrl,
     recurring: remote.recurring,
     readOnly: remote.readOnly,
+    sourceUid: remote.sourceUid ?? null,
+    rrule: remote.rrule ?? null,
+    timeZone: remote.timeZone ?? null,
+    exDates: remote.exDates ?? [],
+    recurrenceId: remote.recurrenceId ?? null,
   }
 
   if (existingLink) {
@@ -483,8 +499,13 @@ async function removeLocalByRemoteId(accountId: string, remoteId: string): Promi
 type EventWithLinks = CalendarEvent & { links: EventLink[] }
 
 /**
- * Termine, die dieses Konto noch nicht kennt oder die sich seit dem letzten
- * Push geändert haben. Serien aus Fremdkalendern bleiben außen vor.
+ * Termine, die dieses Konto schreiben soll.
+ *
+ * Entscheidend ist die Herkunft: ein Termin, der aus Kalender A stammt, darf
+ * nicht in Kalender B kopiert werden — sonst vervielfältigt sich bei mehreren
+ * verbundenen Kalendern jeder Termin über alle hinweg. Geschrieben wird also
+ * nur, was hier entstanden ist, plus Änderungen an dem, was dieses Konto
+ * bereits kennt.
  */
 async function pushCandidates(accountId: string): Promise<EventWithLinks[]> {
   const events = await prisma.calendarEvent.findMany({
@@ -492,16 +513,25 @@ async function pushCandidates(accountId: string): Promise<EventWithLinks[]> {
       readOnly: false,
       startsAt: { gte: windowStart(), lte: windowEnd() },
     },
-    include: { links: { where: { accountId } } },
+    // Alle Verknüpfungen, nicht nur die eigene — sonst ist die Herkunft
+    // eines Termins nicht erkennbar.
+    include: { links: true },
     orderBy: { startsAt: 'asc' },
   })
 
-  return events.filter((event) => {
-    const link = event.links[0]
-    if (!link) return true
-    if (!link.pushedUpdatedAt) return true
-    return event.updatedAt.getTime() > link.pushedUpdatedAt.getTime() + 1000
-  })
+  return events
+    .filter((event) => {
+      const mine = event.links.find((l) => l.accountId === accountId)
+      if (mine) {
+        // Bekannt: nur bei echter Änderung erneut schreiben.
+        if (!mine.pushedUpdatedAt) return true
+        return event.updatedAt.getTime() > mine.pushedUpdatedAt.getTime() + 1000
+      }
+      // Unbekannt: nur wenn der Termin aus keinem Fremdkalender stammt.
+      return event.links.length === 0
+    })
+    // Der Rest des Codes erwartet in `links` die Verknüpfung dieses Kontos.
+    .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === accountId) }))
 }
 
 async function linkUp(

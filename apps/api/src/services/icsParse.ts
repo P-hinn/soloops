@@ -8,6 +8,8 @@
  * nie zurück (siehe calendarSync.ts).
  */
 
+import { utcOf } from './tz.js'
+
 export type ParsedEvent = {
   uid: string
   summary: string
@@ -20,6 +22,14 @@ export type ParsedEvent = {
   videoUrl: string | null
   lastModified: Date | null
   sequence: number
+  /** Rohe RRULE, falls vorhanden — wird beim Lesen aufgespannt. */
+  rrule: string | null
+  /** TZID von DTSTART. Serien müssen in ihrer Zone gerechnet werden. */
+  timeZone: string | null
+  /** EXDATE-Einträge: ausgenommene Starttermine. */
+  exDates: Date[]
+  /** Gesetzt, wenn dieser VEVENT eine einzelne Instanz überschreibt. */
+  recurrenceId: Date | null
 }
 
 /** Zeilen entfalten: Fortsetzungen beginnen mit Space oder Tab (RFC 5545 §3.1). */
@@ -71,54 +81,6 @@ function indexOfUnquoted(text: string, char: string): number {
   return -1
 }
 
-/** Offset einer Zeitzone zum gegebenen Zeitpunkt, in Millisekunden. */
-function zoneOffsetMs(instant: Date, timeZone: string): number {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const parts: Record<string, number> = {}
-  for (const p of fmt.formatToParts(instant)) {
-    if (p.type !== 'literal') parts[p.type] = Number(p.value)
-  }
-  const asUtc = Date.UTC(
-    parts.year ?? 1970,
-    (parts.month ?? 1) - 1,
-    parts.day ?? 1,
-    parts.hour ?? 0,
-    parts.minute ?? 0,
-    parts.second ?? 0,
-  )
-  return asUtc - instant.getTime()
-}
-
-/**
- * Wandelt eine Wanduhrzeit in einer benannten Zone nach UTC.
- * Zwei Durchläufe, weil der Offset selbst vom Ergebnis abhängt (Sommerzeit).
- */
-function zonedToUtc(
-  y: number,
-  mo: number,
-  d: number,
-  h: number,
-  mi: number,
-  s: number,
-  timeZone: string,
-): Date {
-  const naive = Date.UTC(y, mo - 1, d, h, mi, s)
-  const first = zoneOffsetMs(new Date(naive), timeZone)
-  let ms = naive - first
-  const second = zoneOffsetMs(new Date(ms), timeZone)
-  if (second !== first) ms = naive - second
-  return new Date(ms)
-}
-
 /** DTSTART/DTEND in allen drei Schreibweisen. */
 export function parseIcsDate(prop: Prop): { date: Date; allDay: boolean } | null {
   const value = prop.value.trim()
@@ -147,7 +109,7 @@ export function parseIcsDate(prop: Prop): { date: Date; allDay: boolean } | null
   const tzid = prop.params.TZID
   if (tzid) {
     try {
-      return { date: zonedToUtc(y, mo, d, h, mi, s, tzid), allDay: false }
+      return { date: utcOf({ y, mo, d, h, mi, s }, tzid), allDay: false }
     } catch {
       // Unbekannte TZID: als UTC lesen statt den Termin zu verlieren.
     }
@@ -216,15 +178,30 @@ function buildEvent(props: Prop[]): ParsedEvent | null {
   const lastModifiedProp = get('LAST-MODIFIED') ?? get('DTSTAMP')
   const lastModified = lastModifiedProp ? (parseIcsDate(lastModifiedProp)?.date ?? null) : null
 
+  const rrule = get('RRULE')?.value?.trim() ?? null
+  const recurrenceIdProp = get('RECURRENCE-ID')
+  const exDates = props
+    .filter((p) => p.name === 'EXDATE')
+    .flatMap((p) =>
+      p.value
+        .split(',')
+        .map((v) => parseIcsDate({ ...p, value: v.trim() })?.date)
+        .filter((d): d is Date => !!d),
+    )
+
   return {
     uid,
+    rrule,
+    timeZone: dtstart.params.TZID ?? null,
+    exDates,
+    recurrenceId: recurrenceIdProp ? (parseIcsDate(recurrenceIdProp)?.date ?? null) : null,
     summary: unescapeText(get('SUMMARY')?.value ?? '(ohne Titel)'),
     description,
     location: get('LOCATION')?.value ? unescapeText(get('LOCATION')!.value) : null,
     startsAt: start.date,
     endsAt: end.date,
     allDay: start.allDay,
-    recurring: props.some((p) => p.name === 'RRULE' || p.name === 'RECURRENCE-ID'),
+    recurring: !!rrule,
     videoUrl: videoUrl || null,
     lastModified,
     sequence: Number(get('SEQUENCE')?.value ?? 0) || 0,
