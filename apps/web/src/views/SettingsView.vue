@@ -138,9 +138,6 @@ const featureLabels: Record<string, string> = {
           <p v-if="error" class="text-sm text-bad">{{ error }}</p>
           <button class="btn-primary">Ändern</button>
         </form>
-        <p class="mt-3 text-xs text-muted">
-          Das Master-Passwort des Vaults ist davon unabhängig und wird nicht geändert.
-        </p>
       </section>
 
       <section class="card">

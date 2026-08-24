@@ -63,7 +63,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="nav-settings"]',
     route: '/',
     title: 'Hier hängt der Rest',
-    body: 'Google- und Apple-Kalender verbinden, Dienste prüfen, MCP-Server in Claude registrieren. Was über die .env läuft, steht dort mit Variablennamen dabei.',
+    body: 'Google- und Apple-Kalender verbinden, Zielkalender festlegen, Dienste prüfen. Was über die .env läuft, steht dort mit Variablennamen dabei.',
   },
 ]
 

@@ -51,7 +51,7 @@ async function submit() {
 
       <div class="flex gap-8 border-t border-line pt-6">
         <div>
-          <div class="font-display text-lg font-semibold">11</div>
+          <div class="font-display text-lg font-semibold">10</div>
           <div class="text-xs text-muted">Module</div>
         </div>
         <div>

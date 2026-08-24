@@ -23,6 +23,11 @@ const CALENDAR_PALETTE = [
   '#be123c', // Karmin
 ]
 
+/** Das erste verbundene Konto wird Zielkalender — sonst landet nichts. */
+async function shouldBeDefault(): Promise<boolean> {
+  return (await prisma.calendarAccount.count({ where: { isDefault: true } })) === 0
+}
+
 /** Die nächste noch nicht vergebene Farbe. */
 async function nextCalendarColor(): Promise<string> {
   const used = new Set(
@@ -77,6 +82,7 @@ const routes: FastifyPluginAsync = async (app) => {
           refreshTokenEnc: tokens.refreshToken ? seal(tokens.refreshToken) : null,
           tokenExpiresAt: tokens.expiresAt,
           color: await nextCalendarColor(),
+          isDefault: await shouldBeDefault(),
         },
         update: {
           accessTokenEnc: seal(tokens.accessToken),
@@ -121,6 +127,8 @@ const routes: FastifyPluginAsync = async (app) => {
           calendar: a.remoteCalendarName,
           color: a.color,
           direction: a.direction,
+          isDefault: a.isDefault,
+          allowRemoteDelete: a.allowRemoteDelete,
           enabled: a.enabled,
           lastSyncAt: a.lastSyncAt,
           lastError: a.lastError,
@@ -195,6 +203,7 @@ const routes: FastifyPluginAsync = async (app) => {
           remoteCalendarId: body.calendarHref,
           remoteCalendarName: body.calendarName,
           color: await nextCalendarColor(),
+          isDefault: await shouldBeDefault(),
         },
         update: {
           label: `Apple · ${body.calendarName}`,
@@ -217,8 +226,18 @@ const routes: FastifyPluginAsync = async (app) => {
           direction: z.enum(['PULL', 'PUSH', 'BOTH']).optional(),
           enabled: z.boolean().optional(),
           label: z.string().optional(),
+          isDefault: z.boolean().optional(),
+          allowRemoteDelete: z.boolean().optional(),
         })
         .parse(req.body)
+
+      // Genau ein Zielkalender: die Markierung wandert, statt sich zu häufen.
+      if (body.isDefault === true) {
+        await prisma.calendarAccount.updateMany({
+          where: { id: { not: id } },
+          data: { isDefault: false },
+        })
+      }
       return prisma.calendarAccount.update({ where: { id }, data: body })
     })
 

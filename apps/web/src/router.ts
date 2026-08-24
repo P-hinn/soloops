@@ -15,7 +15,6 @@ const routes = [
   { path: '/invoices', name: 'invoices', component: () => import('@/views/InvoicesView.vue') },
   { path: '/invoices/:id', name: 'invoice', component: () => import('@/views/InvoiceDetailView.vue') },
   { path: '/ops', name: 'ops', component: () => import('@/views/OpsView.vue') },
-  { path: '/vault', name: 'vault', component: () => import('@/views/VaultView.vue') },
   { path: '/accounting', name: 'accounting', component: () => import('@/views/AccountingView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/' },

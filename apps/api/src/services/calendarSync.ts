@@ -19,7 +19,9 @@ import { buildEventIcs, parseIcs } from './icsParse.js'
  * 2. Konflikt = beide Seiten haben sich seit dem letzten Abgleich geändert.
  *    Dann gewinnt der jüngere Zeitstempel, und die Entscheidung wird geloggt.
  *    Kein stilles Zusammenführen von Feldern.
- * 3. Serien aus Fremdkalendern werden nur gelesen. Google löst sie über
+ * 3. Neue Termine gehen ausschließlich in den als Ziel markierten Kalender,
+ *    und gelöscht wird in der Gegenstelle nur mit ausdrücklicher Freigabe.
+ * 4. Serien aus Fremdkalendern werden nur gelesen. Google löst sie über
  *    `singleEvents=true` in Einzeltermine auf, dort ist das kein Thema.
  *    Bei CalDAV landet die Serie als ein Termin mit `readOnly = true`.
  */
@@ -171,14 +173,17 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
 
   if (account.direction === 'PULL') return
 
-  // --- Löschungen zuerst, damit ein neu angelegter Termin sie nicht überholt
-  for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
-    await google.deleteEvent(token, calendarId, stone.remoteId)
-    await prisma.syncTombstone.delete({ where: { id: stone.id } })
-    result.deletedRemote++
+  // --- Löschungen zuerst, damit ein neu angelegter Termin sie nicht überholt.
+  // Ohne Freigabe bleiben die Grabsteine liegen und der Fremdkalender unberührt.
+  if (account.allowRemoteDelete) {
+    for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
+      await google.deleteEvent(token, calendarId, stone.remoteId)
+      await prisma.syncTombstone.delete({ where: { id: stone.id } })
+      result.deletedRemote++
+    }
   }
 
-  for (const event of await pushCandidates(account.id)) {
+  for (const event of await pushCandidates(account)) {
     const link = event.links[0] ?? null
     const input: google.GoogleEventInput = {
       summary: event.title,
@@ -192,9 +197,19 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
       withMeet: !link && event.videoProvider === 'GOOGLE_MEET' && !event.videoUrl,
     }
 
-    const remote = link
-      ? await google.patchEvent(token, calendarId, link.remoteId, input)
-      : await google.insertEvent(token, calendarId, input)
+    let remote: google.GoogleEvent
+    try {
+      remote = link
+        ? await google.patchEvent(token, calendarId, link.remoteId, input)
+        : await google.insertEvent(token, calendarId, input)
+    } catch (err) {
+      // Ein einzelner Termin, den die Gegenstelle ablehnt, darf nicht den
+      // gesamten Abgleich stoppen. Merken, überspringen, weitermachen.
+      result.conflicts++
+      console.warn(`[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`)
+      await markPushed(account.id, event)
+      continue
+    }
 
     // Google hat einen Meet-Raum erzeugt -> lokal übernehmen
     const meet = google.meetLink(remote)
@@ -303,13 +318,16 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
 
   if (account.direction === 'PULL') return
 
-  for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
-    await caldav.deleteEvent(creds, stone.remoteId, stone.remoteEtag)
-    await prisma.syncTombstone.delete({ where: { id: stone.id } })
-    result.deletedRemote++
+  // Löschen im Fremdkalender nur, wenn dafür ausdrücklich freigegeben.
+  if (account.allowRemoteDelete) {
+    for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
+      await caldav.deleteEvent(creds, stone.remoteId, stone.remoteEtag)
+      await prisma.syncTombstone.delete({ where: { id: stone.id } })
+      result.deletedRemote++
+    }
   }
 
-  for (const event of await pushCandidates(account.id)) {
+  for (const event of await pushCandidates(account)) {
     const link = event.links[0] ?? null
     const href = link?.remoteId ?? caldav.resourceHref(calendarHref, event.externalUid)
     const ics = buildEventIcs(
@@ -327,11 +345,22 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
       Math.floor(event.updatedAt.getTime() / 1000) % 100000,
     )
 
-    const put = await caldav.putEvent(creds, href, ics, link?.remoteEtag ?? null)
+    let put: Awaited<ReturnType<typeof caldav.putEvent>>
+    try {
+      put = await caldav.putEvent(creds, href, ics, link?.remoteEtag ?? null)
+    } catch (err) {
+      // Einzelner Termin abgelehnt (z.B. UID existiert dort schon): notieren
+      // und weitermachen, statt den ganzen Kalender abzubrechen.
+      result.conflicts++
+      console.warn(`[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`)
+      await markPushed(account.id, event)
+      continue
+    }
     if (put.conflict) {
       // Die Gegenseite war schneller. Beim nächsten Pull gewinnt der jüngere Stand.
       result.conflicts++
       console.warn(`[sync] ${account.label}: Konflikt bei "${event.title}" — Pull entscheidet`)
+      await markPushed(account.id, event)
       continue
     }
     await linkUp(account.id, event, href, put.etag, undefined)
@@ -427,6 +456,13 @@ async function applyRemote(
         pushedUpdatedAt: updated.updatedAt,
       },
     })
+    // Und zwar für ALLE Konten: die Änderung kam von außen, sie ist keine
+    // Bearbeitung durch den Nutzer. Ohne das hält jedes andere verbundene
+    // Konto den Termin für lokal geändert und schreibt ihn erneut hinaus.
+    await prisma.eventLink.updateMany({
+      where: { eventId: local.id, id: { not: existingLink.id } },
+      data: { pushedUpdatedAt: updated.updatedAt },
+    })
     return
   }
 
@@ -507,7 +543,7 @@ type EventWithLinks = CalendarEvent & { links: EventLink[] }
  * nur, was hier entstanden ist, plus Änderungen an dem, was dieses Konto
  * bereits kennt.
  */
-async function pushCandidates(accountId: string): Promise<EventWithLinks[]> {
+async function pushCandidates(account: CalendarAccount): Promise<EventWithLinks[]> {
   const events = await prisma.calendarEvent.findMany({
     where: {
       readOnly: false,
@@ -521,17 +557,31 @@ async function pushCandidates(accountId: string): Promise<EventWithLinks[]> {
 
   return events
     .filter((event) => {
-      const mine = event.links.find((l) => l.accountId === accountId)
+      const mine = event.links.find((l) => l.accountId === account.id)
       if (mine) {
         // Bekannt: nur bei echter Änderung erneut schreiben.
         if (!mine.pushedUpdatedAt) return true
         return event.updatedAt.getTime() > mine.pushedUpdatedAt.getTime() + 1000
       }
-      // Unbekannt: nur wenn der Termin aus keinem Fremdkalender stammt.
-      return event.links.length === 0
+      // Unbekannt: nur der Zielkalender nimmt neue Termine auf, und nur solche,
+      // die nicht aus einem anderen Fremdkalender stammen.
+      return account.isDefault && event.links.length === 0
     })
     // Der Rest des Codes erwartet in `links` die Verknüpfung dieses Kontos.
-    .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === accountId) }))
+    .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === account.id) }))
+}
+
+/**
+ * Nach einem abgelehnten Push den Stand festhalten, damit derselbe Termin
+ * nicht bei jedem Lauf erneut versucht und derselbe Fehler wiederholt wird.
+ */
+async function markPushed(accountId: string, event: CalendarEvent): Promise<void> {
+  await prisma.eventLink
+    .updateMany({
+      where: { accountId, eventId: event.id },
+      data: { pushedUpdatedAt: event.updatedAt },
+    })
+    .catch(() => {})
 }
 
 async function linkUp(
@@ -541,27 +591,25 @@ async function linkUp(
   remoteEtag: string | null,
   remoteUpdated: string | undefined,
 ): Promise<void> {
-  const current = await prisma.calendarEvent.findUniqueOrThrow({ where: { id: event.id } })
-  await prisma.eventLink.upsert({
-    where: { accountId_eventId: { accountId, eventId: event.id } },
-    create: {
-      accountId,
-      eventId: event.id,
-      remoteId,
-      remoteEtag,
-      remoteUpdatedAt: remoteUpdated ? new Date(remoteUpdated) : new Date(),
-      pushedUpdatedAt: current.updatedAt,
-    },
-    update: {
-      remoteId,
-      remoteEtag,
-      remoteUpdatedAt: remoteUpdated ? new Date(remoteUpdated) : new Date(),
-      pushedUpdatedAt: current.updatedAt,
-    },
-  })
-  await prisma.calendarEvent.update({
+  // Reihenfolge ist entscheidend: `lastPushedAt` zu schreiben hebt über
+  // @updatedAt auch `updatedAt` an. Stempelten wir die Verknüpfung vorher,
+  // sähe der Termin gleich darauf wieder "lokal geändert" aus und würde bei
+  // jedem Lauf erneut hinausgeschrieben — eine Endlosschleife im Zehnminutentakt.
+  const current = await prisma.calendarEvent.update({
     where: { id: event.id },
     data: { lastPushedAt: new Date() },
+  })
+
+  const stamp = {
+    remoteId,
+    remoteEtag,
+    remoteUpdatedAt: remoteUpdated ? new Date(remoteUpdated) : new Date(),
+    pushedUpdatedAt: current.updatedAt,
+  }
+  await prisma.eventLink.upsert({
+    where: { accountId_eventId: { accountId, eventId: event.id } },
+    create: { accountId, eventId: event.id, ...stamp },
+    update: stamp,
   })
 }
 

@@ -169,22 +169,6 @@ export const invoiceFromTimeInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Vault
-// ---------------------------------------------------------------------------
-
-export const vaultItemInput = z.object({
-  title: z.string().min(1),
-  username: z.string().nullish(),
-  url: z.string().nullish(),
-  folder: z.string().nullish(),
-  tags: z.array(z.string()).default([]),
-  cipherText: z.string().min(1),
-  iv: z.string().min(1),
-  projectId: z.string().nullish(),
-  clientId: z.string().nullish(),
-})
-
-// ---------------------------------------------------------------------------
 // CI/CD
 // ---------------------------------------------------------------------------
 
@@ -210,7 +194,6 @@ export type TimerStartInput = z.infer<typeof timerStartInput>
 export type TimeEntryInput = z.infer<typeof timeEntryInput>
 export type InvoiceInput = z.infer<typeof invoiceInput>
 export type InvoiceFromTimeInput = z.infer<typeof invoiceFromTimeInput>
-export type VaultItemInput = z.infer<typeof vaultItemInput>
 export type RepoInput = z.infer<typeof repoInput>
 
 // ---------------------------------------------------------------------------
