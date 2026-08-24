@@ -6,6 +6,7 @@ import { env } from '../env.js'
 import { buildIcs } from '../services/ics.js'
 import { tombstoneEvent } from '../services/calendarSync.js'
 import { createVideoRoom } from '../services/video.js'
+import { expandRecurrence } from '../services/recurrence.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -45,21 +46,74 @@ const routes: FastifyPluginAsync = async (app) => {
       const from = q.from ? new Date(q.from) : startOfWeek(new Date())
       const to = q.to ? new Date(q.to) : addDays(from, 28)
 
-      return prisma.calendarEvent.findMany({
-        where: {
-          startsAt: { lt: to },
-          endsAt: { gt: from },
-          ...(q.projectId ? { projectId: q.projectId } : {}),
-        },
-        include: {
-          project: { select: { id: true, key: true, name: true, color: true } },
-          client: { select: { id: true, name: true } },
-          meeting: { select: { id: true, status: true } },
-          // Über welchen Kalender kam der Termin? Trägt die Farbgebung.
-          links: { select: { accountId: true } },
-        },
-        orderBy: { startsAt: 'asc' },
+      const include = {
+        project: { select: { id: true, key: true, name: true, color: true } },
+        client: { select: { id: true, name: true } },
+        meeting: { select: { id: true, status: true } },
+        // Über welchen Kalender kam der Termin? Trägt die Farbgebung.
+        links: { select: { accountId: true } },
+      } as const
+
+      const [single, series] = await Promise.all([
+        // Einzeltermine: klassisch über das Zeitfenster
+        prisma.calendarEvent.findMany({
+          where: {
+            rrule: null,
+            startsAt: { lt: to },
+            endsAt: { gt: from },
+            ...(q.projectId ? { projectId: q.projectId } : {}),
+          },
+          include,
+          orderBy: { startsAt: 'asc' },
+        }),
+        // Serien: unabhängig vom Fenster laden — ihr Startdatum liegt oft
+        // Jahre zurück, die Wiederholungen aber mitten im Fenster.
+        prisma.calendarEvent.findMany({
+          where: {
+            rrule: { not: null },
+            startsAt: { lt: to },
+            ...(q.projectId ? { projectId: q.projectId } : {}),
+          },
+          include,
+        }),
+      ])
+
+      // Überschriebene Einzelinstanzen verdrängen die generierte Wiederholung.
+      const overrides = new Set(
+        single
+          .filter((e) => e.sourceUid && e.recurrenceId)
+          .map((e) => `${e.sourceUid}|${e.recurrenceId!.getTime()}`),
+      )
+
+      const expanded = series.flatMap((event) => {
+        const durationMs = Math.max(0, event.endsAt.getTime() - event.startsAt.getTime())
+        const occurrences = expandRecurrence({
+          rrule: event.rrule!,
+          dtstart: event.startsAt,
+          durationMs,
+          timeZone: event.timeZone,
+          exDates: event.exDates,
+          windowStart: from,
+          windowEnd: to,
+        })
+
+        return occurrences
+          .filter((o) => !overrides.has(`${event.sourceUid}|${o.start.getTime()}`))
+          .map((o) => ({
+            ...event,
+            // Virtuelle Instanz: eigene Id, damit Vue sie unterscheiden kann,
+            // aber erkennbar abgeleitet. Sie existiert nicht als Zeile.
+            id: `${event.id}@${o.start.toISOString()}`,
+            occurrenceOf: event.id,
+            startsAt: o.start,
+            endsAt: o.end,
+            readOnly: true,
+          }))
       })
+
+      return [...single, ...expanded].sort(
+        (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+      )
     })
 
     secured.post('/', async (req, reply) => {
