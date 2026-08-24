@@ -223,7 +223,7 @@ const card = computed(() => {
       <div class="absolute inset-0" @click="next" />
 
       <div
-        class="absolute flex max-h-[calc(100vh-2rem)] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden border-2 border-ink bg-paper shadow-paper"
+        class="popover absolute flex max-h-[calc(100vh-2rem)] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden"
         :style="card"
       >
         <div class="flex items-center gap-2 border-b border-ink bg-acid px-4 py-2">

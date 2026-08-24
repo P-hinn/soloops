@@ -26,13 +26,12 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-paper">
+  <div class="flex min-h-screen bg-shell">
     <!-- Linke Hälfte: die Aussage, wie auf der Website -->
     <div class="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex">
-      <div class="flex items-center gap-3">
-        <span class="flex h-11 w-11 items-center justify-center bg-ink text-paper">
-          <BrandMark :size="26" />
-        </span>
+      <!-- Hier hat die Bildmarke Platz: bei 64px tragen die Innenräume. -->
+      <div class="flex items-center gap-4">
+        <BrandMark :size="64" class="text-ink" />
         <span class="flex items-baseline gap-2">
           <span class="font-display text-2xl font-bold tracking-tight">soloops</span>
           <span class="h-2 w-2 rounded-full bg-acid" />
@@ -67,7 +66,7 @@ async function submit() {
     </div>
 
     <!-- Rechte Hälfte: das Formular -->
-    <div class="flex w-full items-center justify-center p-8 lg:w-[460px]">
+    <div class="flex w-full items-center justify-center bg-paper p-8 lg:w-[460px]">
       <form class="w-full max-w-sm" @submit.prevent="submit">
         <div class="eyebrow mb-2">Anmeldung</div>
         <h2 class="display-lg mb-8">Willkommen zurück.</h2>

@@ -340,7 +340,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     <!-- ==================================================================== -->
     <!-- Kopf                                                                  -->
     <!-- ==================================================================== -->
-    <header class="shrink-0 border-b border-line px-6 py-3">
+    <header class="shrink-0 border-b border-line bg-shell px-6 py-3">
       <div class="flex flex-wrap items-center gap-4">
         <div class="min-w-0">
           <div class="eyebrow">{{ subtitle }}</div>
@@ -420,7 +420,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     <!-- Monatsansicht                                                         -->
     <!-- ==================================================================== -->
     <div v-if="view === 'month'" class="flex min-h-0 flex-1 flex-col">
-      <div class="grid shrink-0 grid-cols-7 border-b border-line">
+      <div class="grid shrink-0 grid-cols-7 border-b border-line bg-shell">
         <div
           v-for="name in weekdayNames"
           :key="name"
@@ -502,7 +502,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     <div v-else class="flex min-h-0 flex-1 flex-col">
       <!-- Spaltenköpfe -->
       <div
-        class="grid shrink-0 border-b border-line pr-[10px]"
+        class="grid shrink-0 border-b border-line bg-shell pr-[10px]"
         :style="{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }"
       >
         <div />
@@ -528,7 +528,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
       <!-- Ganztägig -->
       <div
         v-if="hasAllDay"
-        class="grid max-h-24 shrink-0 overflow-y-auto border-b border-line-strong pr-[10px]"
+        class="grid max-h-24 shrink-0 overflow-y-auto border-b border-line-strong bg-paper-2/60 pr-[10px]"
         :style="{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }"
       >
         <div class="py-1 pr-2 text-right text-[10px] uppercase tracking-wide text-muted">ganztägig</div>
@@ -648,7 +648,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     <Teleport to="body">
       <div v-if="selected" class="fixed inset-0 z-50 flex items-center justify-center p-6">
         <div class="absolute inset-0 bg-ink/40" @click="selected = null" />
-        <div class="relative w-full max-w-md border-2 border-ink bg-paper shadow-paper">
+        <div class="popover relative w-full max-w-md">
           <div
             class="flex items-center gap-2 border-b border-ink px-4 py-2.5"
             :style="{ background: chipStyle(colorOf(selected)).background }"
@@ -725,7 +725,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-6">
         <div class="absolute inset-0 bg-ink/40" @click="showForm = false" />
         <form
-          class="relative w-full max-w-lg border-2 border-ink bg-paper shadow-paper"
+          class="popover relative w-full max-w-lg"
           @submit.prevent="create"
         >
           <div class="flex items-center gap-2 border-b border-ink bg-acid px-4 py-2.5">

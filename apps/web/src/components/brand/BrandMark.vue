@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * Wortbildmarke aus philippniestroj.com — dieselbe Pfaddefinition wie auf der
- * Website, damit Tool und Auftritt dieselbe Handschrift haben.
- * `currentColor` statt fester Farbe, damit die Marke im Acid-Balken der
- * Seitenleiste genauso funktioniert wie auf Papier.
+ * Bildmarke aus philippniestroj.com — dieselbe Pfaddefinition wie auf der
+ * Website.
+ *
+ * ACHTUNG Mindestgröße: unter etwa 48px laufen die Innenräume von P und N zu
+ * und die Marke wird zum Klecks. Sie gehört auf Anmeldeseite und Druckstücke,
+ * nicht in eine 20px-Navigationszeile — dort steht die Wortmarke.
  */
-withDefaults(defineProps<{ size?: number | string }>(), { size: 22 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 64 })
 </script>
 
 <template>

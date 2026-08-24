@@ -106,8 +106,8 @@ const allGreen = computed(
       </div>
 
       <!-- Drei Spalten, getrennt durch Haarlinien statt durch Kästen -->
-      <div class="mt-10 grid gap-px border border-line bg-line lg:grid-cols-3">
-        <section class="bg-paper p-5">
+      <div class="tile-grid mt-10 lg:grid-cols-3">
+        <section class="tile">
           <h2 class="eyebrow mb-4">Heute</h2>
           <ul v-if="data.today.events.length" class="space-y-2.5">
             <li v-for="e in data.today.events" :key="e.id" class="flex items-start gap-2.5 text-sm">
@@ -135,7 +135,7 @@ const allGreen = computed(
           </template>
         </section>
 
-        <section class="bg-paper p-5">
+        <section class="tile">
           <h2 class="eyebrow mb-4">Geld</h2>
           <div v-if="data.money.overdue.length">
             <h3 class="eyebrow-muted mb-2 !text-bad">Überfällig</h3>
@@ -163,7 +163,7 @@ const allGreen = computed(
           </div>
         </section>
 
-        <section class="bg-paper p-5">
+        <section class="tile">
           <h2 class="eyebrow mb-4">Betrieb</h2>
 
           <template v-if="!allGreen">
