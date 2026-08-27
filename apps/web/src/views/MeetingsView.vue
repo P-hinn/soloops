@@ -64,7 +64,15 @@ async function create() {
     withVideo: form.value.withVideo,
   })
   showForm.value = false
-  form.value = { title: '', startsAt: '', endsAt: '', projectId: '', participants: '', agenda: '', withVideo: true }
+  form.value = {
+    title: '',
+    startsAt: '',
+    endsAt: '',
+    projectId: '',
+    participants: '',
+    agenda: '',
+    withVideo: true,
+  }
   await load()
 }
 
@@ -107,7 +115,10 @@ onMounted(async () => {
         <input v-model="form.participants" class="input" />
       </div>
       <div class="flex items-end gap-3">
-        <label class="flex items-center gap-2 pb-2 text-sm" title="Erzeugt einen Jitsi-Raum, kein Konto nötig">
+        <label
+          class="flex items-center gap-2 pb-2 text-sm"
+          title="Erzeugt einen Jitsi-Raum, kein Konto nötig"
+        >
           <input v-model="form.withVideo" type="checkbox" /> Videoraum
         </label>
         <button class="btn-primary">Anlegen</button>
@@ -133,23 +144,24 @@ onMounted(async () => {
         <tbody>
           <tr v-for="m in meetings" :key="m.id" class="hover:bg-ink/[0.035]">
             <td class="whitespace-nowrap font-mono text-xs text-muted">
-              {{ new Date(m.startsAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) }}
+              {{
+                new Date(m.startsAt).toLocaleString('de-DE', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })
+              }}
             </td>
             <td>
-              <RouterLink :to="`/meetings/${m.id}`" class="hover:text-blue">{{ m.title }}</RouterLink>
+              <RouterLink :to="`/meetings/${m.id}`" class="hover:text-blue">{{
+                m.title
+              }}</RouterLink>
               <span v-if="m.client" class="ml-2 text-xs text-muted">{{ m.client.name }}</span>
             </td>
             <td>
               <span v-if="m.project" class="badge bg-paper-2 text-soft">{{ m.project.key }}</span>
             </td>
             <td>
-              <a
-                v-if="m.videoUrl"
-                :href="m.videoUrl"
-                target="_blank"
-                class="btn-xs"
-                @click.stop
-              >
+              <a v-if="m.videoUrl" :href="m.videoUrl" target="_blank" class="btn-xs" @click.stop>
                 ▶ Beitreten
               </a>
               <span v-else class="text-xs text-muted">—</span>

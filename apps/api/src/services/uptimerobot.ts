@@ -10,7 +10,12 @@ type RobotMonitor = {
   interval: number
   average_response_time?: string
   custom_uptime_ratio?: string
-  logs?: { type: number; datetime: number; duration: number; reason?: { code: string; detail: string } }[]
+  logs?: {
+    type: number
+    datetime: number
+    duration: number
+    reason?: { code: string; detail: string }
+  }[]
 }
 
 /**
@@ -37,7 +42,11 @@ export async function syncUptimeRobot(): Promise<{ monitors: number; incidents: 
   })
   if (!res.ok) throw new Error(`UptimeRobot HTTP ${res.status}`)
 
-  const json = (await res.json()) as { stat: string; error?: { message: string }; monitors?: RobotMonitor[] }
+  const json = (await res.json()) as {
+    stat: string
+    error?: { message: string }
+    monitors?: RobotMonitor[]
+  }
   if (json.stat !== 'ok') throw new Error(json.error?.message ?? 'UptimeRobot-Fehler')
 
   let incidentCount = 0

@@ -33,7 +33,10 @@ async function nextCalendarColor(): Promise<string> {
   const used = new Set(
     (await prisma.calendarAccount.findMany({ select: { color: true } })).map((a) => a.color),
   )
-  return CALENDAR_PALETTE.find((c) => !used.has(c)) ?? CALENDAR_PALETTE[used.size % CALENDAR_PALETTE.length]!
+  return (
+    CALENDAR_PALETTE.find((c) => !used.has(c)) ??
+    CALENDAR_PALETTE[used.size % CALENDAR_PALETTE.length]!
+  )
 }
 
 const routes: FastifyPluginAsync = async (app) => {
@@ -43,7 +46,11 @@ const routes: FastifyPluginAsync = async (app) => {
   // -------------------------------------------------------------------------
   app.get('/google/callback', async (req, reply) => {
     const q = z
-      .object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() })
+      .object({
+        code: z.string().optional(),
+        state: z.string().optional(),
+        error: z.string().optional(),
+      })
       .parse(req.query)
 
     const back = (params: Record<string, string>) =>
@@ -62,7 +69,8 @@ const routes: FastifyPluginAsync = async (app) => {
       const tokens = await google.exchangeCode(q.code)
       const calendars = await google.listCalendars(tokens.accessToken)
       const primary = calendars.find((c) => c.primary) ?? calendars[0]
-      if (!primary) return back({ calendar: 'error', message: 'Kein schreibbarer Kalender gefunden' })
+      if (!primary)
+        return back({ calendar: 'error', message: 'Kein schreibbarer Kalender gefunden' })
 
       await prisma.calendarAccount.upsert({
         where: {
@@ -166,7 +174,13 @@ const routes: FastifyPluginAsync = async (app) => {
         .parse(req.body)
       try {
         const calendars = await discoverCalendars(body)
-        return { calendars: calendars.map(({ href, displayName, supportsSyncCollection }) => ({ href, displayName, supportsSyncCollection })) }
+        return {
+          calendars: calendars.map(({ href, displayName, supportsSyncCollection }) => ({
+            href,
+            displayName,
+            supportsSyncCollection,
+          })),
+        }
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message })
       }

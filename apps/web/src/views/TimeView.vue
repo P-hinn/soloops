@@ -5,7 +5,6 @@ import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import TimerControl from '@/components/TimerControl.vue'
-import { useTimer } from '@/stores/timer'
 
 type Entry = {
   id: string
@@ -33,7 +32,6 @@ type Report = {
   }[]
 }
 
-const timer = useTimer()
 const entries = ref<Entry[]>([])
 const projects = ref<Project[]>([])
 const report = ref<Report | null>(null)
@@ -46,7 +44,9 @@ const manual = ref({ projectId: '', description: '', startedAt: '', endedAt: '',
 const showManual = ref(false)
 
 const unbilledSec = computed(() =>
-  entries.value.filter((e) => e.billable && !e.invoiceItemId).reduce((s, e) => s + e.durationSec, 0),
+  entries.value
+    .filter((e) => e.billable && !e.invoiceItemId)
+    .reduce((s, e) => s + e.durationSec, 0),
 )
 
 async function load() {
@@ -164,17 +164,26 @@ onMounted(async () => {
             <tr v-for="e in entries" :key="e.id" class="hover:bg-ink/[0.035]">
               <td class="whitespace-nowrap text-xs text-muted">
                 {{ date(e.startedAt) }}
-                <span class="block">{{ time(e.startedAt) }}–{{ e.endedAt ? time(e.endedAt) : '…' }}</span>
+                <span class="block"
+                  >{{ time(e.startedAt) }}–{{ e.endedAt ? time(e.endedAt) : '…' }}</span
+                >
               </td>
               <td>
-                <span class="badge" :style="{ background: e.project.color + '22', color: e.project.color }">
+                <span
+                  class="badge"
+                  :style="{ background: e.project.color + '22', color: e.project.color }"
+                >
                   {{ e.project.key }}
                 </span>
               </td>
               <td>
                 {{ e.description || '—' }}
-                <span v-if="e.invoiceItemId" class="ml-1 badge bg-paper-2 text-muted">fakturiert</span>
-                <span v-else-if="!e.billable" class="ml-1 badge bg-paper-2 text-muted">nicht abrechenbar</span>
+                <span v-if="e.invoiceItemId" class="ml-1 badge bg-paper-2 text-muted"
+                  >fakturiert</span
+                >
+                <span v-else-if="!e.billable" class="ml-1 badge bg-paper-2 text-muted"
+                  >nicht abrechenbar</span
+                >
               </td>
               <td class="text-right tabular-nums">{{ formatDuration(e.durationSec) }}</td>
               <td class="text-right">

@@ -74,8 +74,6 @@ export async function listEventsInRange(
       }))
   })
 
-  const all = [...single, ...expanded].sort(
-    (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
-  )
+  const all = [...single, ...expanded].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
   return opts.take ? all.slice(0, opts.take) : all
 }

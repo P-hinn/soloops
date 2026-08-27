@@ -13,21 +13,21 @@
     "test": "tsx test/recurrence.test.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
-    "@fastify/cors": "^10.0.2",
-    "@fastify/jwt": "^9.0.3",
-    "@fastify/multipart": "^9.0.3",
+    "@anthropic-ai/sdk": "^0.121.0",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/jwt": "^10.2.2",
+    "@fastify/multipart": "^10.1.1",
     "@prisma/client": "^6.3.0",
     "@soloops/shared": "*",
-    "bullmq": "^5.34.10",
-    "fastify": "^5.2.1",
-    "ioredis": "^5.4.2",
+    "bullmq": "^6.3.1",
+    "fastify": "^5.12.1",
+    "ioredis": "^6.0.0",
     "pdfkit": "^0.16.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
-    "@types/pdfkit": "^0.13.9",
+    "@types/pdfkit": "^0.17.6",
     "prisma": "^6.3.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

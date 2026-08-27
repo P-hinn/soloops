@@ -82,9 +82,7 @@ export async function buildProjectDigest(projectId: string) {
       faellig: project.dueOn?.toISOString().slice(0, 10) ?? null,
       budgetEUR: project.budgetCents ? project.budgetCents / 100 : null,
     },
-    kunde: project.client
-      ? { name: project.client.name, firma: project.client.company }
-      : null,
+    kunde: project.client ? { name: project.client.name, firma: project.client.company } : null,
     zeit: {
       gesamt: formatDuration(tracked._sum.durationSec ?? 0),
       nichtAbgerechnet: formatDuration(unbilled._sum.durationSec ?? 0),
@@ -233,14 +231,16 @@ export async function summarizeMeeting(meetingId: string) {
   // Bestehende AI-Items ersetzen, manuell angelegte bleiben unangetastet.
   await prisma.actionItem.deleteMany({ where: { meetingId, source: 'AI', done: false } })
   await prisma.actionItem.createMany({
-    data: parsed.actionItems.map((a: { title: string; assignee: string | null; dueHint: string | null }) => ({
-      title: a.title,
-      assignee: a.assignee,
-      dueOn: parseDueHint(a.dueHint),
-      meetingId,
-      projectId: meeting.projectId,
-      source: 'AI',
-    })),
+    data: parsed.actionItems.map(
+      (a: { title: string; assignee: string | null; dueHint: string | null }) => ({
+        title: a.title,
+        assignee: a.assignee,
+        dueOn: parseDueHint(a.dueHint),
+        meetingId,
+        projectId: meeting.projectId,
+        source: 'AI',
+      }),
+    ),
   })
 
   const actionItems = await prisma.actionItem.findMany({ where: { meetingId } })

@@ -46,8 +46,8 @@ const featureLabels: Record<string, string> = {
     <section class="card mb-4">
       <h2 class="eyebrow mb-1">Einrichtung</h2>
       <p class="mb-4 text-xs text-muted">
-        Die Checkliste auf dem Dashboard liest den echten Zustand — sie hakt nur ab, was
-        tatsächlich existiert.
+        Die Checkliste auf dem Dashboard liest den echten Zustand — sie hakt nur ab, was tatsächlich
+        existiert.
       </p>
       <div class="flex flex-wrap items-center gap-3">
         <span v-if="onboarding.state" class="font-display text-sm font-semibold tabular-nums">
@@ -68,9 +68,7 @@ const featureLabels: Record<string, string> = {
         >
           Checkliste ausblenden
         </button>
-        <span v-if="onboarding.complete" class="text-sm text-good">
-          Alles eingerichtet.
-        </span>
+        <span v-if="onboarding.complete" class="text-sm text-good"> Alles eingerichtet. </span>
       </div>
     </section>
 
@@ -128,7 +126,12 @@ const featureLabels: Record<string, string> = {
         <form class="space-y-3" @submit.prevent="changePassword">
           <div>
             <label class="label">Aktuelles Passwort</label>
-            <input v-model="current" type="password" class="input" autocomplete="current-password" />
+            <input
+              v-model="current"
+              type="password"
+              class="input"
+              autocomplete="current-password"
+            />
           </div>
           <div>
             <label class="label">Neues Passwort (min. 10 Zeichen)</label>

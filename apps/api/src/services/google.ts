@@ -147,7 +147,9 @@ async function call<T>(
     throw err
   }
   if (!res.ok) {
-    throw new Error(`Google Calendar ${path}: HTTP ${res.status} ${(await res.text()).slice(0, 300)}`)
+    throw new Error(
+      `Google Calendar ${path}: HTTP ${res.status} ${(await res.text()).slice(0, 300)}`,
+    )
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T

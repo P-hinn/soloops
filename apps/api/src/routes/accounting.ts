@@ -22,7 +22,8 @@ const routes: FastifyPluginAsync = async (app) => {
 
   /** Kunden nach lexoffice spiegeln (Contact anlegen/aktualisieren). */
   app.post('/clients/:id/sync', async (req, reply) => {
-    if (!env.LEXOFFICE_API_KEY) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+    if (!env.LEXOFFICE_API_KEY)
+      return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const client = await prisma.client.findUniqueOrThrow({ where: { id } })
     const contactId = await lexoffice.upsertContact(client)
@@ -35,7 +36,8 @@ const routes: FastifyPluginAsync = async (app) => {
    * Zeit- und Projektzuordnung.
    */
   app.post('/invoices/:id/sync', async (req, reply) => {
-    if (!env.LEXOFFICE_API_KEY) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+    if (!env.LEXOFFICE_API_KEY)
+      return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
     const { id } = z.object({ id: z.string() }).parse(req.params)
 
     const invoice = await prisma.invoice.findUniqueOrThrow({
@@ -67,7 +69,8 @@ const routes: FastifyPluginAsync = async (app) => {
 
   /** Alle noch nicht übertragenen Rechnungen in einem Rutsch. */
   app.post('/invoices/sync-pending', async (_req, reply) => {
-    if (!env.LEXOFFICE_API_KEY) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+    if (!env.LEXOFFICE_API_KEY)
+      return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
     const pending = await prisma.invoice.findMany({
       where: { status: { in: ['SENT', 'PAID', 'OVERDUE'] }, lexofficeId: null },
       include: { client: true, items: { orderBy: { position: 'asc' } } },
@@ -99,13 +102,21 @@ const routes: FastifyPluginAsync = async (app) => {
 
   /** Umsatzübersicht pro Monat — für Steuervorauszahlung und USt-Voranmeldung. */
   app.get('/revenue', async (req) => {
-    const q = z.object({ year: z.coerce.number().default(new Date().getFullYear()) }).parse(req.query)
+    const q = z
+      .object({ year: z.coerce.number().default(new Date().getFullYear()) })
+      .parse(req.query)
     const invoices = await prisma.invoice.findMany({
       where: {
         status: { in: ['SENT', 'PAID', 'OVERDUE'] },
         issueDate: { gte: new Date(q.year, 0, 1), lt: new Date(q.year + 1, 0, 1) },
       },
-      select: { issueDate: true, subtotalCents: true, taxCents: true, totalCents: true, status: true },
+      select: {
+        issueDate: true,
+        subtotalCents: true,
+        taxCents: true,
+        totalCents: true,
+        status: true,
+      },
     })
 
     const months = Array.from({ length: 12 }, (_, i) => ({

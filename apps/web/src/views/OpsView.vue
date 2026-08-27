@@ -15,7 +15,14 @@ type Monitor = {
   project?: { key: string } | null
   incidents: { id: string; startedAt: string; durationSec: number | null; reason: string | null }[]
 }
-type Run = { id: string; name: string; branch: string; status: string; url: string | null; startedAt: string | null }
+type Run = {
+  id: string
+  name: string
+  branch: string
+  status: string
+  url: string | null
+  startedAt: string | null
+}
 type Repo = {
   id: string
   provider: string
@@ -38,7 +45,13 @@ const error = ref('')
 
 const newRepo = ref({ provider: 'GITHUB', slug: '', branch: 'main', projectId: '' })
 
-const statusLabel: Record<number, string> = { 0: 'pausiert', 1: 'neu', 2: 'up', 8: 'wackelt', 9: 'down' }
+const statusLabel: Record<number, string> = {
+  0: 'pausiert',
+  1: 'neu',
+  2: 'up',
+  8: 'wackelt',
+  9: 'down',
+}
 const runTone: Record<string, string> = {
   SUCCESS: 'bg-good',
   FAILED: 'bg-bad',
@@ -51,7 +64,9 @@ const runTone: Record<string, string> = {
 async function load() {
   const [uptime, pipelines] = await Promise.all([
     api.get<{ configured: boolean; monitors: Monitor[] }>('/api/uptime'),
-    api.get<{ configured: { github: boolean; gitlab: boolean }; repos: Repo[] }>('/api/pipelines/repos'),
+    api.get<{ configured: { github: boolean; gitlab: boolean }; repos: Repo[] }>(
+      '/api/pipelines/repos',
+    ),
   ])
   monitors.value = uptime.monitors
   uptimeConfigured.value = uptime.configured
@@ -137,12 +152,20 @@ onMounted(async () => {
           <tr v-for="m in monitors" :key="m.id">
             <td>
               <div>{{ m.friendlyName }}</div>
-              <a :href="m.url" target="_blank" class="text-xs text-muted hover:text-blue">{{ m.url }}</a>
+              <a :href="m.url" target="_blank" class="text-xs text-muted hover:text-blue">{{
+                m.url
+              }}</a>
             </td>
             <td>
               <span
                 class="badge"
-                :class="m.status === 2 ? 'bg-good/10 text-good' : m.status === 0 ? 'bg-paper-2 text-muted' : 'bg-bad/10 text-bad'"
+                :class="
+                  m.status === 2
+                    ? 'bg-good/10 text-good'
+                    : m.status === 0
+                      ? 'bg-paper-2 text-muted'
+                      : 'bg-bad/10 text-bad'
+                "
               >
                 {{ statusLabel[m.status] ?? m.status }}
               </span>
@@ -176,7 +199,12 @@ onMounted(async () => {
           <option value="GITHUB">GitHub</option>
           <option value="GITLAB">GitLab</option>
         </select>
-        <input v-model="newRepo.slug" class="input md:col-span-2" placeholder="owner/repo" required />
+        <input
+          v-model="newRepo.slug"
+          class="input md:col-span-2"
+          placeholder="owner/repo"
+          required
+        />
         <select v-model="newRepo.projectId" class="input">
           <option value="">Projekt —</option>
           <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.key }}</option>
@@ -185,16 +213,14 @@ onMounted(async () => {
       </form>
 
       <div class="space-y-3">
-        <div
-          v-for="repo in repos"
-          :key="repo.id"
-          class="border border-line bg-paper-2 p-3"
-        >
+        <div v-for="repo in repos" :key="repo.id" class="border border-line bg-paper-2 p-3">
           <div class="flex items-center justify-between">
             <div>
               <span class="badge bg-paper-2 text-soft">{{ repo.provider }}</span>
               <span class="ml-2 font-mono text-sm">{{ repo.slug }}</span>
-              <span v-if="repo.project" class="ml-2 text-xs text-muted">{{ repo.project.key }}</span>
+              <span v-if="repo.project" class="ml-2 text-xs text-muted">{{
+                repo.project.key
+              }}</span>
             </div>
             <span class="text-xs text-muted">
               {{ repo.lastSyncedAt ? new Date(repo.lastSyncedAt).toLocaleString('de-DE') : 'nie' }}
@@ -209,7 +235,7 @@ onMounted(async () => {
               class="flex items-center gap-1.5 bg-paper-2 px-2 py-1 text-xs hover:bg-ink/5"
               :title="`${run.name} · ${run.branch} · ${run.status}`"
             >
-              <span class="h-2 w-2 " :class="runTone[run.status]" />
+              <span class="h-2 w-2" :class="runTone[run.status]" />
               <span class="text-soft">{{ run.branch }}</span>
             </a>
             <span v-if="!repo.runs.length" class="text-xs text-muted">noch keine Läufe</span>

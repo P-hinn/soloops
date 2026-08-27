@@ -30,7 +30,12 @@ type EventLite = {
 type Dashboard = {
   today: { events: EventLite[] }
   weekEvents: EventLite[]
-  upcomingMeetings: { id: string; title: string; startsAt: string; client?: { name: string } | null }[]
+  upcomingMeetings: {
+    id: string
+    title: string
+    startsAt: string
+    client?: { name: string } | null
+  }[]
   time: { weekSec: number; monthSec: number; unbilledSec: number; unbilledCents: number }
   money: {
     openCents: number
@@ -41,7 +46,12 @@ type Dashboard = {
     monitorsDown: { id: string; friendlyName: string }[]
     failedRuns: { id: string; branch: string; url: string | null; repo: { slug: string } }[]
   }
-  openActions: { id: string; title: string; dueOn: string | null; project?: { key: string } | null }[]
+  openActions: {
+    id: string
+    title: string
+    dueOn: string | null
+    project?: { key: string } | null
+  }[]
   activeProjects: number
 }
 

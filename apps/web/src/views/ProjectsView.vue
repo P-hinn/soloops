@@ -95,7 +95,11 @@ onMounted(async () => {
         <input v-model="form.description" class="input" />
       </div>
       <div class="flex items-end gap-2">
-        <input v-model="form.color" type="color" class="h-9 w-12 rounded border border-line bg-paper" />
+        <input
+          v-model="form.color"
+          type="color"
+          class="h-9 w-12 rounded border border-line bg-paper"
+        />
         <button class="btn-primary">Anlegen</button>
       </div>
     </form>
@@ -123,10 +127,15 @@ onMounted(async () => {
             </td>
             <td class="text-soft">{{ p.client?.company ?? p.client?.name ?? 'intern' }}</td>
             <td>
-              <span class="badge" :class="statusTone[p.status]">{{ statusLabel[p.status] ?? p.status }}</span>
+              <span class="badge" :class="statusTone[p.status]">{{
+                statusLabel[p.status] ?? p.status
+              }}</span>
             </td>
             <td class="text-right tabular-nums">{{ formatDuration(p.trackedSec) }} h</td>
-            <td class="text-right tabular-nums" :class="p.unbilledSec > 0 ? 'text-warn' : 'text-muted'">
+            <td
+              class="text-right tabular-nums"
+              :class="p.unbilledSec > 0 ? 'text-warn' : 'text-muted'"
+            >
               {{ formatDuration(p.unbilledSec) }} h
             </td>
             <td class="text-right">

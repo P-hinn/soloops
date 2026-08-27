@@ -189,7 +189,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
     const dir = path.join(env.DATA_DIR, 'recordings')
     await mkdir(dir, { recursive: true })
-    const safeName = path.basename(file.filename).replace(/[^\w.\-]/g, '_')
+    const safeName = path.basename(file.filename).replace(/[^\w.-]/g, '_')
     const storagePath = path.join(dir, `${id}__${safeName}`)
 
     await pipeline(file.file, createWriteStream(storagePath))
@@ -238,7 +238,12 @@ const routes: FastifyPluginAsync = async (app) => {
     if (!rec) return reply.code(400).send({ error: 'Keine Aufnahme vorhanden' })
     await prisma.transcript.upsert({
       where: { meetingId: id },
-      create: { meetingId: id, status: 'QUEUED', language: env.WHISPER_LANGUAGE, model: env.WHISPER_MODEL },
+      create: {
+        meetingId: id,
+        status: 'QUEUED',
+        language: env.WHISPER_LANGUAGE,
+        model: env.WHISPER_MODEL,
+      },
       update: { status: 'QUEUED', error: null },
     })
     await transcribeQueue.add('transcribe', { meetingId: id }, { attempts: 2 })
@@ -247,7 +252,8 @@ const routes: FastifyPluginAsync = async (app) => {
 
   /** AI-Zusammenfassung + Action Items aus Transkript/Notizen. */
   app.post('/:id/summarize', async (req, reply) => {
-    if (!env.ANTHROPIC_API_KEY) return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
+    if (!env.ANTHROPIC_API_KEY)
+      return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     const { id } = idParam.parse(req.params)
     return summarizeMeeting(id)
   })

@@ -176,9 +176,7 @@ function toggleSource(id: string) {
   hidden.value = next
 }
 
-const visibleEvents = computed(() =>
-  events.value.filter((e) => !hidden.value.has(sourceOf(e).id)),
-)
+const visibleEvents = computed(() => events.value.filter((e) => !hidden.value.has(sourceOf(e).id)))
 
 // --- Termine je Tag ---------------------------------------------------------
 
@@ -201,7 +199,9 @@ function timedLayout(day: Date) {
     // Über Mitternacht laufende Termine an der Tagesgrenze kappen
     const startMin = s.getTime() < dayStart ? 0 : minutesOfDay(s)
     const endMin =
-      en.getTime() > dayStart + 86_400_000 ? DAY_MINUTES : startMin + (en.getTime() - s.getTime()) / 60000
+      en.getTime() > dayStart + 86_400_000
+        ? DAY_MINUTES
+        : startMin + (en.getTime() - s.getTime()) / 60000
     return {
       id: e.id,
       start: startMin,
@@ -274,7 +274,7 @@ function localInput(d: Date): string {
 /** Klick ins leere Raster: Formular mit der getroffenen Viertelstunde öffnen. */
 function slotClick(day: Date, event: MouseEvent) {
   const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const minutes = Math.floor(((event.clientY - box.top) / HOUR) * 60 / 15) * 15
+  const minutes = Math.floor((((event.clientY - box.top) / HOUR) * 60) / 15) * 15
   const start = new Date(day)
   start.setHours(0, minutes, 0, 0)
   openForm(start)
@@ -376,7 +376,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
         <!-- Ansicht -->
         <div class="flex items-center border border-line-strong">
           <button
-            v-for="mode in (['day', 'week', 'month'] as ViewMode[])"
+            v-for="mode in ['day', 'week', 'month'] as ViewMode[]"
             :key="mode"
             class="h-8 px-3 text-[11px] font-bold uppercase tracking-[0.09em] transition-colors"
             :class="view === mode ? 'bg-ink text-paper' : 'hover:bg-ink/5'"
@@ -465,7 +465,10 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
           <div class="min-h-0 flex-1 space-y-0.5 overflow-hidden px-1 pb-1">
             <button
-              v-for="e in [...eventsOn(day, { allDay: true }), ...eventsOn(day, { allDay: false })].slice(0, 4)"
+              v-for="e in [
+                ...eventsOn(day, { allDay: true }),
+                ...eventsOn(day, { allDay: false }),
+              ].slice(0, 4)"
               :key="e.id"
               class="flex w-full items-center gap-1 truncate px-1 py-[3px] text-left text-[11px] leading-tight transition-opacity hover:opacity-80"
               :style="
@@ -486,10 +489,15 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
               <span class="truncate font-medium">{{ e.title }}</span>
             </button>
             <div
-              v-if="eventsOn(day, { allDay: true }).length + eventsOn(day, { allDay: false }).length > 4"
+              v-if="
+                eventsOn(day, { allDay: true }).length + eventsOn(day, { allDay: false }).length > 4
+              "
               class="px-1 text-[10px] text-muted"
             >
-              +{{ eventsOn(day, { allDay: true }).length + eventsOn(day, { allDay: false }).length - 4 }} weitere
+              +{{
+                eventsOn(day, { allDay: true }).length + eventsOn(day, { allDay: false }).length - 4
+              }}
+              weitere
             </div>
           </div>
         </div>
@@ -531,7 +539,9 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
         class="grid max-h-24 shrink-0 overflow-y-auto border-b border-line-strong bg-paper-2/60 pr-[10px]"
         :style="{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }"
       >
-        <div class="py-1 pr-2 text-right text-[10px] uppercase tracking-wide text-muted">ganztägig</div>
+        <div class="py-1 pr-2 text-right text-[10px] uppercase tracking-wide text-muted">
+          ganztägig
+        </div>
         <div
           v-for="day in days"
           :key="day.toISOString()"
@@ -605,8 +615,13 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
               <div class="truncate text-[12px] font-semibold leading-tight">
                 {{ placed.event.title }}
               </div>
-              <div v-if="!placed.compact" class="truncate font-display text-[10px] tabular-nums opacity-70">
-                {{ fmtTime(new Date(placed.event.startsAt)) }}–{{ fmtTime(new Date(placed.event.endsAt)) }}
+              <div
+                v-if="!placed.compact"
+                class="truncate font-display text-[10px] tabular-nums opacity-70"
+              >
+                {{ fmtTime(new Date(placed.event.startsAt)) }}–{{
+                  fmtTime(new Date(placed.event.endsAt))
+                }}
                 <span v-if="placed.event.project"> · {{ placed.event.project.key }}</span>
               </div>
               <div
@@ -657,7 +672,9 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             <span class="eyebrow-muted !text-ink">
               {{ sourceOf(selected).remoteCalendarName ?? sourceOf(selected).label }}
             </span>
-            <button class="ml-auto text-sm text-ink/60 hover:text-ink" @click="selected = null">✕</button>
+            <button class="ml-auto text-sm text-ink/60 hover:text-ink" @click="selected = null">
+              ✕
+            </button>
           </div>
 
           <div class="p-5">
@@ -699,10 +716,19 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             </p>
 
             <div class="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">
-              <a v-if="selected.videoUrl" :href="selected.videoUrl" target="_blank" class="btn-acid">
+              <a
+                v-if="selected.videoUrl"
+                :href="selected.videoUrl"
+                target="_blank"
+                class="btn-acid"
+              >
                 <span>Beitreten</span><span aria-hidden="true">↗</span>
               </a>
-              <RouterLink v-if="selected.meeting" :to="`/meetings/${selected.meeting.id}`" class="btn-ghost">
+              <RouterLink
+                v-if="selected.meeting"
+                :to="`/meetings/${selected.meeting.id}`"
+                class="btn-ghost"
+              >
                 Zum Meeting
               </RouterLink>
               <button
@@ -724,10 +750,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     <Teleport to="body">
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-6">
         <div class="absolute inset-0 bg-ink/40" @click="showForm = false" />
-        <form
-          class="popover relative w-full max-w-lg"
-          @submit.prevent="create"
-        >
+        <form class="popover relative w-full max-w-lg" @submit.prevent="create">
           <div class="flex items-center gap-2 border-b border-ink bg-acid px-4 py-2.5">
             <span class="eyebrow-muted !text-ink">Neuer Termin</span>
             <button

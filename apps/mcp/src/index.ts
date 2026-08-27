@@ -28,7 +28,8 @@ async function api<T = unknown>(
 ): Promise<T> {
   const url = new URL(path, BASE_URL)
   for (const [key, value] of Object.entries(init.query ?? {})) {
-    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value))
+    if (value !== undefined && value !== null && value !== '')
+      url.searchParams.set(key, String(value))
   }
   const res = await fetch(url, {
     method: init.method ?? 'GET',
@@ -256,7 +257,11 @@ server.tool(
 server.tool(
   'soloops_list_meetings',
   'Listet Meetings inklusive Transkript-Status.',
-  { projectId: z.string().optional(), from: z.string().optional(), take: z.number().max(100).optional() },
+  {
+    projectId: z.string().optional(),
+    from: z.string().optional(),
+    take: z.number().max(100).optional(),
+  },
   async (args) => {
     try {
       return ok(await api('/api/meetings', { query: args }))
@@ -390,7 +395,9 @@ server.tool(
   },
   async (args) => {
     try {
-      return ok(await api('/api/invoices/from-time', { method: 'POST', body: JSON.stringify(args) }))
+      return ok(
+        await api('/api/invoices/from-time', { method: 'POST', body: JSON.stringify(args) }),
+      )
     } catch (err) {
       return fail(err)
     }

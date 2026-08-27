@@ -19,4 +19,8 @@ export const digestQueue = new Queue(QUEUE_NAMES.digest, { connection })
 export const calendarQueue = new Queue(QUEUE_NAMES.calendar, { connection })
 
 export type TranscribeJob = { meetingId: string }
-export type DigestJob = { projectId?: string; kind: 'project' | 'week' | 'meeting'; meetingId?: string }
+export type DigestJob = {
+  projectId?: string
+  kind: 'project' | 'week' | 'meeting'
+  meetingId?: string
+}

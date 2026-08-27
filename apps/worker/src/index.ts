@@ -28,8 +28,9 @@ new Worker(
     return result
   },
   { connection, concurrency: 1, lockDuration: 60 * 60 * 1000 },
+).on('failed', (job, err) =>
+  console.error(`[transcribe] Job ${job?.id} fehlgeschlagen:`, err.message),
 )
-  .on('failed', (job, err) => console.error(`[transcribe] Job ${job?.id} fehlgeschlagen:`, err.message))
 
 // ---------------------------------------------------------------------------
 // UptimeRobot
@@ -137,41 +138,53 @@ const pipelineQueue = new Queue('pipelines', { connection })
 const digestQueue = new Queue('digest', { connection })
 const calendarQueue = new Queue('calendar', { connection })
 
+/**
+ * Wiederkehrende Jobs.
+ *
+ * BullMQ 6 kennt `repeat` in den Job-Optionen nicht mehr; stattdessen gibt es
+ * Job Scheduler. Der Vorteil hier: `upsertJobScheduler` ist idempotent — ein
+ * Neustart des Workers legt keinen zweiten Zeitplan an, sondern aktualisiert
+ * den bestehenden unter derselben Kennung.
+ */
 async function scheduleRepeatables() {
-  await calendarQueue.add(
-    'sync-all',
-    {},
-    { repeat: { pattern: env.CALENDAR_SYNC_CRON }, removeOnComplete: 20, removeOnFail: 20 },
+  await calendarQueue.upsertJobScheduler(
+    'calendar-sync',
+    { pattern: env.CALENDAR_SYNC_CRON },
+    { name: 'sync-all', opts: { removeOnComplete: 20, removeOnFail: 20 } },
   )
 
   if (env.UPTIMEROBOT_API_KEY) {
-    await uptimeQueue.add(
-      'sync',
-      {},
-      { repeat: { pattern: env.UPTIME_POLL_CRON }, removeOnComplete: 10, removeOnFail: 20 },
+    await uptimeQueue.upsertJobScheduler(
+      'uptime-sync',
+      { pattern: env.UPTIME_POLL_CRON },
+      { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
   if (env.GITHUB_TOKEN || env.GITLAB_TOKEN) {
-    await pipelineQueue.add(
-      'sync-all',
-      {},
-      { repeat: { pattern: env.PIPELINE_POLL_CRON }, removeOnComplete: 10, removeOnFail: 20 },
+    await pipelineQueue.upsertJobScheduler(
+      'pipeline-sync',
+      { pattern: env.PIPELINE_POLL_CRON },
+      { name: 'sync-all', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
   if (env.ANTHROPIC_API_KEY) {
     // Werktags 7:30 Uhr: Lagebericht für alle aktiven Projekte
-    await digestQueue.add(
-      'all-projects',
-      { kind: 'project' },
-      { repeat: { pattern: '30 7 * * 1-5' }, removeOnComplete: 10, removeOnFail: 20 },
+    await digestQueue.upsertJobScheduler(
+      'project-digests',
+      { pattern: '30 7 * * 1-5' },
+      {
+        name: 'all-projects',
+        data: { kind: 'project' },
+        opts: { removeOnComplete: 10, removeOnFail: 20 },
+      },
     )
   }
 
   // Überfällige Rechnungen einmal täglich markieren
-  await digestQueue.add(
+  await digestQueue.upsertJobScheduler(
     'mark-overdue',
-    { kind: 'overdue' },
-    { repeat: { pattern: '0 6 * * *' }, removeOnComplete: 5 },
+    { pattern: '0 6 * * *' },
+    { name: 'mark-overdue', data: { kind: 'overdue' }, opts: { removeOnComplete: 5 } },
   )
 }
 

@@ -34,7 +34,11 @@ type Project = {
   unbilledSec: number
   invoicedCents: number
   monitors: { id: string; friendlyName: string; status: number; ratio30d: number | null }[]
-  repos: { id: string; slug: string; runs: { id: string; status: string; branch: string; url: string | null }[] }[]
+  repos: {
+    id: string
+    slug: string
+    runs: { id: string; status: string; branch: string; url: string | null }[]
+  }[]
   notes_: { id: string; title: string; updatedAt: string }[]
   meetings: { id: string; title: string; startsAt: string }[]
   actionItems: { id: string; title: string; dueOn: string | null; done: boolean }[]
@@ -47,12 +51,6 @@ const auth = useAuth()
 const project = ref<Project | null>(null)
 const digesting = ref(false)
 const error = ref('')
-
-const healthTone: Record<string, string> = {
-  on_track: 'badge-good',
-  at_risk: 'badge-warn',
-  blocked: 'badge-bad',
-}
 
 const healthLabel: Record<string, string> = {
   on_track: 'im Plan',
@@ -82,7 +80,10 @@ onMounted(load)
 
 <template>
   <div v-if="project">
-    <PageHeader :title="`${project.key} — ${project.name}`" :subtitle="project.client?.name ?? 'Internes Projekt'">
+    <PageHeader
+      :title="`${project.key} — ${project.name}`"
+      :subtitle="project.client?.name ?? 'Internes Projekt'"
+    >
       <template #actions>
         <button class="btn-ghost" @click="timer.start(project!.id)">▶ Timer starten</button>
         <button
@@ -188,8 +189,14 @@ onMounted(load)
             <span
               v-for="run in repo.runs.slice(0, 5)"
               :key="run.id"
-              class="ml-1 inline-block h-2 w-2 "
-              :class="run.status === 'SUCCESS' ? 'bg-good' : run.status === 'FAILED' ? 'bg-bad' : 'bg-muted'"
+              class="ml-1 inline-block h-2 w-2"
+              :class="
+                run.status === 'SUCCESS'
+                  ? 'bg-good'
+                  : run.status === 'FAILED'
+                    ? 'bg-bad'
+                    : 'bg-muted'
+              "
             />
           </li>
         </ul>

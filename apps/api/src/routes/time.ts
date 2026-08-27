@@ -105,7 +105,8 @@ const routes: FastifyPluginAsync = async (app) => {
     const data = timeEntryInput.parse(req.body)
     const startedAt = new Date(data.startedAt)
     const endedAt = new Date(data.endedAt)
-    if (endedAt <= startedAt) return reply.code(422).send({ error: 'Ende muss nach dem Start liegen' })
+    if (endedAt <= startedAt)
+      return reply.code(422).send({ error: 'Ende muss nach dem Start liegen' })
 
     const project = await prisma.project.findUniqueOrThrow({ where: { id: data.projectId } })
     const entry = await prisma.timeEntry.create({
@@ -181,8 +182,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const rows = grouped.map((g) => {
       const project = projects.find((p) => p.id === g.projectId)
       const seconds = g._sum.durationSec ?? 0
-      const rate =
-        project?.hourlyRateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
+      const rate = project?.hourlyRateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
       return {
         projectId: g.projectId,
         projectKey: project?.key ?? '?',

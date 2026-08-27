@@ -22,7 +22,14 @@ type Invoice = {
   notes: string | null
   lexofficeId: string | null
   lexofficeSyncedAt: string | null
-  client: { id: string; name: string; company: string | null; street: string | null; zip: string | null; city: string | null }
+  client: {
+    id: string
+    name: string
+    company: string | null
+    street: string | null
+    zip: string | null
+    city: string | null
+  }
   project: { key: string; name: string } | null
   items: {
     id: string
@@ -105,21 +112,35 @@ onMounted(load)
     >
       <template #actions>
         <button class="btn-ghost" @click="openPdf">PDF</button>
-        <button v-if="invoice.status === 'DRAFT'" class="btn-primary" :disabled="busy" @click="setStatus('SENT')">
+        <button
+          v-if="invoice.status === 'DRAFT'"
+          class="btn-primary"
+          :disabled="busy"
+          @click="setStatus('SENT')"
+        >
           Als gestellt markieren
         </button>
-        <button v-if="invoice.status === 'SENT' || invoice.status === 'OVERDUE'" class="btn-primary" :disabled="busy" @click="setStatus('PAID')">
+        <button
+          v-if="invoice.status === 'SENT' || invoice.status === 'OVERDUE'"
+          class="btn-primary"
+          :disabled="busy"
+          @click="setStatus('PAID')"
+        >
           Als bezahlt markieren
         </button>
         <button
-          v-if="auth.config?.features.lexoffice && !invoice.lexofficeId && invoice.status !== 'DRAFT'"
+          v-if="
+            auth.config?.features.lexoffice && !invoice.lexofficeId && invoice.status !== 'DRAFT'
+          "
           class="btn-ghost"
           :disabled="busy"
           @click="syncLexoffice"
         >
           → lexoffice
         </button>
-        <button v-if="invoice.status === 'DRAFT'" class="btn-danger" @click="remove">Löschen</button>
+        <button v-if="invoice.status === 'DRAFT'" class="btn-danger" @click="remove">
+          Löschen
+        </button>
       </template>
     </PageHeader>
 
@@ -147,8 +168,12 @@ onMounted(load)
               <td class="text-muted">{{ item.position }}</td>
               <td class="whitespace-pre-line">{{ item.description }}</td>
               <td class="text-right tabular-nums">{{ Number(item.quantity) }} {{ item.unit }}</td>
-              <td class="text-right tabular-nums">{{ formatMoney(item.unitPriceCents, invoice.currency) }}</td>
-              <td class="text-right tabular-nums">{{ formatMoney(item.amountCents, invoice.currency) }}</td>
+              <td class="text-right tabular-nums">
+                {{ formatMoney(item.unitPriceCents, invoice.currency) }}
+              </td>
+              <td class="text-right tabular-nums">
+                {{ formatMoney(item.amountCents, invoice.currency) }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -156,7 +181,9 @@ onMounted(load)
         <div class="mt-4 ml-auto w-64 space-y-1 text-sm">
           <div class="flex justify-between">
             <span class="text-muted">Zwischensumme</span>
-            <span class="tabular-nums">{{ formatMoney(invoice.subtotalCents, invoice.currency) }}</span>
+            <span class="tabular-nums">{{
+              formatMoney(invoice.subtotalCents, invoice.currency)
+            }}</span>
           </div>
           <div v-if="!invoice.smallBusiness" class="flex justify-between">
             <span class="text-muted">USt {{ invoice.taxRate }} %</span>
@@ -164,7 +191,9 @@ onMounted(load)
           </div>
           <div class="flex justify-between border-t border-line pt-1 text-base font-semibold">
             <span>Gesamt</span>
-            <span class="tabular-nums">{{ formatMoney(invoice.totalCents, invoice.currency) }}</span>
+            <span class="tabular-nums">{{
+              formatMoney(invoice.totalCents, invoice.currency)
+            }}</span>
           </div>
         </div>
 
