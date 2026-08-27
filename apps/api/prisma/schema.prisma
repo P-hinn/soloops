@@ -266,7 +266,7 @@ model SyncTombstone {
 }
 
 // ---------------------------------------------------------------------------
-// Meetings, Aufnahmen, Transkripte
+// Meetings
 // ---------------------------------------------------------------------------
 
 enum MeetingStatus {
@@ -299,47 +299,10 @@ model Meeting {
   project     Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   client      Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
   event       CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  recording   Recording?
-  transcript  Transcript?
   actionItems ActionItem[]
   notes_      Note[]
 
   @@index([startsAt])
-}
-
-model Recording {
-  id          String   @id @default(cuid())
-  meetingId   String   @unique
-  filename    String
-  mimeType    String
-  sizeBytes   Int
-  durationSec Int?
-  storagePath String
-  createdAt   DateTime @default(now())
-
-  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-}
-
-enum JobStatus {
-  QUEUED
-  RUNNING
-  DONE
-  FAILED
-}
-
-model Transcript {
-  id         String    @id @default(cuid())
-  meetingId  String    @unique
-  language   String    @default("de")
-  model      String    @default("medium")
-  status     JobStatus @default(QUEUED)
-  error      String?
-  text       String    @default("")
-  segments   Json? // [{ start, end, speaker?, text }]
-  createdAt  DateTime  @default(now())
-  finishedAt DateTime?
-
-  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 }
 
 model ActionItem {

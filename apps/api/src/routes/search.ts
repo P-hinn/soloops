@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 
 type Hit = {
-  type: 'note' | 'meeting' | 'transcript' | 'project' | 'client' | 'invoice'
+  type: 'note' | 'meeting' | 'project' | 'client' | 'invoice'
   id: string
   title: string
   snippet: string
@@ -20,7 +20,7 @@ const routes: FastifyPluginAsync = async (app) => {
       .parse(req.query)
     const term = q.q
 
-    const [notes, meetings, transcripts, projects, clients, invoices] = await Promise.all([
+    const [notes, meetings, projects, clients, invoices] = await Promise.all([
       prisma.$queryRaw<{ id: string; title: string; snippet: string }[]>`
         SELECT id, title,
                ts_headline('german', coalesce(body,''), websearch_to_tsquery('german', ${term}),
@@ -41,14 +41,6 @@ const routes: FastifyPluginAsync = async (app) => {
         take: q.take,
         orderBy: { startsAt: 'desc' },
       }),
-      prisma.$queryRaw<{ id: string; meetingId: string; snippet: string }[]>`
-        SELECT id, "meetingId",
-               ts_headline('german', text, websearch_to_tsquery('german', ${term}),
-                           'MaxWords=30,MinWords=12,StartSel=«,StopSel=»') AS snippet
-        FROM "Transcript"
-        WHERE to_tsvector('german', coalesce(text,'')) @@ websearch_to_tsquery('german', ${term})
-        LIMIT ${q.take}
-      `,
       prisma.project.findMany({
         where: {
           OR: [
@@ -89,13 +81,6 @@ const routes: FastifyPluginAsync = async (app) => {
         title: m.title,
         snippet: (m.summary ?? m.minutes ?? '').slice(0, 200),
         url: `/meetings/${m.id}`,
-      })),
-      ...transcripts.map((t) => ({
-        type: 'transcript' as const,
-        id: t.id,
-        title: 'Transkript',
-        snippet: t.snippet,
-        url: `/meetings/${t.meetingId}`,
       })),
       ...projects.map((p) => ({
         type: 'project' as const,

@@ -1,0 +1,21 @@
+# Secrets gehören nicht in eine Image-Schicht — die Container bekommen sie zur
+# Laufzeit über env_file.
+.env
+.env.*
+!.env.example
+
+node_modules
+**/node_modules
+apps/web/dist
+
+# Laufzeitdaten (Rechnungs-PDFs) kommen per Volume
+data
+
+.git
+.gitignore
+.github
+.claude
+*.log
+npm-debug.log*
+.DS_Store
+coverage

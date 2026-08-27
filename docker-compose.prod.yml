@@ -1,0 +1,141 @@
+# Produktivbetrieb auf einem kleinen Server (2 Kerne, ~2 GB RAM).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Unterschiede zur Entwicklungs-Compose:
+#   - kein Quellcode-Mount, kein tsx watch, kein Vite-Devserver
+#   - genau ein offener Port (SOLOOPS_PORT), nginx liefert Web + /api aus
+#   - Postgres und Redis nur im internen Netz und auf wenig RAM getrimmt
+#   - harte Speichergrenzen, damit kein Dienst den Server mitreißt
+name: soloops
+
+x-node: &node
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: runtime
+  image: soloops-node:latest
+  env_file: .env
+  environment:
+    NODE_ENV: production
+  volumes:
+    - ./data:/data
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ:-Europe/Berlin}
+    # Auf 256 MB Container zugeschnitten — die Standardwerte gehen von deutlich
+    # mehr aus und lassen Postgres unter Last swappen.
+    command:
+      - postgres
+      - -c
+      - max_connections=30
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - wal_buffers=4MB
+      - -c
+      - max_worker_processes=2
+      - -c
+      - max_parallel_workers=2
+      - -c
+      - max_parallel_workers_per_gather=1
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 320m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # noeviction: BullMQ-Jobs dürfen nicht stillschweigend wegfallen. Läuft der
+    # Speicher voll, sollen Schreibzugriffe hart scheitern und im Log auftauchen.
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '64mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    volumes:
+      - redisdata:/data
+    mem_limit: 96m
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *node
+    command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run start"
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=256
+    mem_limit: 384m
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *node
+    command: npm -w @soloops/worker run start
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+    mem_limit: 320m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    image: soloops-web:latest
+    restart: unless-stopped
+    # Der einzige Port nach außen. 3000 ist auf dem Server schon vom Portfolio
+    # belegt, darum ein eigener.
+    ports:
+      - '${SOLOOPS_PORT:-8090}:80'
+    mem_limit: 64m
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:

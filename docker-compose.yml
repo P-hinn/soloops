@@ -4,6 +4,8 @@ x-node: &node
   build:
     context: .
     dockerfile: Dockerfile
+    # Das Dockerfile ist mehrstufig — ohne target landet man in `runtime`.
+    target: base
   env_file: .env
   volumes:
     - .:/app
@@ -76,22 +78,7 @@ services:
       api:
         condition: service_started
 
-  transcribe:
-    build:
-      context: ./services/transcribe
-    restart: unless-stopped
-    environment:
-      WHISPER_MODEL: ${WHISPER_MODEL:-medium}
-      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
-      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-de}
-    volumes:
-      - ./data:/data
-      - whispermodels:/models
-    ports:
-      - '8080:8080'
-
 volumes:
   pgdata:
   redisdata:
-  whispermodels:
   node_modules_root:

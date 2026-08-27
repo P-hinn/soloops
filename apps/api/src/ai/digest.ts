@@ -59,7 +59,7 @@ export async function buildProjectDigest(projectId: string) {
       monitors: true,
       repos: { include: { runs: { orderBy: { startedAt: 'desc' }, take: 5 } } },
       notes_: { orderBy: { updatedAt: 'desc' }, take: 8 },
-      meetings: { orderBy: { startsAt: 'desc' }, take: 5, include: { transcript: true } },
+      meetings: { orderBy: { startsAt: 'desc' }, take: 5 },
       actionItems: { where: { done: false } },
       invoices: { orderBy: { issueDate: 'desc' }, take: 5 },
     },
@@ -105,7 +105,6 @@ export async function buildProjectDigest(projectId: string) {
       titel: m.title,
       datum: m.startsAt.toISOString().slice(0, 10),
       zusammenfassung: m.summary,
-      transkriptAuszug: m.transcript?.text?.slice(0, 1500) ?? null,
     })),
     betrieb: {
       monitore: project.monitors.map((m) => ({
@@ -176,11 +175,11 @@ export async function buildProjectDigest(projectId: string) {
 export async function summarizeMeeting(meetingId: string) {
   const meeting = await prisma.meeting.findUniqueOrThrow({
     where: { id: meetingId },
-    include: { transcript: true, project: true, client: true },
+    include: { project: true, client: true },
   })
 
-  const source = meeting.transcript?.text?.trim() || meeting.minutes?.trim()
-  if (!source) throw new Error('Weder Transkript noch Notizen vorhanden')
+  const source = meeting.minutes?.trim()
+  if (!source) throw new Error('Keine Mitschrift vorhanden')
 
   const response = await anthropic().messages.parse({
     model: MODEL,
@@ -202,7 +201,7 @@ export async function summarizeMeeting(meetingId: string) {
           meeting.participants.length ? `Teilnehmende: ${meeting.participants.join(', ')}` : '',
           meeting.agenda ? `\nAgenda:\n${meeting.agenda}` : '',
           '',
-          'Quelle (Transkript bzw. Mitschrift):',
+          'Mitschrift:',
           '"""',
           source.slice(0, 120_000),
           '"""',

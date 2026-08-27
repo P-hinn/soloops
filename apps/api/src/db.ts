@@ -12,8 +12,6 @@ export async function ensureSearchIndexes(): Promise<void> {
   const statements = [
     `CREATE INDEX IF NOT EXISTS note_fts_idx ON "Note"
        USING GIN (to_tsvector('german', coalesce(title,'') || ' ' || coalesce(body,'')))`,
-    `CREATE INDEX IF NOT EXISTS transcript_fts_idx ON "Transcript"
-       USING GIN (to_tsvector('german', coalesce(text,'')))`,
     `CREATE INDEX IF NOT EXISTS meeting_fts_idx ON "Meeting"
        USING GIN (to_tsvector('german', coalesce(title,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(minutes,'')))`,
   ]
