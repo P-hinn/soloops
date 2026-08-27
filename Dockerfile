@@ -24,7 +24,8 @@ COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY apps/mcp/package.json apps/mcp/
 
-RUN npm install
+# Cache im selben Layer wegräumen — sonst bleiben ~900 MB Tarballs im Image
+RUN npm install && npm cache clean --force
 
 COPY . .
 
