@@ -1,15 +1,56 @@
-# soloops
+<h1 align="center">soloops</h1>
 
-Ein selbst gehostetes Betriebssystem für die Solo-Selbstständigkeit: Kalender,
-Meetings mit lokalem Transkript, Notizen, Projektübersichten mit AI-Lagebericht,
-Uptime, CI/CD, Zeiterfassung, Rechnungen und lexoffice-Anbindung —
-plus ein MCP-Server, damit Claude auf all das zugreifen kann.
+<p align="center">
+  <strong>Ein selbst gehostetes Betriebssystem für die Solo-Selbstständigkeit.</strong><br>
+  Kalender, Meetings, Notizen, Projekte, Uptime, CI/CD, Zeiten, Rechnungen —<br>
+  an einem Ort, auf der eigenen Maschine, mit MCP-Zugang für Claude.
+</p>
 
-TypeScript überall, Vue 3 im Frontend, alles über `docker compose`.
+<p align="center">
+  <img alt="Lizenz MIT" src="https://img.shields.io/badge/Lizenz-MIT-171714?style=flat-square">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="Node 22" src="https://img.shields.io/badge/Node-22-5fa04e?style=flat-square&logo=nodedotjs&logoColor=white">
+  <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square&logo=vuedotjs&logoColor=white">
+  <img alt="Fastify 5" src="https://img.shields.io/badge/Fastify-5-171714?style=flat-square&logo=fastify&logoColor=white">
+  <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2d3748?style=flat-square&logo=prisma&logoColor=white">
+  <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white">
+  <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-22%20Tools-d8ff55?style=flat-square&labelColor=171714">
+</p>
+
+<p align="center">
+  <a href="#schnellstart">Schnellstart</a> ·
+  <a href="#module">Module</a> ·
+  <a href="#kalender-sync-in-beide-richtungen">Kalender-Sync</a> ·
+  <a href="#mcp-server">MCP</a> ·
+  <a href="#deployment-auf-einem-kleinen-server">Deployment</a>
+</p>
+
+---
+
+## Inhalt
+
+- [Schnellstart](#schnellstart) — von null auf laufend in vier Befehlen
+- [Designsystem](#designsystem) — Tokens, Regeln, Klassen
+- [Werkzeuge und Regeln](#werkzeuge-und-regeln) — Prettier, ESLint, die 1000-Zeilen-Grenze
+- [Architektur](#architektur) — vier Apps, ein Monorepo
+- [Module](#module) — was das Ding tatsächlich kann
+- [Kalender-Sync in beide Richtungen](#kalender-sync-in-beide-richtungen) — Google, CalDAV, Konfliktregeln
+- [MCP-Server](#mcp-server) — 22 Tools für Claude
+- [Authentifizierung](#authentifizierung)
+- [Betrieb](#betrieb) — Logs, Schemaänderungen, Backup
+- [Deployment auf einem kleinen Server](#deployment-auf-einem-kleinen-server) — 2 Kerne, 2 GB RAM
+- [Sicherheitshinweise](#sicherheitshinweise-für-den-produktivbetrieb)
+- [Lizenz](#lizenz)
 
 ---
 
 ## Schnellstart
+
+**Voraussetzungen:** Docker mit Compose v2. Node 22 nur, wenn du Linter, Tests
+oder den MCP-Server außerhalb der Container laufen lassen willst.
+
+**1. Konfiguration anlegen**
 
 ```bash
 cp .env.example .env
@@ -22,17 +63,20 @@ In der `.env` mindestens setzen: `POSTGRES_PASSWORD`, `DATABASE_URL` (gleiches P
 openssl rand -hex 32
 ```
 
-Dann hochfahren:
+**2. Hochfahren**
 
 ```bash
 docker compose up -d --build
 ```
 
-Beim ersten Start das Owner-Konto und zwei Beispielprojekte anlegen:
+**3. Owner-Konto und zwei Beispielprojekte anlegen**
 
 ```bash
 docker compose exec api npm -w @soloops/api run seed
 ```
+
+**4. Einloggen** unter http://localhost:5174 mit `OWNER_EMAIL` und
+`OWNER_PASSWORD`. Beim ersten Login startet der Rundgang.
 
 | Dienst   | URL                   |
 | -------- | --------------------- |
@@ -92,7 +136,7 @@ Anführungszeichen, 100 Zeichen), **tsc** die Typen. Der **Linter** kümmert sic
 nur um das, was beide nicht sehen — allen voran die **Obergrenze von 1000
 Zeilen pro Datei** (`max-lines`, Leerzeilen und Kommentare zählen nicht mit,
 damit gute Dokumentation nicht bestraft wird). Wer sie reißt, hat zwei Dinge in
-einer Datei. Größte Datei aktuell: `CalendarView.vue` mit 791 Zeilen.
+einer Datei. Größte Datei aktuell: `CalendarView.vue` mit 814 Zeilen.
 
 ### Abhängigkeiten
 
@@ -275,8 +319,8 @@ entfernen.
 ## MCP-Server
 
 Gibt Claude Zugriff auf den kompletten Datenbestand — Tagesüberblick, Suche,
-Projekte, Timer, Zeitnachträge, Notizen, Meetings inkl. Transkript, Betriebsstatus,
-offene Zeiten, Rechnungsentwürfe, Umsatz.
+Projekte, Timer, Zeitnachträge, Notizen, Meetings, Betriebsstatus, offene Zeiten,
+Rechnungsentwürfe, Umsatz.
 
 ```bash
 SOLOOPS_URL=http://localhost:3000 \
@@ -318,13 +362,44 @@ docker compose down                  # stoppen
 ```
 
 Schemaänderungen: `prisma/schema.prisma` anpassen, dann `docker compose restart api` —
-der Container führt beim Start `prisma db push` aus.
+der Container führt beim Start `prisma db push` aus. Es gibt bewusst keinen
+Migrationsordner: ein Nutzer, eine Datenbank, `db push` reicht. Wer das ändert,
+sollte vorher ein Backup ziehen — `db push` kann Spalten fallen lassen.
 
-Typecheck über alle Workspaces:
+### Konfiguration
+
+Alle Umgebungsvariablen stehen kommentiert in
+[`.env.example`](.env.example); [`apps/api/src/env.ts`](apps/api/src/env.ts) ist
+die verbindliche Quelle mit Typen und Defaults. Fehlt etwas Pflichtiges, startet
+die API gar nicht erst und sagt, was.
+
+### Backup
+
+Zwei Dinge müssen mit: die Datenbank und `./data` (Rechnungs-PDFs). Die `.env`
+gehört in den Passwort-Manager, nicht ins Backup-Archiv.
 
 ```bash
-npm run typecheck
+# Sichern
+docker compose exec -T postgres pg_dump -U soloops -Fc soloops > soloops-$(date +%F).dump
+tar czf soloops-data-$(date +%F).tar.gz data/
+
+# Zurückspielen
+docker compose exec -T postgres pg_restore -U soloops -d soloops --clean --if-exists < soloops-2026-01-01.dump
 ```
+
+Der Kalender-Sync ist **kein** Backup: er trägt Änderungen weiter, auch das
+Löschen. Und `allowRemoteDelete` steht pro Konto standardmäßig auf aus, damit ein
+Fehlgriff hier nicht die Termine auf allen Geräten mitnimmt.
+
+### Fehlersuche
+
+| Symptom                                     | Ursache und Abhilfe                                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| API startet nicht, Log nennt Variablennamen | Pflichtfeld in `.env` fehlt oder ist zu kurz (`JWT_SECRET` braucht 16+ Zeichen)     |
+| Login schlägt fehl, obwohl `.env` stimmt    | Seed lief nie: `docker compose exec api npm -w @soloops/api run seed`               |
+| Termine fehlen in der Wochenansicht         | Konto neu verbunden? Erster Sync holt nur das Zeitfenster — Log von `worker` prüfen |
+| CalDAV meldet Anmeldefehler                 | Apple braucht ein app-spezifisches Passwort, nicht das Apple-ID-Passwort            |
+| Web lädt, API antwortet mit 502             | API-Container noch im Start (`prisma db push`); `docker compose logs -f api`        |
 
 ---
 
@@ -352,7 +427,8 @@ Was anders ist als in der Entwicklung:
 nginx liefert das Bundle aus und proxyt `/api` und `/health` an die API — die
 API selbst hat keinen Port nach außen, Postgres und Redis auch nicht.
 `SOLOOPS_PORT` ist bewusst **nicht** 3000; dahinter gehört ein Reverse Proxy mit
-TLS.
+TLS. Alle Betriebsbefehle oben — Logs, Backup, Restore — gelten hier genauso, nur
+mit `-f docker-compose.prod.yml`.
 
 ### Speicher
 
@@ -383,9 +459,16 @@ Image auf dem Entwicklungsrechner bauen und in eine Registry schieben.
 ## Sicherheitshinweise für den Produktivbetrieb
 
 - `postgres` und `redis` nicht nach außen mappen — beide haben keine eigene
-  Authentifizierung. Die Produktions-Compose (siehe unten) tut das bereits nicht.
+  Authentifizierung. Die [Produktions-Compose](#deployment-auf-einem-kleinen-server)
+  tut das bereits nicht; nur die Entwicklungs-Compose legt Postgres auf 5433.
 - Hinter einen Reverse Proxy mit TLS stellen; `SERVICE_TOKEN` taucht im ICS-Feed
   als Query-Parameter auf und gehört nicht über HTTP übertragen.
 - `.env` ist in `.gitignore` und sollte es bleiben.
 - PDFs liegen unverschlüsselt im `./data`-Volume — Backup entsprechend
   behandeln.
+
+---
+
+## Lizenz
+
+[MIT](LICENSE) — Philipp Niestroj.
