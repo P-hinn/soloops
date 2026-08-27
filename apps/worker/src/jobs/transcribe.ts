@@ -21,7 +21,12 @@ export async function runTranscription(meetingId: string): Promise<{ chars: numb
 
   await prisma.transcript.upsert({
     where: { meetingId },
-    create: { meetingId, status: 'RUNNING', language: env.WHISPER_LANGUAGE, model: env.WHISPER_MODEL },
+    create: {
+      meetingId,
+      status: 'RUNNING',
+      language: env.WHISPER_LANGUAGE,
+      model: env.WHISPER_MODEL,
+    },
     update: { status: 'RUNNING', error: null },
   })
 
@@ -38,7 +43,9 @@ export async function runTranscription(meetingId: string): Promise<{ chars: numb
 
     const res = await fetch(`${env.TRANSCRIBE_URL}/transcribe`, { method: 'POST', body: form })
     if (!res.ok) {
-      throw new Error(`Transkriptions-Service HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`)
+      throw new Error(
+        `Transkriptions-Service HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`,
+      )
     }
     const data = (await res.json()) as TranscribeResponse
 

@@ -1,5 +1,10 @@
 <script setup lang="ts">
-defineProps<{ label: string; value: string; hint?: string; tone?: 'default' | 'warn' | 'good' | 'bad' }>()
+defineProps<{
+  label: string
+  value: string
+  hint?: string
+  tone?: 'default' | 'warn' | 'good' | 'bad'
+}>()
 </script>
 
 <template>

@@ -49,7 +49,8 @@ const progress = computed(() =>
       <span v-else class="flex-1 text-sm">Alles erledigt.</span>
 
       <RouterLink v-if="nextStep?.action" :to="nextStep.action.url" class="btn-primary !py-1.5">
-        <span>{{ nextStep.action.label }}</span><span aria-hidden="true">↗</span>
+        <span>{{ nextStep.action.label }}</span
+        ><span aria-hidden="true">↗</span>
       </RouterLink>
 
       <div class="flex items-center gap-1">
@@ -89,7 +90,9 @@ const progress = computed(() =>
           >
             <span
               class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] font-bold"
-              :class="step.done ? 'border-ink bg-ink text-paper' : 'border-line-strong text-transparent'"
+              :class="
+                step.done ? 'border-ink bg-ink text-paper' : 'border-line-strong text-transparent'
+              "
             >
               ✓
             </span>
@@ -102,7 +105,11 @@ const progress = computed(() =>
                 {{ step.hint }}
               </p>
             </div>
-            <RouterLink v-if="!step.done && step.action" :to="step.action.url" class="btn-xs shrink-0">
+            <RouterLink
+              v-if="!step.done && step.action"
+              :to="step.action.url"
+              class="btn-xs shrink-0"
+            >
               {{ step.action.label }}
             </RouterLink>
           </li>
@@ -119,7 +126,9 @@ const progress = computed(() =>
           >
             <span
               class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border text-[10px] font-bold"
-              :class="step.done ? 'border-ink bg-ink text-paper' : 'border-line-strong text-transparent'"
+              :class="
+                step.done ? 'border-ink bg-ink text-paper' : 'border-line-strong text-transparent'
+              "
             >
               ✓
             </span>
@@ -132,7 +141,11 @@ const progress = computed(() =>
                 {{ step.hint }}
               </p>
             </div>
-            <RouterLink v-if="!step.done && step.action" :to="step.action.url" class="btn-xs shrink-0">
+            <RouterLink
+              v-if="!step.done && step.action"
+              :to="step.action.url"
+              class="btn-xs shrink-0"
+            >
               {{ step.action.label }}
             </RouterLink>
           </li>

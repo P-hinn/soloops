@@ -189,10 +189,12 @@ onMounted(async () => {
   <section class="card">
     <h2 class="eyebrow mb-1">Kalender-Sync</h2>
     <p class="mb-4 text-xs text-muted">
-      Abgleich läuft automatisch (<code class="border border-line bg-paper-2 px-1">{{ data?.syncCron }}</code>).
-      Was in soloops entsteht, geht in den <strong>Zielkalender</strong> — nur in diesen einen.
-      Termine aus einem Fremdkalender werden nie in einen anderen kopiert, Serien nur gelesen,
-      und gelöscht wird dort drüben nur, wo du es ausdrücklich freigibst.
+      Abgleich läuft automatisch (<code class="border border-line bg-paper-2 px-1">{{
+        data?.syncCron
+      }}</code
+      >). Was in soloops entsteht, geht in den <strong>Zielkalender</strong> — nur in diesen einen.
+      Termine aus einem Fremdkalender werden nie in einen anderen kopiert, Serien nur gelesen, und
+      gelöscht wird dort drüben nur, wo du es ausdrücklich freigibst.
     </p>
 
     <p v-if="info" class="mb-3 border-l-2 border-acid bg-acid/20 px-3 py-2 text-sm">{{ info }}</p>
@@ -226,7 +228,9 @@ onMounted(async () => {
           </button>
           <button v-if="!a.isDefault" class="btn-xs" @click="makeDefault(a)">Als Ziel</button>
           <button class="btn-xs" @click="toggle(a)">{{ a.enabled ? 'Pause' : 'Weiter' }}</button>
-          <button class="btn-xs" title="Vollabgleich erzwingen" @click="resetToken(a)">Neu lesen</button>
+          <button class="btn-xs" title="Vollabgleich erzwingen" @click="resetToken(a)">
+            Neu lesen
+          </button>
           <button
             class="btn-xs !border-bad/40 !text-bad hover:!bg-bad hover:!text-paper"
             @click="remove(a)"
@@ -236,12 +240,11 @@ onMounted(async () => {
         </div>
         <div class="mt-1 flex flex-wrap items-center gap-4 text-xs text-muted">
           <span>{{ a.linkedEvents }} verknüpfte Termine</span>
-          <label class="flex cursor-pointer items-center gap-1.5" :class="a.allowRemoteDelete ? 'text-bad' : ''">
-            <input
-              type="checkbox"
-              :checked="a.allowRemoteDelete"
-              @change="toggleDelete(a)"
-            />
+          <label
+            class="flex cursor-pointer items-center gap-1.5"
+            :class="a.allowRemoteDelete ? 'text-bad' : ''"
+          >
+            <input type="checkbox" :checked="a.allowRemoteDelete" @change="toggleDelete(a)" />
             Löschen dort erlauben
           </label>
           <span>
@@ -267,7 +270,9 @@ onMounted(async () => {
       <p v-if="!data?.googleConfigured" class="text-sm text-muted">
         GOOGLE_CLIENT_ID und GOOGLE_CLIENT_SECRET in der <code>.env</code> setzen. In der Google
         Cloud Console eine OAuth-Client-ID (Webanwendung) anlegen und als Redirect-URI genau
-        <code class="border border-line bg-paper-2 px-1">/api/calendar-accounts/google/callback</code>
+        <code class="border border-line bg-paper-2 px-1"
+          >/api/calendar-accounts/google/callback</code
+        >
         eintragen.
       </p>
       <button v-else class="btn-primary" :disabled="busy === 'google'" @click="connectGoogle">
@@ -320,7 +325,11 @@ onMounted(async () => {
           class="flex items-center gap-3 border-b border-line py-2 text-sm"
         >
           <span class="flex-1">{{ cal.displayName }}</span>
-          <span v-if="!cal.supportsSyncCollection" class="badge badge-warn" title="Ohne WebDAV-Sync werden Löschungen auf der Apple-Seite nicht erkannt">
+          <span
+            v-if="!cal.supportsSyncCollection"
+            class="badge badge-warn"
+            title="Ohne WebDAV-Sync werden Löschungen auf der Apple-Seite nicht erkannt"
+          >
             kein Sync-Token
           </span>
           <button class="btn-xs" :disabled="busy === 'apple-add'" @click="addApple(cal)">

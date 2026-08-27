@@ -64,7 +64,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const lexoffice = {
-  profile: () => call<{ organizationId: string; companyName: string; taxType: string }>('/v1/profile'),
+  profile: () =>
+    call<{ organizationId: string; companyName: string; taxType: string }>('/v1/profile'),
 
   /** Legt den Kontakt an, falls noch keine lexoffice-ID hinterlegt ist. */
   async upsertContact(client: LexClient): Promise<string> {
@@ -75,7 +76,12 @@ export const lexoffice = {
       roles: { customer: {} },
       ...(client.company
         ? { company: { name: client.company, vatRegistrationId: client.vatId ?? undefined } }
-        : { person: { firstName: client.name.split(' ')[0] ?? client.name, lastName: client.name.split(' ').slice(1).join(' ') || client.name } }),
+        : {
+            person: {
+              firstName: client.name.split(' ')[0] ?? client.name,
+              lastName: client.name.split(' ').slice(1).join(' ') || client.name,
+            },
+          }),
       addresses: {
         billing: [
           {

@@ -206,7 +206,9 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
       // Ein einzelner Termin, den die Gegenstelle ablehnt, darf nicht den
       // gesamten Abgleich stoppen. Merken, überspringen, weitermachen.
       result.conflicts++
-      console.warn(`[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`)
+      console.warn(
+        `[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`,
+      )
       await markPushed(account.id, event)
       continue
     }
@@ -246,8 +248,8 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
   if (!calendarHref) throw new Error('Kein Kalender ausgewählt')
 
   if (account.direction !== 'PUSH') {
-    let changed: caldav.CalDavResource[] = []
-    let nextToken: string | null = account.syncToken
+    let changed: caldav.CalDavResource[]
+    let nextToken: string | null
     let sawDeletions = false
 
     const sync = await caldav
@@ -352,7 +354,9 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
       // Einzelner Termin abgelehnt (z.B. UID existiert dort schon): notieren
       // und weitermachen, statt den ganzen Kalender abzubrechen.
       result.conflicts++
-      console.warn(`[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`)
+      console.warn(
+        `[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`,
+      )
       await markPushed(account.id, event)
       continue
     }
@@ -555,20 +559,22 @@ async function pushCandidates(account: CalendarAccount): Promise<EventWithLinks[
     orderBy: { startsAt: 'asc' },
   })
 
-  return events
-    .filter((event) => {
-      const mine = event.links.find((l) => l.accountId === account.id)
-      if (mine) {
-        // Bekannt: nur bei echter Änderung erneut schreiben.
-        if (!mine.pushedUpdatedAt) return true
-        return event.updatedAt.getTime() > mine.pushedUpdatedAt.getTime() + 1000
-      }
-      // Unbekannt: nur der Zielkalender nimmt neue Termine auf, und nur solche,
-      // die nicht aus einem anderen Fremdkalender stammen.
-      return account.isDefault && event.links.length === 0
-    })
-    // Der Rest des Codes erwartet in `links` die Verknüpfung dieses Kontos.
-    .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === account.id) }))
+  return (
+    events
+      .filter((event) => {
+        const mine = event.links.find((l) => l.accountId === account.id)
+        if (mine) {
+          // Bekannt: nur bei echter Änderung erneut schreiben.
+          if (!mine.pushedUpdatedAt) return true
+          return event.updatedAt.getTime() > mine.pushedUpdatedAt.getTime() + 1000
+        }
+        // Unbekannt: nur der Zielkalender nimmt neue Termine auf, und nur solche,
+        // die nicht aus einem anderen Fremdkalender stammen.
+        return account.isDefault && event.links.length === 0
+      })
+      // Der Rest des Codes erwartet in `links` die Verknüpfung dieses Kontos.
+      .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === account.id) }))
+  )
 }
 
 /**

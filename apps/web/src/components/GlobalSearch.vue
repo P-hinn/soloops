@@ -86,7 +86,17 @@ const typeLabel: Record<string, string> = {
           <span class="badge">{{ typeLabel[hit.type] ?? hit.type }}</span>
           <span class="truncate text-sm font-medium">{{ hit.title }}</span>
         </div>
-        <div v-if="hit.snippet" class="mt-0.5 line-clamp-2 text-xs text-muted" v-html="hit.snippet" />
+        <!--
+          v-html ist hier Absicht: der Auszug kommt aus ts_headline der eigenen
+          Datenbank, die Markierungen darin setzen wir selbst.
+        -->
+        <!-- eslint-disable vue/no-v-html -->
+        <div
+          v-if="hit.snippet"
+          class="mt-0.5 line-clamp-2 text-xs text-muted"
+          v-html="hit.snippet"
+        />
+        <!-- eslint-enable vue/no-v-html -->
       </button>
     </div>
 

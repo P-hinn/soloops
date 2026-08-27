@@ -95,7 +95,10 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   doc.fontSize(18).font('Helvetica-Bold').text(`Rechnung ${invoice.number}`, left, 235)
   let y = 265
   if (invoice.intro) {
-    doc.fontSize(10).font('Helvetica').text(invoice.intro, left, y, { width: right - left })
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .text(invoice.intro, left, y, { width: right - left })
     y = doc.y + 12
   }
 
@@ -151,12 +154,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   y += 8
   doc.font('Helvetica').fontSize(9).fillColor('#000')
   if (invoice.smallBusiness) {
-    doc.text(
-      'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.',
-      left,
-      y,
-      { width: right - left },
-    )
+    doc.text('Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.', left, y, { width: right - left })
     y = doc.y + 8
   }
   doc.text(

@@ -27,9 +27,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - '5433:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -37,11 +37,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
     ports:
-      - "3000:3000"
+      - '3000:3000'
 
   worker:
     <<: *node
@@ -71,7 +71,7 @@ services:
     command: npm -w @soloops/web run dev
     ports:
       # 5173 ist auf vielen Rechnern schon von einem anderen Vite belegt
-      - "${WEB_PORT:-5174}:5173"
+      - '${WEB_PORT:-5174}:5173'
     depends_on:
       api:
         condition: service_started
@@ -88,7 +88,7 @@ services:
       - ./data:/data
       - whispermodels:/models
     ports:
-      - "8080:8080"
+      - '8080:8080'
 
 volumes:
   pgdata:

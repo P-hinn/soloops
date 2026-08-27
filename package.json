@@ -1,5 +1,6 @@
 {
   "name": "soloops",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -13,9 +14,25 @@
     "db:push": "npm -w @soloops/api run db:push",
     "db:studio": "npm -w @soloops/api run db:studio",
     "seed": "npm -w @soloops/api run seed",
-    "typecheck": "npm -ws --if-present run typecheck"
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "test": "npm -w @soloops/api run test"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.10.0",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.68.0",
+    "vue-eslint-parser": "^10.4.1"
   }
 }

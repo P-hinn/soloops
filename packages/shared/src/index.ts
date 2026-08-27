@@ -48,7 +48,11 @@ export const clientInput = z.object({
 // ---------------------------------------------------------------------------
 
 export const projectInput = z.object({
-  key: z.string().min(2).max(24).regex(/^[A-Z0-9_-]+$/, 'Nur A-Z, 0-9, - und _'),
+  key: z
+    .string()
+    .min(2)
+    .max(24)
+    .regex(/^[A-Z0-9_-]+$/, 'Nur A-Z, 0-9, - und _'),
   name: z.string().min(1),
   description: z.string().nullish(),
   status: ProjectStatus.default('ACTIVE'),

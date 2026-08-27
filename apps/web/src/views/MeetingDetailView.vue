@@ -22,8 +22,19 @@ type Meeting = {
   project: { id: string; key: string; name: string } | null
   client: { id: string; name: string } | null
   recording: { filename: string; durationSec: number | null; sizeBytes: number } | null
-  transcript: { status: string; text: string; segments: Segment[] | null; error: string | null } | null
-  actionItems: { id: string; title: string; done: boolean; assignee: string | null; dueOn: string | null }[]
+  transcript: {
+    status: string
+    text: string
+    segments: Segment[] | null
+    error: string | null
+  } | null
+  actionItems: {
+    id: string
+    title: string
+    done: boolean
+    assignee: string | null
+    dueOn: string | null
+  }[]
 }
 
 const route = useRoute()
@@ -168,7 +179,12 @@ onUnmounted(() => {
 
         <section class="card">
           <h2 class="eyebrow mb-2">Mitschrift</h2>
-          <textarea v-model="minutes" rows="8" class="input font-mono text-xs" placeholder="Markdown …" />
+          <textarea
+            v-model="minutes"
+            rows="8"
+            class="input font-mono text-xs"
+            placeholder="Markdown …"
+          />
           <div class="mt-2 flex justify-end">
             <button class="btn-ghost" @click="saveMinutes">Speichern</button>
           </div>
@@ -177,20 +193,33 @@ onUnmounted(() => {
         <section v-if="meeting.transcript" class="card">
           <div class="mb-2 flex items-center justify-between">
             <h2 class="eyebrow">Transkript</h2>
-            <span class="badge" :class="{ 'badge-blue': meeting.transcript.status === 'RUNNING', 'badge-good': meeting.transcript.status === 'DONE', 'badge-bad': meeting.transcript.status === 'FAILED' }">{{ transcriptLabel[meeting.transcript.status] ?? meeting.transcript.status }}</span>
+            <span
+              class="badge"
+              :class="{
+                'badge-blue': meeting.transcript.status === 'RUNNING',
+                'badge-good': meeting.transcript.status === 'DONE',
+                'badge-bad': meeting.transcript.status === 'FAILED',
+              }"
+              >{{ transcriptLabel[meeting.transcript.status] ?? meeting.transcript.status }}</span
+            >
           </div>
 
           <p v-if="meeting.transcript.error" class="text-sm text-bad">
             {{ meeting.transcript.error }}
           </p>
           <p
-            v-else-if="meeting.transcript.status === 'QUEUED' || meeting.transcript.status === 'RUNNING'"
+            v-else-if="
+              meeting.transcript.status === 'QUEUED' || meeting.transcript.status === 'RUNNING'
+            "
             class="text-sm text-muted"
           >
             Läuft lokal in faster-whisper — Seite aktualisiert sich automatisch.
           </p>
 
-          <div v-else-if="meeting.transcript.segments?.length" class="max-h-96 space-y-1 overflow-y-auto">
+          <div
+            v-else-if="meeting.transcript.segments?.length"
+            class="max-h-96 space-y-1 overflow-y-auto"
+          >
             <p v-for="(s, i) in meeting.transcript.segments" :key="i" class="text-sm">
               <span class="mr-2 font-mono text-xs text-muted">{{ clock(s.start) }}</span>
               <span class="text-soft">{{ s.text }}</span>
@@ -211,11 +240,7 @@ onUnmounted(() => {
           <h2 class="eyebrow mb-2">Videoraum</h2>
 
           <template v-if="meeting.videoUrl">
-            <a
-              :href="meeting.videoUrl"
-              target="_blank"
-              class="btn-acid w-full justify-between"
-            >
+            <a :href="meeting.videoUrl" target="_blank" class="btn-acid w-full justify-between">
               <span>Jetzt beitreten</span><span aria-hidden="true">↗</span>
             </a>
             <p class="mt-2 break-all font-display text-[11px] text-muted">{{ meeting.videoUrl }}</p>
@@ -246,7 +271,10 @@ onUnmounted(() => {
           <h2 class="eyebrow mb-2">Action Items</h2>
           <ul class="space-y-1.5 text-sm">
             <li v-for="a in meeting.actionItems" :key="a.id" class="flex items-start gap-2">
-              <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" :class="a.done ? 'bg-muted' : 'bg-warn'" />
+              <span
+                class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                :class="a.done ? 'bg-muted' : 'bg-warn'"
+              />
               <span :class="a.done ? 'text-muted line-through' : ''">{{ a.title }}</span>
             </li>
           </ul>

@@ -34,12 +34,12 @@ Beim ersten Start das Owner-Konto und zwei Beispielprojekte anlegen:
 docker compose exec api npm -w @soloops/api run seed
 ```
 
-| Dienst | URL |
-| --- | --- |
-| Frontend | http://localhost:5174 |
-| API | http://localhost:3000 |
+| Dienst        | URL                          |
+| ------------- | ---------------------------- |
+| Frontend      | http://localhost:5174        |
+| API           | http://localhost:3000        |
 | Transkription | http://localhost:8080/health |
-| Postgres | localhost:5433 |
+| Postgres      | localhost:5433               |
 
 Der Transkriptions-Container lädt beim ersten Lauf das Whisper-Modell (~1,5 GB bei
 `medium`) und braucht entsprechend lange. Wer ihn zunächst nicht braucht, startet
@@ -57,14 +57,14 @@ Die Oberfläche übernimmt die Bildsprache von philippniestroj.com. Die Tokens
 liegen zentral in [`apps/web/src/style.css`](apps/web/src/style.css) und sind
 1:1 die der Website:
 
-| Token | Wert | Rolle |
-| --- | --- | --- |
-| `--color-paper` | `#f1efe8` | warmes Off-White, Grundfläche |
-| `--color-ink` | `#171714` | Text, Primärbutton, starke Rahmen |
-| `--color-soft` / `--color-muted` | `#575750` / `#6c6b64` | Fließtext, Sekundäres |
-| `--color-acid` | `#d8ff55` | Limette — der eine laute Akzent |
-| `--color-blue` | `#5c76ff` | Kicker-Labels und Links |
-| `--color-line` | `rgba(23,23,20,.15)` | Haarlinie |
+| Token                            | Wert                  | Rolle                             |
+| -------------------------------- | --------------------- | --------------------------------- |
+| `--color-paper`                  | `#f1efe8`             | warmes Off-White, Grundfläche     |
+| `--color-ink`                    | `#171714`             | Text, Primärbutton, starke Rahmen |
+| `--color-soft` / `--color-muted` | `#575750` / `#6c6b64` | Fließtext, Sekundäres             |
+| `--color-acid`                   | `#d8ff55`             | Limette — der eine laute Akzent   |
+| `--color-blue`                   | `#5c76ff`             | Kicker-Labels und Links           |
+| `--color-line`                   | `rgba(23,23,20,.15)`  | Haarlinie                         |
 
 Drei Regeln tragen den Look:
 
@@ -84,6 +84,42 @@ Beträge und Zeiten in Spalten untereinander stehen.
 Wiederverwendbare Klassen: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` /
 `.btn-xs`, `.input`, `.label`, `.badge` (+ `-acid` / `-good` / `-warn` / `-bad` /
 `-blue`), `.table`, `.eyebrow`, `.display-xl`, `.prose-note`.
+
+---
+
+## Werkzeuge und Regeln
+
+```bash
+npm run check      # Format, Linter, Typen und Tests in einem Lauf
+npm run format     # Prettier über alles
+npm run lint:fix   # ESLint mit Autokorrektur
+npm run test       # RRULE-Expander (11 Fälle)
+```
+
+**Prettier** macht die Formatierung (keine Semikolons, einfache
+Anführungszeichen, 100 Zeichen), **tsc** die Typen. Der **Linter** kümmert sich
+nur um das, was beide nicht sehen — allen voran die **Obergrenze von 1000
+Zeilen pro Datei** (`max-lines`, Leerzeilen und Kommentare zählen nicht mit,
+damit gute Dokumentation nicht bestraft wird). Wer sie reißt, hat zwei Dinge in
+einer Datei. Größte Datei aktuell: `CalendarView.vue` mit 791 Zeilen.
+
+### Abhängigkeiten
+
+Bewusst **nicht** mitgezogen, jeweils mit Grund:
+
+| Paket         | Aktuell | Verfügbar       | Warum nicht                                                               |
+| ------------- | ------- | --------------- | ------------------------------------------------------------------------- |
+| TypeScript    | 5.9     | 7.0             | Neu geschriebener Compiler, noch keine belastbare Erfahrung mit `vue-tsc` |
+| Prisma        | 6.19    | 7.10 (8 als RC) | Großer Migrationsschritt; lohnt als eigener Vorgang, nicht nebenbei       |
+| Zod           | 3.25    | 4.4             | Geänderte Semantik bei `.default()`/`.optional()` quer durch alle Schemas |
+| `@types/node` | 22      | 26              | Muss zur Laufzeit im Container passen, und die ist Node 22                |
+
+Offen und bekannt: `deepmerge-ts@7.1.5` unter `@prisma/config` hat eine
+Stack-Erschöpfung bei rekursiven Objektgraphen (GHSA-ggr8-5vv4-36mx, hoch).
+Der Pfad ist die Prisma-**CLI** (`generate`, `db push`), nicht die Query-Engine,
+und verarbeitet ausschließlich die eigene Konfiguration — praktisch keine
+Angriffsfläche. Ein npm-`override` auf 8.x greift mit npm 11 nicht durch; die
+Lücke verschwindet mit dem Prisma-Upgrade.
 
 ---
 
@@ -116,10 +152,10 @@ Zeiten, verbundene Kalender, gesetzte Umgebungsvariablen. Bewusst nichts, was ma
 selbst abhaken kann; eine solche Liste sagt nach zwei Wochen nichts mehr über den
 Zustand aus. Standardmäßig ist sie eine Zeile — Fortschritt und nächster Schritt;
 alle Schritte auf Klick. Ausblenden geht jederzeit, zurückholen unter
-*Einstellungen*.
+_Einstellungen_.
 
 **Schnelleingabe.** Ein Feld auf dem Dashboard: „Termin für neues Projekt mit
-Beispiel GmbH nächste Woche" wird zu einem *Plan* — Kunde, Projekt, Termin,
+Beispiel GmbH nächste Woche" wird zu einem _Plan_ — Kunde, Projekt, Termin,
 Videoraum, Meeting, Notiz, offene Punkte. Der Plan ist editierbar und wird erst
 auf Knopfdruck angelegt. Bewusst zweistufig: unterspezifizierte Sätze sind die
 Regel, und stilles Anlegen produziert mehr Aufräumarbeit als es spart. Daneben
@@ -161,7 +197,7 @@ lassen sich Projekten zuordnen und tauchen dann in der Projektansicht auf.
 **CI/CD.** GitHub Actions und GitLab Pipelines, alle 3 Minuten gepollt, ebenfalls
 projektbezogen.
 
-**Zeiterfassung.** Stoppuhr oben auf *Zeiten*: Projekt (das zuletzt bebuchte ist
+**Zeiterfassung.** Stoppuhr oben auf _Zeiten_: Projekt (das zuletzt bebuchte ist
 vorgewählt), Beschreibung, Start. Während sie läuft, lässt sich die Beschreibung
 nachtragen; „Verwerfen" stoppt und löscht in einem Zug, damit keine
 Zwei-Sekunden-Buchung in der Auswertung landet. „Weiter mit" nimmt die zuletzt
@@ -189,9 +225,9 @@ USt-Voranmeldung.
 
 ## Kalender-Sync in beide Richtungen
 
-Einrichtung unter *Einstellungen*. Der Abgleich läuft danach automatisch
+Einrichtung unter _Einstellungen_. Der Abgleich läuft danach automatisch
 (`CALENDAR_SYNC_CRON`, Standard alle 10 Minuten) und lässt sich pro Konto auf
-*nur lesen* oder *nur schreiben* stellen.
+_nur lesen_ oder _nur schreiben_ stellen.
 
 **Google Calendar** — OAuth mit Scope `calendar`, mehr nicht. Der Abgleich läuft
 inkrementell über Googles `syncToken`; läuft der ab, wird automatisch einmal voll
@@ -202,7 +238,7 @@ Vorbereitung: in der Google Cloud Console die Calendar API aktivieren, eine
 OAuth-Client-ID (Webanwendung) anlegen und als Redirect-URI exakt
 `http://localhost:3000/api/calendar-accounts/google/callback` eintragen.
 
-**Apple / iCloud** — über CalDAV, mit einem *app-spezifischen Passwort*
+**Apple / iCloud** — über CalDAV, mit einem _app-spezifischen Passwort_
 (appleid.apple.com → Anmeldung und Sicherheit). Das normale Apple-Passwort
 funktioniert nicht. Änderungen kommen über WebDAV-Sync (RFC 6578); unterstützt
 ein Server das nicht, fällt soloops auf einen ETag-Vergleich zurück und meldet

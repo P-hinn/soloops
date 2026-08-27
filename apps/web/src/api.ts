@@ -25,7 +25,8 @@ async function request<T>(
 ): Promise<T> {
   const url = new URL(path, window.location.origin)
   for (const [key, value] of Object.entries(options.query ?? {})) {
-    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value))
+    if (value !== undefined && value !== null && value !== '')
+      url.searchParams.set(key, String(value))
   }
 
   const token = getToken()

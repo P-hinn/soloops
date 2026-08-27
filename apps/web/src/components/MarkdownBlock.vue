@@ -13,6 +13,12 @@ const html = computed(() => (props.source ? marked.parse(props.source, { async: 
 </script>
 
 <template>
+  <!--
+    v-html ist hier Absicht: der Inhalt stammt ausschließlich aus dem eigenen
+    Backend (eigene Notizen, eigene Transkripte). Sobald fremde Inhalte
+    hinzukommen, gehört DOMPurify davor.
+  -->
+  <!-- eslint-disable-next-line vue/no-v-html -->
   <div v-if="html" class="prose-note text-sm" v-html="html" />
   <p v-else class="text-sm text-muted">—</p>
 </template>

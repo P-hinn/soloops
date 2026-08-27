@@ -165,7 +165,10 @@ const willCreate = computed(() => {
     </form>
 
     <!-- Schnellaktionen -->
-    <div data-tour="quick-actions" class="flex flex-wrap items-center gap-2 border-b border-line bg-shell/50 px-4 py-2.5">
+    <div
+      data-tour="quick-actions"
+      class="flex flex-wrap items-center gap-2 border-b border-line bg-shell/50 px-4 py-2.5"
+    >
       <span class="eyebrow-muted mr-1">Schnell</span>
       <button
         v-if="timer.running"
@@ -230,7 +233,13 @@ const willCreate = computed(() => {
     <div v-if="plan" class="border-t border-line">
       <div class="flex flex-wrap items-start gap-3 bg-paper-2 px-4 py-3">
         <span class="badge" :class="confidenceTone[plan.confidence]">
-          {{ plan.confidence === 'high' ? 'sicher' : plan.confidence === 'medium' ? 'mit Annahmen' : 'unsicher' }}
+          {{
+            plan.confidence === 'high'
+              ? 'sicher'
+              : plan.confidence === 'medium'
+                ? 'mit Annahmen'
+                : 'unsicher'
+          }}
         </span>
         <p class="min-w-0 flex-1 text-sm font-medium">{{ plan.understood }}</p>
       </div>
@@ -249,7 +258,9 @@ const willCreate = computed(() => {
                 :value="toLocalInput(plan.event.startsAt)"
                 type="datetime-local"
                 class="input"
-                @input="plan.event.startsAt = fromLocalInput(($event.target as HTMLInputElement).value)"
+                @input="
+                  plan.event.startsAt = fromLocalInput(($event.target as HTMLInputElement).value)
+                "
               />
             </div>
             <div>
@@ -258,7 +269,9 @@ const willCreate = computed(() => {
                 :value="toLocalInput(plan.event.endsAt)"
                 type="datetime-local"
                 class="input"
-                @input="plan.event.endsAt = fromLocalInput(($event.target as HTMLInputElement).value)"
+                @input="
+                  plan.event.endsAt = fromLocalInput(($event.target as HTMLInputElement).value)
+                "
               />
             </div>
             <label class="flex items-center gap-2 text-sm sm:col-span-2">
@@ -323,7 +336,11 @@ const willCreate = computed(() => {
 
           <div class="flex gap-2 border-t border-line pt-3">
             <button class="btn-ghost" :disabled="busy" @click="discard">Verwerfen</button>
-            <button class="btn-acid flex-1 justify-center" :disabled="busy || !willCreate.length" @click="apply">
+            <button
+              class="btn-acid flex-1 justify-center"
+              :disabled="busy || !willCreate.length"
+              @click="apply"
+            >
               {{ busy ? 'Legt an …' : 'Anlegen' }}
             </button>
           </div>

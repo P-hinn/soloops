@@ -30,10 +30,7 @@ type ItemDraft = {
 }
 
 function totals(items: ItemDraft[], taxRate: number, smallBusiness: boolean) {
-  const subtotalCents = items.reduce(
-    (sum, i) => sum + Math.round(i.quantity * i.unitPriceCents),
-    0,
-  )
+  const subtotalCents = items.reduce((sum, i) => sum + Math.round(i.quantity * i.unitPriceCents), 0)
   const effectiveRate = smallBusiness ? 0 : taxRate
   const taxCents = Math.round((subtotalCents * effectiveRate) / 100)
   return { subtotalCents, taxCents, totalCents: subtotalCents + taxCents, effectiveRate }

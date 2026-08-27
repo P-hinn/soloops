@@ -244,13 +244,27 @@ input[type='checkbox'] {
   font-family: var(--font-display);
   @apply mt-5 mb-2 font-semibold text-ink;
 }
-.prose-note h1 { @apply text-xl; }
-.prose-note h2 { @apply text-lg; }
-.prose-note h3 { @apply text-base; }
-.prose-note p { @apply my-2.5 leading-relaxed text-soft; }
-.prose-note ul { @apply my-2.5 list-disc pl-5 text-soft; }
-.prose-note ol { @apply my-2.5 list-decimal pl-5 text-soft; }
-.prose-note li { @apply my-1; }
+.prose-note h1 {
+  @apply text-xl;
+}
+.prose-note h2 {
+  @apply text-lg;
+}
+.prose-note h3 {
+  @apply text-base;
+}
+.prose-note p {
+  @apply my-2.5 leading-relaxed text-soft;
+}
+.prose-note ul {
+  @apply my-2.5 list-disc pl-5 text-soft;
+}
+.prose-note ol {
+  @apply my-2.5 list-decimal pl-5 text-soft;
+}
+.prose-note li {
+  @apply my-1;
+}
 .prose-note code {
   @apply border border-line bg-paper-2 px-1 py-0.5 text-[0.85em];
   font-family: var(--font-display);
@@ -258,10 +272,18 @@ input[type='checkbox'] {
 .prose-note pre {
   @apply my-3 overflow-x-auto border border-line bg-paper-2 p-3 text-xs;
 }
-.prose-note pre code { @apply border-0 bg-transparent p-0; }
-.prose-note a { @apply text-blue underline underline-offset-2; }
-.prose-note strong { @apply font-semibold text-ink; }
-.prose-note blockquote { @apply my-3 border-l-2 border-acid pl-4 text-soft; }
+.prose-note pre code {
+  @apply border-0 bg-transparent p-0;
+}
+.prose-note a {
+  @apply text-blue underline underline-offset-2;
+}
+.prose-note strong {
+  @apply font-semibold text-ink;
+}
+.prose-note blockquote {
+  @apply my-3 border-l-2 border-acid pl-4 text-soft;
+}
 
 /* Volltext-Treffer werden serverseitig mit «» markiert */
 .prose-note mark,

@@ -65,7 +65,10 @@ async function save() {
   const payload = {
     title: draft.value.title,
     body: draft.value.body,
-    tags: draft.value.tags.split(',').map((t) => t.trim()).filter(Boolean),
+    tags: draft.value.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
     projectId: draft.value.projectId || null,
   }
   if (selected.value) await api.patch(`/api/notes/${selected.value.id}`, payload)
@@ -124,7 +127,11 @@ onMounted(async () => {
             v-for="n in notes"
             :key="n.id"
             class="block w-full px-3 py-2 text-left hover:bg-ink/5"
-            :class="selected?.id === n.id ? 'border-l-2 border-ink bg-paper-2' : 'border-l-2 border-transparent'"
+            :class="
+              selected?.id === n.id
+                ? 'border-l-2 border-ink bg-paper-2'
+                : 'border-l-2 border-transparent'
+            "
             @click="open(n)"
           >
             <div class="flex items-center gap-2">

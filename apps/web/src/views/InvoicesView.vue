@@ -89,7 +89,11 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <form v-if="showDraft" class="card mb-4 grid gap-3 md:grid-cols-4" @submit.prevent="createFromTime">
+    <form
+      v-if="showDraft"
+      class="card mb-4 grid gap-3 md:grid-cols-4"
+      @submit.prevent="createFromTime"
+    >
       <div>
         <label class="label">Kunde</label>
         <select v-model="draft.clientId" class="input" required>
@@ -146,9 +150,17 @@ onMounted(async () => {
               </RouterLink>
             </td>
             <td>{{ i.client.company ?? i.client.name }}</td>
-            <td class="text-xs text-muted">{{ new Date(i.issueDate).toLocaleDateString('de-DE') }}</td>
-            <td class="text-xs text-muted">{{ new Date(i.dueDate).toLocaleDateString('de-DE') }}</td>
-            <td><span class="badge" :class="statusTone[i.status]">{{ statusLabel[i.status] ?? i.status }}</span></td>
+            <td class="text-xs text-muted">
+              {{ new Date(i.issueDate).toLocaleDateString('de-DE') }}
+            </td>
+            <td class="text-xs text-muted">
+              {{ new Date(i.dueDate).toLocaleDateString('de-DE') }}
+            </td>
+            <td>
+              <span class="badge" :class="statusTone[i.status]">{{
+                statusLabel[i.status] ?? i.status
+              }}</span>
+            </td>
             <td>
               <span v-if="i.lexofficeId" class="text-xs text-good">✓</span>
               <span v-else class="text-xs text-muted">—</span>

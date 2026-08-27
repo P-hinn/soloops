@@ -168,15 +168,13 @@ watch(isPublic, (value) => {
     <!-- Inhalt                                                              -->
     <!-- ------------------------------------------------------------------ -->
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex shrink-0 items-center gap-6 border-b border-line-strong bg-shell px-6 py-2.5">
+      <header
+        class="flex shrink-0 items-center gap-6 border-b border-line-strong bg-shell px-6 py-2.5"
+      >
         <GlobalSearch data-tour="search" class="max-w-xl flex-1" />
         <div class="ml-auto hidden items-center gap-3 lg:flex">
           <span class="eyebrow-muted">{{ today }}</span>
-          <span
-            v-if="timer.running"
-            class="badge badge-acid"
-            :title="timer.running.project.name"
-          >
+          <span v-if="timer.running" class="badge badge-acid" :title="timer.running.project.name">
             ● {{ timer.display }}
           </span>
         </div>

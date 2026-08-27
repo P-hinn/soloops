@@ -157,7 +157,10 @@ export function expandRecurrence(opts: {
 
   // Ohne erkannte Frequenz nur die Ursprungsinstanz — besser als raten.
   if (!rule.freq) {
-    return withinWindow([{ start: opts.dtstart, end: new Date(opts.dtstart.getTime() + opts.durationMs) }], opts)
+    return withinWindow(
+      [{ start: opts.dtstart, end: new Date(opts.dtstart.getTime() + opts.durationMs) }],
+      opts,
+    )
   }
 
   const exact = new Set((opts.exDates ?? []).map((d) => d.getTime()))
@@ -217,7 +220,11 @@ export function expandRecurrence(opts: {
         if (emit(w) === 'stop') break outer
       }
       anchor.setUTCDate(anchor.getUTCDate() + 7 * rule.interval)
-      if (Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate()) > hardEnd.getTime()) break
+      if (
+        Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate()) >
+        hardEnd.getTime()
+      )
+        break
     }
   } else {
     // MONTHLY und YEARLY teilen sich die Kandidatenlogik pro Monat.
@@ -226,8 +233,7 @@ export function expandRecurrence(opts: {
     let mo = base.mo
 
     outer2: while (iterations++ < max) {
-      const months =
-        rule.freq === 'YEARLY' && rule.byMonth.length ? rule.byMonth : [mo]
+      const months = rule.freq === 'YEARLY' && rule.byMonth.length ? rule.byMonth : [mo]
 
       for (const month of months) {
         let candidates: number[]

@@ -216,7 +216,11 @@ function parseDuration(value: string): number | null {
   if (!m) return null
   const [, sign, w, d, h, mi, s] = m
   const ms =
-    (Number(w ?? 0) * 604800 + Number(d ?? 0) * 86400 + Number(h ?? 0) * 3600 + Number(mi ?? 0) * 60 + Number(s ?? 0)) *
+    (Number(w ?? 0) * 604800 +
+      Number(d ?? 0) * 86400 +
+      Number(h ?? 0) * 3600 +
+      Number(mi ?? 0) * 60 +
+      Number(s ?? 0)) *
     1000
   return sign === '-' ? -ms : ms
 }

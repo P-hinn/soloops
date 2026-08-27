@@ -42,11 +42,8 @@ async function setFlag(key: string, value: boolean): Promise<void> {
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const userId = req.principal?.type === 'user' ? req.principal.userId : null
-
+  app.get('/', async () => {
     const [
-      user,
       clients,
       projects,
       timeEntries,
@@ -59,7 +56,6 @@ const routes: FastifyPluginAsync = async (app) => {
       dismissed,
       tourSeen,
     ] = await Promise.all([
-      userId ? prisma.user.findUnique({ where: { id: userId } }) : null,
       prisma.client.count(),
       prisma.project.count(),
       prisma.timeEntry.count(),
