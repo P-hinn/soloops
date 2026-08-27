@@ -46,7 +46,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 const typeLabel: Record<string, string> = {
   note: 'Notiz',
   meeting: 'Meeting',
-  transcript: 'Transkript',
   project: 'Projekt',
   client: 'Kunde',
   invoice: 'Rechnung',

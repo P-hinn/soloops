@@ -1,13 +1,8 @@
-import { createWriteStream } from 'node:fs'
-import { mkdir, stat, unlink } from 'node:fs/promises'
-import { pipeline } from 'node:stream/promises'
-import path from 'node:path'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { meetingInput } from '@soloops/shared'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
-import { transcribeQueue } from '../queue.js'
 import { summarizeMeeting } from '../ai/digest.js'
 import { createVideoRoom } from '../services/video.js'
 import { tombstoneEvent } from '../services/calendarSync.js'
@@ -36,8 +31,6 @@ const routes: FastifyPluginAsync = async (app) => {
       include: {
         project: { select: { id: true, key: true, name: true, color: true } },
         client: { select: { id: true, name: true } },
-        transcript: { select: { status: true, id: true } },
-        recording: { select: { id: true, durationSec: true } },
         _count: { select: { actionItems: true } },
       },
     })
@@ -50,8 +43,6 @@ const routes: FastifyPluginAsync = async (app) => {
       include: {
         project: true,
         client: true,
-        transcript: true,
-        recording: true,
         actionItems: { orderBy: [{ done: 'asc' }, { createdAt: 'asc' }] },
         notes_: true,
       },
@@ -143,8 +134,6 @@ const routes: FastifyPluginAsync = async (app) => {
   app.delete('/:id', async (req, reply) => {
     const { id } = idParam.parse(req.params)
     const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id } })
-    const rec = await prisma.recording.findUnique({ where: { meetingId: id } })
-    if (rec) await unlink(rec.storagePath).catch(() => {})
     await prisma.meeting.delete({ where: { id } })
     // Der Kalendereintrag gehört zum Meeting — mit weg, auch in den Fremdkalendern.
     if (meeting.eventId) {
@@ -178,79 +167,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return updated
   })
 
-  // --- Aufnahme + Transkript ----------------------------------------------
-
-  app.post('/:id/recording', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
-    await prisma.meeting.findUniqueOrThrow({ where: { id } })
-
-    const file = await req.file()
-    if (!file) return reply.code(400).send({ error: 'Keine Datei im Request' })
-
-    const dir = path.join(env.DATA_DIR, 'recordings')
-    await mkdir(dir, { recursive: true })
-    const safeName = path.basename(file.filename).replace(/[^\w.-]/g, '_')
-    const storagePath = path.join(dir, `${id}__${safeName}`)
-
-    await pipeline(file.file, createWriteStream(storagePath))
-    if (file.file.truncated) {
-      await unlink(storagePath).catch(() => {})
-      return reply.code(413).send({ error: 'Datei zu groß' })
-    }
-
-    const { size } = await stat(storagePath)
-
-    const recording = await prisma.recording.upsert({
-      where: { meetingId: id },
-      create: {
-        meetingId: id,
-        filename: safeName,
-        mimeType: file.mimetype,
-        sizeBytes: size,
-        storagePath,
-      },
-      update: { filename: safeName, mimeType: file.mimetype, sizeBytes: size, storagePath },
-    })
-
-    await prisma.transcript.upsert({
-      where: { meetingId: id },
-      create: {
-        meetingId: id,
-        status: 'QUEUED',
-        language: env.WHISPER_LANGUAGE,
-        model: env.WHISPER_MODEL,
-      },
-      update: { status: 'QUEUED', error: null, text: '', segments: undefined },
-    })
-
-    await transcribeQueue.add(
-      'transcribe',
-      { meetingId: id },
-      { removeOnComplete: 20, removeOnFail: 50, attempts: 2 },
-    )
-
-    return reply.code(201).send({ recording, transcript: { status: 'QUEUED' } })
-  })
-
-  app.post('/:id/transcribe', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
-    const rec = await prisma.recording.findUnique({ where: { meetingId: id } })
-    if (!rec) return reply.code(400).send({ error: 'Keine Aufnahme vorhanden' })
-    await prisma.transcript.upsert({
-      where: { meetingId: id },
-      create: {
-        meetingId: id,
-        status: 'QUEUED',
-        language: env.WHISPER_LANGUAGE,
-        model: env.WHISPER_MODEL,
-      },
-      update: { status: 'QUEUED', error: null },
-    })
-    await transcribeQueue.add('transcribe', { meetingId: id }, { attempts: 2 })
-    return { queued: true }
-  })
-
-  /** AI-Zusammenfassung + Action Items aus Transkript/Notizen. */
+  /** AI-Zusammenfassung + Action Items aus der Mitschrift. */
   app.post('/:id/summarize', async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY)
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })

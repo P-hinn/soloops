@@ -34,20 +34,11 @@ Beim ersten Start das Owner-Konto und zwei Beispielprojekte anlegen:
 docker compose exec api npm -w @soloops/api run seed
 ```
 
-| Dienst        | URL                          |
-| ------------- | ---------------------------- |
-| Frontend      | http://localhost:5174        |
-| API           | http://localhost:3000        |
-| Transkription | http://localhost:8080/health |
-| Postgres      | localhost:5433               |
-
-Der Transkriptions-Container lädt beim ersten Lauf das Whisper-Modell (~1,5 GB bei
-`medium`) und braucht entsprechend lange. Wer ihn zunächst nicht braucht, startet
-ohne ihn:
-
-```bash
-docker compose up -d postgres redis api worker web
-```
+| Dienst   | URL                   |
+| -------- | --------------------- |
+| Frontend | http://localhost:5174 |
+| API      | http://localhost:3000 |
+| Postgres | localhost:5433        |
 
 ---
 
@@ -128,13 +119,11 @@ Lücke verschwindet mit dem Prisma-Upgrade.
 ```
 apps/
   api/        Fastify + Prisma + Postgres — REST-API, PDF-Rendering, AI-Aufrufe
-  worker/     BullMQ — Transkription, UptimeRobot-Poll, CI/CD-Poll, Tages-Digests
+  worker/     BullMQ — Kalender-Sync, UptimeRobot-Poll, CI/CD-Poll, Tages-Digests
   web/        Vue 3 + Vite + Tailwind — die Oberfläche
   mcp/        MCP-Server (stdio) für Claude Code / Claude Desktop
 packages/
   shared/     Zod-Schemas und Formatierer, die API, Web und MCP teilen
-services/
-  transcribe/ FastAPI + faster-whisper — läuft lokal, Audio verlässt den Host nicht
 ```
 
 Worker und API teilen sich Prisma-Client und Service-Layer über relative Importe —
@@ -178,10 +167,8 @@ eigener Dauerraum (Zoom, Teams) geht über `VIDEO_CUSTOM_URL` oder pro Meeting
 als eigener Link. Der Raum landet in Meeting, Kalendereintrag, ICS-Feed und in
 beiden Fremdkalendern.
 
-**Meetings & Transkript.** Meeting anlegen (legt optional den Kalendereintrag mit an),
-Aufnahme hochladen → BullMQ-Job → faster-whisper im Nachbarcontainer → Transkript mit
-Zeitmarken. Direkt danach optional eine AI-Zusammenfassung mit Entscheidungen und
-Action Items.
+**Meetings.** Meeting anlegen (legt optional den Kalendereintrag mit an), Mitschrift
+tippen, danach optional eine AI-Zusammenfassung mit Entscheidungen und Action Items.
 
 **Notizen.** Markdown, Tags, Projektbezug, deutsche Postgres-Volltextsuche
 (GIN-Index über Titel + Body, angelegt beim API-Start).
@@ -341,12 +328,64 @@ npm run typecheck
 
 ---
 
+## Deployment auf einem kleinen Server
+
+Ausgelegt auf die Maschine, auf der auch das Portfolio läuft: **2 Kerne, 1,92 GB
+RAM, Port 3000 belegt**. `docker-compose.prod.yml` ist eine eigenständige
+Compose-Datei, kein Override.
+
+```bash
+cp .env.example .env       # ausfüllen, NODE_ENV=production, APP_URL setzen
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml exec api npm -w @soloops/api run seed
+```
+
+Was anders ist als in der Entwicklung:
+
+|              | Entwicklung                       | Produktion                                  |
+| ------------ | --------------------------------- | ------------------------------------------- |
+| Web          | Vite-Devserver (`tsx watch`, HMR) | statisches Bundle hinter nginx              |
+| Offene Ports | 5174 Web, 3000 API, 5433 Postgres | genau einer: `SOLOOPS_PORT` (Standard 8090) |
+| Quellcode    | vom Host gemountet                | im Image                                    |
+| Node         | `tsx watch`                       | `tsx`, `NODE_OPTIONS=--max-old-space-size`  |
+
+nginx liefert das Bundle aus und proxyt `/api` und `/health` an die API — die
+API selbst hat keinen Port nach außen, Postgres und Redis auch nicht.
+`SOLOOPS_PORT` ist bewusst **nicht** 3000; dahinter gehört ein Reverse Proxy mit
+TLS.
+
+### Speicher
+
+Grenzen pro Dienst (`mem_limit`) und was im Leerlauf tatsächlich anfällt:
+
+| Dienst      | Grenze      | gemessen (idle) |
+| ----------- | ----------- | --------------- |
+| api         | 384 MB      | 138 MB          |
+| worker      | 320 MB      | 103 MB          |
+| postgres    | 320 MB      | 32 MB           |
+| redis       | 96 MB       | 11 MB           |
+| web (nginx) | 64 MB       | 10 MB           |
+| **Summe**   | **1184 MB** | **294 MB**      |
+
+Postgres läuft mit `shared_buffers=96MB` und `max_connections=30` statt der
+Standardwerte, die für deutlich mehr RAM gedacht sind. Redis ist auf 64 MB
+gedeckelt mit `maxmemory-policy noeviction` — BullMQ-Jobs sollen bei vollem
+Speicher hart scheitern und im Log auftauchen, nicht stillschweigend verschwinden.
+
+Der Engpass ist nicht der Betrieb, sondern der **Build**: `npm install` plus
+Vite-Build auf zwei Kernen. Der Web-Build läuft deshalb mit
+`build:only` (ohne `vue-tsc`, das läuft in `npm run check`) und gedeckeltem Heap.
+Wenn der Build auf dem Server trotzdem eng wird, vorher Swap anlegen oder das
+Image auf dem Entwicklungsrechner bauen und in eine Registry schieben.
+
+---
+
 ## Sicherheitshinweise für den Produktivbetrieb
 
-- `transcribe` und `postgres` nicht nach außen mappen (Port-Einträge in
-  `docker-compose.yml` entfernen) — beide haben keine eigene Authentifizierung.
+- `postgres` und `redis` nicht nach außen mappen — beide haben keine eigene
+  Authentifizierung. Die Produktions-Compose (siehe unten) tut das bereits nicht.
 - Hinter einen Reverse Proxy mit TLS stellen; `SERVICE_TOKEN` taucht im ICS-Feed
   als Query-Parameter auf und gehört nicht über HTTP übertragen.
 - `.env` ist in `.gitignore` und sollte es bleiben.
-- Aufnahmen und PDFs liegen unverschlüsselt im `./data`-Volume — Backup entsprechend
+- PDFs liegen unverschlüsselt im `./data`-Volume — Backup entsprechend
   behandeln.

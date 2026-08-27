@@ -1,7 +1,6 @@
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
-import multipart from '@fastify/multipart'
 import { ZodError } from 'zod'
 
 import { env } from './env.js'
@@ -32,7 +31,6 @@ const app = Fastify({
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(jwt, { secret: env.JWT_SECRET, sign: { expiresIn: '30d' } })
-await app.register(multipart, { limits: { fileSize: 500 * 1024 * 1024 } })
 
 registerAuth(app)
 

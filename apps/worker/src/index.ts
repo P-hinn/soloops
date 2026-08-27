@@ -9,28 +9,9 @@ import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
 import { buildProjectDigest } from '../../api/src/ai/digest.js'
 import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
-import { runTranscription } from './jobs/transcribe.js'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 const log = (scope: string, msg: string) => console.log(`[${scope}] ${msg}`)
-
-// ---------------------------------------------------------------------------
-// Transkription (faster-whisper im Nachbarcontainer)
-// ---------------------------------------------------------------------------
-
-new Worker(
-  'transcribe',
-  async (job) => {
-    const { meetingId } = job.data as { meetingId: string }
-    log('transcribe', `Meeting ${meetingId} startet`)
-    const result = await runTranscription(meetingId)
-    log('transcribe', `Meeting ${meetingId} fertig (${result.chars} Zeichen)`)
-    return result
-  },
-  { connection, concurrency: 1, lockDuration: 60 * 60 * 1000 },
-).on('failed', (job, err) =>
-  console.error(`[transcribe] Job ${job?.id} fehlgeschlagen:`, err.message),
-)
 
 // ---------------------------------------------------------------------------
 // UptimeRobot

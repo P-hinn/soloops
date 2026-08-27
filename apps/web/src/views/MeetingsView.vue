@@ -12,8 +12,6 @@ type Meeting = {
   participants: string[]
   project?: { key: string; color: string } | null
   client?: { name: string } | null
-  transcript?: { status: string } | null
-  recording?: { durationSec: number | null } | null
   videoUrl?: string | null
   _count: { actionItems: number }
 }
@@ -31,20 +29,6 @@ const form = ref({
   agenda: '',
   withVideo: true,
 })
-
-const transcriptTone: Record<string, string> = {
-  QUEUED: '',
-  RUNNING: 'badge-blue',
-  DONE: 'badge-good',
-  FAILED: 'badge-bad',
-}
-
-const transcriptLabel: Record<string, string> = {
-  QUEUED: 'wartet',
-  RUNNING: 'läuft',
-  DONE: 'fertig',
-  FAILED: 'fehlgeschlagen',
-}
 
 async function load() {
   meetings.value = await api.get<Meeting[]>('/api/meetings')
@@ -137,7 +121,6 @@ onMounted(async () => {
             <th>Meeting</th>
             <th>Projekt</th>
             <th>Video</th>
-            <th>Transkript</th>
             <th class="text-right">Punkte</th>
           </tr>
         </thead>
@@ -166,16 +149,10 @@ onMounted(async () => {
               </a>
               <span v-else class="text-xs text-muted">—</span>
             </td>
-            <td>
-              <span v-if="m.transcript" class="badge" :class="transcriptTone[m.transcript.status]">
-                {{ transcriptLabel[m.transcript.status] ?? m.transcript.status }}
-              </span>
-              <span v-else class="text-xs text-muted">—</span>
-            </td>
             <td class="text-right tabular-nums">{{ m._count.actionItems }}</td>
           </tr>
           <tr v-if="!meetings.length">
-            <td colspan="6" class="py-8 text-center text-muted">Noch keine Meetings.</td>
+            <td colspan="5" class="py-8 text-center text-muted">Noch keine Meetings.</td>
           </tr>
         </tbody>
       </table>

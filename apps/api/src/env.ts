@@ -49,10 +49,6 @@ const schema = z.object({
   JITSI_BASE_URL: z.string().default('https://meet.jit.si'),
   VIDEO_CUSTOM_URL: z.string().default(''),
 
-  TRANSCRIBE_URL: z.string().default('http://transcribe:8080'),
-  WHISPER_MODEL: z.string().default('medium'),
-  WHISPER_LANGUAGE: z.string().default('de'),
-
   DATA_DIR: z.string().default('/data'),
 
   INVOICE_NUMBER_PREFIX: z.string().default('RE'),
