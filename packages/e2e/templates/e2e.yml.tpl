@@ -32,8 +32,7 @@ jobs:
       - uses: actions/checkout@v5
 {{PM_SETUP}}      - uses: actions/setup-node@v5
         with:
-          node-version: 22
-          cache: {{PM}}
+          node-version: 22{{CACHE}}
       - run: {{PM_INSTALL}}
       - name: Browser installieren
         run: {{PM_EXEC}} playwright install --with-deps ${{ matrix.engine }}

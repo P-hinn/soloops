@@ -31,6 +31,7 @@ type PackageJson = {
   scripts?: Record<string, string>
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+  packageManager?: string
 }
 type Pm = 'npm' | 'pnpm' | 'yarn' | 'bun'
 
@@ -137,10 +138,12 @@ if (action === 'init') {
     write(
       '.github/workflows/e2e.yml',
       template('e2e.yml.tpl', {
-        PM: pm === 'bun' ? 'npm' : pm,
+        // setup-node kennt keinen bun-Cache und bräche ohne package-lock.json ab.
+        CACHE: pm === 'bun' ? '' : `\n          cache: ${pm}`,
         PM_SETUP:
           pm === 'pnpm'
-            ? '      - uses: pnpm/action-setup@v4\n'
+            ? // Ohne `packageManager` im package.json braucht die Action eine Version.
+              `      - uses: pnpm/action-setup@v4\n${pkg.packageManager ? '' : '        with:\n          version: 10\n'}`
             : pm === 'bun'
               ? '      - uses: oven-sh/setup-bun@v2\n'
               : '',
