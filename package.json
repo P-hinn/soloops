@@ -20,7 +20,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
-    "test": "npm -w @soloops/api run test"
+    "test": "npm -w @soloops/api run test",
+    "e2e": "npm -w @soloops/web run e2e",
+    "e2e:install": "npx playwright install --with-deps chromium firefox webkit",
+    "e2e:init": "tsx packages/e2e/src/cli.ts init",
+    "e2e:update": "tsx packages/e2e/src/cli.ts update"
   },
   "engines": {
     "node": ">=22"
@@ -32,6 +36,7 @@
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.11.0",
     "prettier": "^3.9.6",
+    "tsx": "^4.19.2",
     "typescript-eslint": "^8.68.0",
     "vue-eslint-parser": "^10.4.1"
   }

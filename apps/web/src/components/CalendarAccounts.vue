@@ -291,8 +291,9 @@ onMounted(async () => {
 
       <form class="grid gap-3 sm:grid-cols-3" @submit.prevent="discoverApple">
         <div>
-          <label class="label">Apple ID</label>
+          <label for="apple-id" class="label">Apple ID</label>
           <input
+            id="apple-id"
             v-model="appleForm.username"
             type="email"
             class="input"
@@ -301,8 +302,9 @@ onMounted(async () => {
           />
         </div>
         <div>
-          <label class="label">App-Passwort</label>
+          <label for="apple-app-password" class="label">App-Passwort</label>
           <input
+            id="apple-app-password"
             v-model="appleForm.password"
             type="password"
             class="input"

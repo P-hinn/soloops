@@ -166,8 +166,8 @@ function onLiveInput() {
 
     <form v-else class="flex flex-wrap items-end gap-3 px-5 py-4" @submit.prevent="start()">
       <div class="w-48">
-        <label class="label">Projekt</label>
-        <select v-model="projectId" class="input">
+        <label for="timer-project" class="label">Projekt</label>
+        <select id="timer-project" v-model="projectId" class="input">
           <option v-for="p in projects" :key="p.id" :value="p.id">
             {{ p.key }} — {{ p.name }}
           </option>
@@ -175,8 +175,8 @@ function onLiveInput() {
       </div>
 
       <div class="min-w-48 flex-1">
-        <label class="label">Woran arbeitest du?</label>
-        <input v-model="description" class="input" placeholder="optional" />
+        <label for="timer-description" class="label">Woran arbeitest du?</label>
+        <input id="timer-description" v-model="description" class="input" placeholder="optional" />
       </div>
 
       <label class="flex items-center gap-2 pb-2.5 text-sm">

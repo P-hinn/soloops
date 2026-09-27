@@ -33,6 +33,7 @@
 - [Schnellstart](#schnellstart) — von null auf laufend in vier Befehlen
 - [Designsystem](#designsystem) — Tokens, Regeln, Klassen
 - [Werkzeuge und Regeln](#werkzeuge-und-regeln) — Prettier, ESLint, die 1000-Zeilen-Grenze
+- [E2E über alle Browser](#e2e-über-alle-browser) — Playwright-Kit, auch für andere Projekte
 - [Architektur](#architektur) — vier Apps, ein Monorepo
 - [Module](#module) — was das Ding tatsächlich kann
 - [Kalender-Sync in beide Richtungen](#kalender-sync-in-beide-richtungen) — Google, CalDAV, Konfliktregeln
@@ -138,6 +139,34 @@ Zeilen pro Datei** (`max-lines`, Leerzeilen und Kommentare zählen nicht mit,
 damit gute Dokumentation nicht bestraft wird). Wer sie reißt, hat zwei Dinge in
 einer Datei. Größte Datei aktuell: `CalendarView.vue` mit 814 Zeilen.
 
+### E2E über alle Browser
+
+```bash
+npm run e2e:install                     # einmalig: Chromium, Firefox, WebKit
+npm run e2e                             # Oberfläche in allen drei Engines
+E2E_BROWSERS=webkit npm run e2e         # nur Safari-Engine
+npm -w @soloops/web run e2e:ui          # interaktiv, mit Zeitreise
+```
+
+Die Tests liegen in [`apps/web/e2e/`](apps/web/e2e) und brauchen nur Vite —
+die API ist gemockt ([`mock-api.ts`](apps/web/e2e/mock-api.ts)), und zwar
+streng: ein Endpunkt ohne Attrappe antwortet 501 und lässt den Test scheitern.
+Jeder Test prüft nebenbei automatisch auf JS-Fehler, `console.error` und
+5xx-Antworten; die Smoke-Tests zusätzlich Barrierefreiheit (axe, WCAG 2.2 AA)
+und seitliches Scrollen. In CI läuft das pro Browser als eigener Job
+([`.github/workflows/e2e.yml`](.github/workflows/e2e.yml)).
+
+Zwei Dinge sind bewusst ausgenommen und im Code begründet: **Farbkontraste**
+(`--color-muted` und das Kicker-Blau liegen unter 4,5:1 — eine Entscheidung
+am Designsystem) und **Mobilgeräte** (es gibt noch kein Layout unter ~1024px).
+
+Das Kit selbst ([`packages/e2e`](packages/e2e/README.md)) ist
+projektunabhängig und lässt sich in jedes andere Webprojekt einbauen:
+
+```bash
+npm run e2e:init -- ../anderes-projekt --routes /,/preise,/kontakt
+```
+
 ### Abhängigkeiten
 
 Bewusst **nicht** mitgezogen, jeweils mit Grund:
@@ -168,6 +197,7 @@ apps/
   mcp/        MCP-Server (stdio) für Claude Code / Claude Desktop
 packages/
   shared/     Zod-Schemas und Formatierer, die API, Web und MCP teilen
+  e2e/        Playwright-Kit für E2E über alle Browser — auch für andere Projekte
 ```
 
 Worker und API teilen sich Prisma-Client und Service-Layer über relative Importe —

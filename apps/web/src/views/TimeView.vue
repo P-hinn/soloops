@@ -132,12 +132,12 @@ onMounted(async () => {
 
     <div class="mb-4 flex items-end gap-3">
       <div>
-        <label class="label">Von</label>
-        <input v-model="from" type="date" class="input" @change="load" />
+        <label for="time-from" class="label">Von</label>
+        <input id="time-from" v-model="from" type="date" class="input" @change="load" />
       </div>
       <div>
-        <label class="label">Bis</label>
-        <input v-model="to" type="date" class="input" @change="load" />
+        <label for="time-to" class="label">Bis</label>
+        <input id="time-to" v-model="to" type="date" class="input" @change="load" />
       </div>
     </div>
 

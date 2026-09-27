@@ -125,8 +125,9 @@ const featureLabels: Record<string, string> = {
         <h2 class="eyebrow mb-3">Passwort ändern</h2>
         <form class="space-y-3" @submit.prevent="changePassword">
           <div>
-            <label class="label">Aktuelles Passwort</label>
+            <label for="settings-current-password" class="label">Aktuelles Passwort</label>
             <input
+              id="settings-current-password"
               v-model="current"
               type="password"
               class="input"
@@ -134,8 +135,16 @@ const featureLabels: Record<string, string> = {
             />
           </div>
           <div>
-            <label class="label">Neues Passwort (min. 10 Zeichen)</label>
-            <input v-model="next" type="password" class="input" autocomplete="new-password" />
+            <label for="settings-new-password" class="label"
+              >Neues Passwort (min. 10 Zeichen)</label
+            >
+            <input
+              id="settings-new-password"
+              v-model="next"
+              type="password"
+              class="input"
+              autocomplete="new-password"
+            />
           </div>
           <p v-if="message" class="text-sm text-good">{{ message }}</p>
           <p v-if="error" class="text-sm text-bad">{{ error }}</p>

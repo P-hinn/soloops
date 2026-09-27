@@ -79,7 +79,7 @@ onMounted(load)
   <div>
     <PageHeader title="Buchhaltung" subtitle="Umsatz und lexoffice-Anbindung">
       <template #actions>
-        <select v-model.number="year" class="input w-28" @change="load">
+        <select v-model.number="year" class="input w-28" aria-label="Jahr" @change="load">
           <option v-for="y in [year + 1, year, year - 1, year - 2]" :key="y" :value="y">
             {{ y }}
           </option>
