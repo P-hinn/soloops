@@ -30,7 +30,13 @@ export type FolderFetch = {
   messages: FetchedMail[]
 }
 
-function client(account: MailAccount): ImapFlow {
+/** Alles, was für eine IMAP-Anmeldung nötig ist — auch ohne DB-Zeile. */
+export type ImapCredentials = Pick<
+  MailAccount,
+  'imapHost' | 'imapPort' | 'imapSecure' | 'imapUser' | 'imapPassEnc'
+>
+
+function client(account: ImapCredentials): ImapFlow {
   return new ImapFlow({
     host: account.imapHost,
     port: account.imapPort,
@@ -44,7 +50,7 @@ function client(account: MailAccount): ImapFlow {
 
 /** Verbindung und Anmeldung prüfen, ohne etwas zu holen. */
 export async function testConnection(
-  account: MailAccount,
+  account: ImapCredentials,
 ): Promise<{ ok: true; folders: string[] } | { ok: false; error: string }> {
   const imap = client(account)
   try {
@@ -63,12 +69,17 @@ export async function testConnection(
  *
  * `states` enthält je Ordner den Stand des letzten Laufs. Stimmt die
  * UIDVALIDITY nicht mehr, hat der Server die Nummerierung neu vergeben — dann
- * sind alle gemerkten UIDs wertlos und es wird ab `syncSince` neu aufgesetzt.
+ * sind alle gemerkten UIDs wertlos und es wird ab `since` neu aufgesetzt.
+ *
+ * `since` ist die Untergrenze des Erstlaufs und jedes Neuaufsetzens. Sie kommt
+ * vom Aufrufer, weil sie nicht nur am Konto hängt, sondern auch an der
+ * globalen Grenze aus der Konfiguration.
  */
 export async function fetchNew(
   account: MailAccount,
   states: Map<string, { uidValidity: bigint | null; lastUid: bigint }>,
   maxPerRun: number,
+  since: Date,
 ): Promise<FolderFetch[]> {
   const imap = client(account)
   const out: FolderFetch[] = []
@@ -86,9 +97,7 @@ export async function fetchNew(
         const reset = !prev || prev.uidValidity === null || prev.uidValidity !== uidValidity
         const lastUid = reset ? 0n : prev.lastUid
 
-        const range = reset
-          ? { since: account.syncSince }
-          : { uid: `${(lastUid + 1n).toString()}:*` }
+        const range = reset ? { since } : { uid: `${(lastUid + 1n).toString()}:*` }
 
         const messages: FetchedMail[] = []
         let highest = lastUid

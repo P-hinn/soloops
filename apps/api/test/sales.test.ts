@@ -1,5 +1,10 @@
 import { leadValueCents, stalenessDays, weightedCents } from '../src/services/leadMath.js'
-import { constrainToKnown, domainToCompany, matchByRule } from '../src/services/mailRules.js'
+import {
+  constrainToKnown,
+  domainToCompany,
+  matchByRule,
+  syncWindowStart,
+} from '../src/services/mailRules.js'
 
 let pass = 0,
   fail = 0
@@ -237,6 +242,30 @@ check(
 check('Firmenname aus der Domain', domainToCompany('info@beispiel-gmbh.de'), 'Beispiel-gmbh')
 check('Freemail ergibt keinen Firmennamen', domainToCompany('jemand@gmail.com'), null)
 check('kaputte Adresse ergibt null', domainToCompany('keine-adresse'), null)
+
+// ---------------------------------------------------------------------------
+// Ab wann Mails geholt werden
+// ---------------------------------------------------------------------------
+
+const FLOOR = new Date('2026-09-01T00:00:00Z')
+
+check(
+  'ein älteres Konto wird auf die harte Grenze gezogen',
+  syncWindowStart(new Date('2026-06-30T00:00:00Z'), FLOOR).toISOString(),
+  FLOOR.toISOString(),
+)
+
+check(
+  'ein später verbundenes Konto behält sein eigenes Datum',
+  syncWindowStart(new Date('2026-11-15T09:00:00Z'), FLOOR).toISOString(),
+  '2026-11-15T09:00:00.000Z',
+)
+
+check(
+  'genau auf der Grenze bleibt die Grenze',
+  syncWindowStart(FLOOR, FLOOR).toISOString(),
+  FLOOR.toISOString(),
+)
 
 // ---------------------------------------------------------------------------
 

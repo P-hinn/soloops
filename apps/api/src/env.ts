@@ -48,6 +48,10 @@ const schema = z.object({
   MAIL_POLL_CRON: z.string().default('*/10 * * * *'),
   /// Wie weit beim Verbinden eines Kontos zurückgelesen wird. Kein Archivimport.
   MAIL_BACKFILL_DAYS: z.coerce.number().default(90),
+  /// Harte Untergrenze für jeden Abruf. Älteres wird nie geholt — auch nicht,
+  /// wenn MAIL_BACKFILL_DAYS weiter zurückreicht oder der Server die
+  /// UIDVALIDITY neu vergibt und ein Ordner von vorn gelesen wird.
+  MAIL_SYNC_FROM: z.coerce.date().default(new Date('2026-09-01T00:00:00Z')),
   /// Obergrenze pro Lauf, damit ein volles Postfach den Worker nicht blockiert.
   MAIL_MAX_PER_RUN: z.coerce.number().default(200),
 

@@ -153,3 +153,12 @@ export function constrainToKnown(
     reason: ai.reason,
   }
 }
+
+/**
+ * Ab wann ein Konto gelesen wird: das spätere aus Kontostart und der harten
+ * Grenze aus der Konfiguration. Ein Konto darf nur nach vorn abweichen —
+ * sonst holt ein Neuaufsetzen nach UIDVALIDITY-Wechsel doch wieder das Archiv.
+ */
+export function syncWindowStart(accountSince: Date, floor: Date): Date {
+  return accountSince > floor ? accountSince : floor
+}

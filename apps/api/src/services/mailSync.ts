@@ -4,7 +4,7 @@ import { env } from '../env.js'
 import { fetchNew, type FetchedMail } from './imap.js'
 import { triageMail, type TriageContext } from '../ai/mailTriage.js'
 import { touchLead } from './leads.js'
-import { constrainToKnown, domainToCompany, matchByRule } from './mailRules.js'
+import { constrainToKnown, domainToCompany, matchByRule, syncWindowStart } from './mailRules.js'
 
 export type MailSyncResult = {
   account: string
@@ -42,11 +42,17 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
       ]),
     )
 
-    const folders = await fetchNew(account, states, env.MAIL_MAX_PER_RUN)
+    const since = syncWindowStart(account.syncSince, env.MAIL_SYNC_FROM)
+
+    const folders = await fetchNew(account, states, env.MAIL_MAX_PER_RUN, since)
     const ctx = await buildContext(account.email)
 
     for (const folder of folders) {
       for (const mail of folder.messages) {
+        // IMAP filtert SINCE nur tagesgenau und beim inkrementellen Lauf gar
+        // nicht — die Grenze wird deshalb hier noch einmal durchgesetzt.
+        if (mail.sentAt < since) continue
+
         // Eigene gesendete Mails zählen als Aktivität, landen aber nicht im
         // Eingang — sonst schlägt jede eigene Antwort als „unsortiert" auf.
         const outgoing = mail.fromEmail === account.email.toLowerCase()
