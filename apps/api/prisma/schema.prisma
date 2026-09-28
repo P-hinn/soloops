@@ -766,9 +766,15 @@ model MailMessage {
   bodyText String
   snippet  String
 
-  category   MailCategory @default(OTHER)
+  category MailCategory @default(OTHER)
+
+  /// Vorschlag der AI, falls sie die Mail für eine neue Anfrage hält:
+  /// Titel, Kontakt, Firma, Kurzfassung, ggf. genannte Summe. Reiner
+  /// Vorschlag — ein Lead entsteht daraus erst auf Knopfdruck.
+  leadSuggestion Json?
+
   /// RULE | AI | MANUAL — eine Zuordnung von Hand wird nie überschrieben.
-  assignedBy String       @default("RULE")
+  assignedBy String  @default("RULE")
   confidence Float?
   aiReason   String?
 

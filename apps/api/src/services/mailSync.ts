@@ -1,10 +1,16 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
-import { fetchNew, type FetchedMail } from './imap.js'
+import { fetchNew } from './imap.js'
 import { triageMail, type TriageContext } from '../ai/mailTriage.js'
 import { touchLead } from './leads.js'
-import { constrainToKnown, domainToCompany, matchByRule, syncWindowStart } from './mailRules.js'
+import {
+  constrainToKnown,
+  domainToCompany,
+  matchByRule,
+  readSuggestion,
+  syncWindowStart,
+} from './mailRules.js'
 
 export type MailSyncResult = {
   account: string
@@ -12,6 +18,10 @@ export type MailSyncResult = {
   assigned: number
   byRule: number
   byAi: number
+  /** Gelesen, aber niemand konnte es einordnen — liegt im Eingang. */
+  unassigned: number
+  /** Fehlgeschlagene AI-Aufrufe. Nicht tödlich, aber nichts zum Verschweigen. */
+  aiFailed: number
   error?: string
 }
 
@@ -30,7 +40,10 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
     assigned: 0,
     byRule: 0,
     byAi: 0,
+    unassigned: 0,
+    aiFailed: 0,
   }
+  const aiErrors: string[] = []
 
   if (!account.enabled) return result
 
@@ -65,13 +78,29 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
 
         const rule = matchByRule(mail, ctx)
         let assignment = rule
-        let assignedBy: 'RULE' | 'AI' = 'RULE'
+        // NONE heißt: nichts hat gegriffen. Früher stand hier RULE, was
+        // behauptete, eine Regel habe entschieden — dabei hatte niemand
+        // entschieden. Der Unterschied ist der zwischen „einsortiert" und
+        // „übrig geblieben", und den will man sehen können.
+        let assignedBy: 'RULE' | 'AI' | 'NONE' = rule ? 'RULE' : 'NONE'
+        let suggestion: Prisma.InputJsonValue | undefined
 
         if (!rule && env.ANTHROPIC_API_KEY && !outgoing) {
-          const ai = await triageMail(mail, ctx).catch(() => null)
-          if (ai) {
-            assignment = constrainToKnown(ai, ctx)
-            assignedBy = 'AI'
+          try {
+            const ai = await triageMail(mail, ctx)
+            if (ai) {
+              assignment = constrainToKnown(ai, ctx)
+              assignedBy = 'AI'
+              // Hält die AI die Mail für eine neue Anfrage, hebt sie ihren
+              // Vorschlag auf. Angelegt wird daraus nichts — das bleibt ein
+              // Knopf im Eingang.
+              if (ai.newLead) suggestion = { ...ai.newLead, amountEur: ai.amountEur }
+            }
+          } catch (err) {
+            // Früher verschluckte ein stilles catch jeden Fehler. Dann sieht
+            // niemand, dass die AI gar nicht läuft — und alles landet
+            // unsortiert im Eingang, als wäre das ein Ergebnis.
+            aiErrors.push((err as Error).message)
           }
         }
 
@@ -90,6 +119,7 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
             snippet: mail.snippet,
             category: assignment?.category ?? 'OTHER',
             assignedBy,
+            leadSuggestion: suggestion,
             confidence: assignment?.confidence ?? null,
             aiReason: assignment?.reason ?? null,
             leadId: assignment?.leadId ?? null,
@@ -108,10 +138,12 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
             source: 'SYSTEM',
           })
         }
-        if (assignment) {
+        if (assignment?.leadId || assignment?.clientId || assignment?.projectId) {
           result.assigned += 1
           if (assignedBy === 'RULE') result.byRule += 1
           else result.byAi += 1
+        } else {
+          result.unassigned += 1
         }
       }
 
@@ -127,9 +159,17 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
       })
     }
 
+    result.aiFailed = aiErrors.length
+    // Ein durchgelaufener Abruf mit lauter gescheiterten AI-Aufrufen ist kein
+    // Erfolg. Der erste Fehler steht am Konto, damit er in der Oberfläche
+    // auftaucht statt nur im Log.
+    const note = aiErrors.length
+      ? `${aiErrors.length} AI-Zuordnung(en) fehlgeschlagen: ${aiErrors[0]}`
+      : null
+
     await prisma.mailAccount.update({
       where: { id: accountId },
-      data: { lastSyncAt: new Date(), lastError: null },
+      data: { lastSyncAt: new Date(), lastError: note },
     })
   } catch (err) {
     result.error = (err as Error).message
@@ -194,21 +234,28 @@ async function buildContext(ownEmail: string): Promise<TriageContext> {
 /**
  * Aus einer unsortierten Mail einen Lead machen. Bewusst ein eigener Schritt
  * auf Knopfdruck statt automatisch: sonst legt jede Werbemail einen Lead an.
+ *
+ * Die Reihenfolge der Quellen: was du übergibst, dann was die AI beim
+ * Einlesen vorgeschlagen hat, dann die nackte Mail. Der Betreff als Titel ist
+ * die letzte Rückfalloption, nicht die erste Wahl.
  */
 export async function leadFromMail(
   mailId: string,
   overrides: Prisma.LeadCreateInput | null = null,
 ) {
   const mail = await prisma.mailMessage.findUniqueOrThrow({ where: { id: mailId } })
+  const hint = readSuggestion(mail.leadSuggestion)
 
   const lead = await prisma.lead.create({
     data: {
-      title: overrides?.title ?? mail.subject,
+      title: overrides?.title ?? hint?.title ?? mail.subject,
       source: overrides?.source ?? 'WEBSITE',
-      contactName: overrides?.contactName ?? mail.fromName,
+      contactName: overrides?.contactName ?? hint?.contactName ?? mail.fromName,
       contactEmail: overrides?.contactEmail ?? mail.fromEmail,
-      company: overrides?.company ?? domainToCompany(mail.fromEmail),
-      notes: overrides?.notes ?? mail.snippet,
+      company: overrides?.company ?? hint?.company ?? domainToCompany(mail.fromEmail),
+      notes: overrides?.notes ?? hint?.summary ?? mail.snippet,
+      valueCents:
+        overrides?.valueCents ?? (hint?.amountEur ? Math.round(hint.amountEur * 100) : null),
       ...(overrides ?? {}),
     },
   })

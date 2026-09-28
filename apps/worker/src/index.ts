@@ -126,8 +126,15 @@ new Worker(
 
     for (const r of results) {
       if (r.error) console.error(`[mail] ${r.account}: ${r.error}`)
-      else if (r.fetched) {
-        log('mail', `${r.account}: ${r.fetched} neu, ${r.byRule} per Regel, ${r.byAi} per AI`)
+      // Gescheiterte AI-Aufrufe sind kein Abbruch, aber auch kein Erfolg —
+      // ohne diese Zeile sieht ein Lauf, in dem nichts zugeordnet werden
+      // konnte, genauso aus wie einer, in dem es nichts zuzuordnen gab.
+      if (r.aiFailed) console.error(`[mail] ${r.account}: ${r.aiFailed} AI-Aufruf(e) gescheitert`)
+      if (r.fetched) {
+        log(
+          'mail',
+          `${r.account}: ${r.fetched} neu — ${r.byRule} per Regel, ${r.byAi} per AI, ${r.unassigned} offen`,
+        )
       }
     }
     return results

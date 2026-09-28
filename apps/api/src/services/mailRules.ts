@@ -162,3 +162,26 @@ export function constrainToKnown(
 export function syncWindowStart(accountSince: Date, floor: Date): Date {
   return accountSince > floor ? accountSince : floor
 }
+
+/** Was die AI beim Einlesen über eine mögliche neue Anfrage notiert hat. */
+export type LeadSuggestion = {
+  title?: string | null
+  contactName?: string | null
+  company?: string | null
+  summary?: string | null
+  amountEur?: number | null
+}
+
+/** Der gespeicherte Vorschlag ist JSON aus der Datenbank — also prüfen. */
+export function readSuggestion(value: unknown): LeadSuggestion | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const v = value as Record<string, unknown>
+  const str = (k: string) => (typeof v[k] === 'string' && v[k] ? (v[k] as string) : null)
+  return {
+    title: str('title'),
+    contactName: str('contactName'),
+    company: str('company'),
+    summary: str('summary'),
+    amountEur: typeof v.amountEur === 'number' ? v.amountEur : null,
+  }
+}

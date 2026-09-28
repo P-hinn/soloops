@@ -1,6 +1,7 @@
 import { leadValueCents, stalenessDays, weightedCents } from '../src/services/leadMath.js'
 import {
   constrainToKnown,
+  readSuggestion,
   domainToCompany,
   matchByRule,
   syncWindowStart,
@@ -265,6 +266,44 @@ check(
   'genau auf der Grenze bleibt die Grenze',
   syncWindowStart(FLOOR, FLOOR).toISOString(),
   FLOOR.toISOString(),
+)
+
+// ---------------------------------------------------------------------------
+// Vorschlag aus dem Postfach lesen
+// ---------------------------------------------------------------------------
+
+check('kein Vorschlag gespeichert', readSuggestion(null), null)
+check('JSON-Array ist kein Vorschlag', readSuggestion([1, 2]), null)
+check('String ist kein Vorschlag', readSuggestion('DigiWohl'), null)
+
+check(
+  'vollständiger Vorschlag kommt durch',
+  readSuggestion({
+    title: 'DigiWohl',
+    contactName: 'Mirte van de Griendt',
+    company: 'Werk-statt-Schule e.V.',
+    summary: 'Vier Bausteine',
+    amountEur: 24000,
+  }),
+  {
+    title: 'DigiWohl',
+    contactName: 'Mirte van de Griendt',
+    company: 'Werk-statt-Schule e.V.',
+    summary: 'Vier Bausteine',
+    amountEur: 24000,
+  },
+)
+
+check(
+  'leere Strings zählen als nicht gesetzt',
+  readSuggestion({ title: '', company: 'Acme', summary: null })?.title,
+  null,
+)
+
+check(
+  'eine Summe als Text wird nicht übernommen',
+  readSuggestion({ title: 'X', amountEur: '24000' })?.amountEur,
+  null,
 )
 
 // ---------------------------------------------------------------------------

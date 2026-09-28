@@ -16,6 +16,13 @@ type Mail = {
   assignedBy: string
   confidence: number | null
   aiReason: string | null
+  leadSuggestion: {
+    title: string | null
+    contactName: string | null
+    company: string | null
+    summary: string | null
+    amountEur: number | null
+  } | null
   handled: boolean
   lead: { id: string; title: string } | null
   client: { id: string; name: string } | null
@@ -200,6 +207,33 @@ onMounted(async () => {
               {{ mail.snippet }}
             </p>
 
+            <!-- Was die AI beim Einlesen über eine mögliche neue Anfrage
+                 notiert hat. Ein Vorschlag, kein Lead — angelegt wird er
+                 erst über den Knopf unten. -->
+            <div
+              v-if="mail.leadSuggestion && !mail.lead"
+              class="mb-4 border-l-2 border-acid bg-raised p-3"
+            >
+              <div class="eyebrow-muted mb-1">Sieht nach einer neuen Anfrage aus</div>
+              <div class="text-sm font-medium">{{ mail.leadSuggestion.title }}</div>
+              <div class="mt-0.5 text-xs text-muted">
+                {{
+                  [
+                    mail.leadSuggestion.company,
+                    mail.leadSuggestion.contactName,
+                    mail.leadSuggestion.amountEur
+                      ? mail.leadSuggestion.amountEur.toLocaleString('de-DE') + ' €'
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                }}
+              </div>
+              <p v-if="mail.leadSuggestion.summary" class="mt-1.5 text-xs">
+                {{ mail.leadSuggestion.summary }}
+              </p>
+            </div>
+
             <p v-if="mail.aiReason" class="mb-4 text-xs text-muted">
               {{ mail.assignedBy === 'AI' ? 'AI' : 'Regel' }}: {{ mail.aiReason }}
               <template v-if="mail.confidence !== null">
@@ -240,7 +274,9 @@ onMounted(async () => {
               </label>
 
               <button v-if="!mail.lead" class="btn-acid" @click="makeLead(mail)">
-                Lead daraus machen
+                {{
+                  mail.leadSuggestion ? 'Lead anlegen (Vorschlag übernehmen)' : 'Lead daraus machen'
+                }}
               </button>
               <button class="btn-ghost ml-auto" @click="assign(mail, { handled: !mail.handled })">
                 {{ mail.handled ? 'Wieder öffnen' : 'Erledigt' }}

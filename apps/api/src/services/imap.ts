@@ -97,25 +97,35 @@ export async function fetchNew(
         const reset = !prev || prev.uidValidity === null || prev.uidValidity !== uidValidity
         const lastUid = reset ? 0n : prev.lastUid
 
-        const range = reset ? { since } : { uid: `${(lastUid + 1n).toString()}:*` }
+        const range = reset
+          ? await firstWindow(imap, box.exists, since, maxPerRun)
+          : { uid: `${(lastUid + 1n).toString()}:*` }
 
         const messages: FetchedMail[] = []
-        let highest = lastUid
+        // Der Zeiger darf nur so weit wandern, wie tatsächlich abgearbeitet
+        // wurde. Zieht man ihn schon beim Ansehen hoch, überspringt ein
+        // Abbruch — Limit, kaputte Nachricht, Verbindungsfehler — alles
+        // Dazwischenliegende für immer.
+        let processed = lastUid
 
-        for await (const msg of imap.fetch(range, { uid: true, source: true })) {
-          const uid = BigInt(msg.uid)
-          // Bei `uid: "n:*"` liefert IMAP mindestens eine Nachricht zurück,
-          // auch wenn es nichts Neues gibt — die letzte bekannte. Überspringen.
-          if (uid <= lastUid) continue
-          if (uid > highest) highest = uid
-          if (!msg.source) continue
+        if (range) {
+          for await (const msg of imap.fetch(range, { uid: true, source: true })) {
+            const uid = BigInt(msg.uid)
+            // Bei `uid: "n:*"` liefert IMAP mindestens eine Nachricht zurück,
+            // auch wenn es nichts Neues gibt — die letzte bekannte. Überspringen.
+            if (uid <= lastUid) continue
 
-          const parsed = await parse(msg.source, uid)
-          if (parsed) messages.push(parsed)
-          if (messages.length >= maxPerRun) break
+            if (msg.source) {
+              const parsed = await parse(msg.source, uid)
+              if (parsed) messages.push(parsed)
+            }
+
+            processed = uid
+            if (messages.length >= maxPerRun) break
+          }
         }
 
-        out.push({ folder, uidValidity, lastUid: highest, messages })
+        out.push({ folder, uidValidity, lastUid: processed, messages })
       } finally {
         lock.release()
       }
@@ -125,6 +135,45 @@ export async function fetchNew(
   }
 
   return out
+}
+
+/**
+ * Welchen Ausschnitt holt der allererste Lauf — und jeder nach einem
+ * UIDVALIDITY-Wechsel?
+ *
+ * Eigentlich die Datumssuche, denn genau das meint `since`. Nicht jeder
+ * Server beantwortet sie aber: Strato liefert auf SINCE null Treffer, auch
+ * für Zeiträume, in denen nachweislich Mail liegt. Ein leeres Ergebnis ist
+ * deshalb kein Beleg dafür, dass nichts da ist — wer es als solchen nimmt,
+ * fängt bei UID 1 an und arbeitet sich in 200er-Schritten durch ein
+ * Jahrzehnt Archiv, bevor die erste aktuelle Mail ankommt.
+ *
+ * Fällt die Suche aus, werden deshalb die letzten `maxPerRun` Nachrichten
+ * über Sequenznummern geholt. Das kann jeder IMAP-Server, und für ein CRM
+ * sind die neuesten die interessanten. Ältere bleiben liegen: es gibt
+ * bewusst keinen Archivimport.
+ */
+async function firstWindow(
+  imap: ImapFlow,
+  exists: number,
+  since: Date,
+  maxPerRun: number,
+): Promise<string | { uid: string } | null> {
+  if (exists === 0) return null
+
+  // search() gibt `false` zurück, wenn kein Postfach offen ist — das ist ein
+  // Fehler, kein „nichts gefunden".
+  const found = await imap.search({ since }, { uid: true }).catch(() => false as const)
+
+  if (Array.isArray(found) && found.length > 0) {
+    // Mehr Treffer als erlaubt: die neuesten gewinnen. Der Rest kommt nicht
+    // nach, weil der Zeiger danach darüber steht — gewollt, siehe oben.
+    const newest = found.sort((a, b) => a - b).slice(-maxPerRun)
+    return { uid: newest.join(',') }
+  }
+
+  // Sequenznummern, nicht UIDs: die letzten n Nachrichten im Ordner.
+  return `${Math.max(1, exists - maxPerRun + 1)}:${exists}`
 }
 
 async function parse(source: Buffer, uid: bigint): Promise<FetchedMail | null> {
