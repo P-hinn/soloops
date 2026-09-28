@@ -1,60 +1,21 @@
-import type { ActivityKind, Lead, LeadStage, Offer } from '@prisma/client'
+import type { ActivityKind, LeadStage } from '@prisma/client'
 import { prisma } from '../db.js'
+import {
+  leadValueCents,
+  stalenessDays,
+  weightedCents,
+  OPEN_STAGES,
+  STAGE_LABEL,
+  STAGE_PROBABILITY,
+} from './leadMath.js'
+
+// Die reine Rechnung liegt in leadMath.ts (ohne Prisma, damit testbar) und
+// wird hier mit durchgereicht — Aufrufer sollen nur einen Ort kennen müssen.
+export { leadValueCents, stalenessDays, weightedCents, OPEN_STAGES, STAGE_LABEL, STAGE_PROBABILITY }
 
 /**
  * Vertriebslogik, die API, Worker und MCP-Server teilen.
  */
-
-/** Standardwahrscheinlichkeit je Stufe — Vorschlag beim Stufenwechsel. */
-export const STAGE_PROBABILITY: Record<LeadStage, number> = {
-  NEW: 10,
-  QUALIFIED: 25,
-  PROPOSAL: 50,
-  NEGOTIATION: 75,
-  WON: 100,
-  LOST: 0,
-}
-
-export const STAGE_LABEL: Record<LeadStage, string> = {
-  NEW: 'Neu',
-  QUALIFIED: 'Qualifiziert',
-  PROPOSAL: 'Angebot',
-  NEGOTIATION: 'Verhandlung',
-  WON: 'Gewonnen',
-  LOST: 'Verloren',
-}
-
-export const OPEN_STAGES: LeadStage[] = ['NEW', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION']
-
-/**
- * Was ist der Lead wert?
- *
- * Ein herausgeschicktes Angebot ist belastbarer als eine Schätzung vom
- * Erstkontakt — deshalb schlägt die Angebotssumme den eingetragenen Wert,
- * sobald es eins gibt. Angenommen > verschickt > Entwurf.
- */
-export function leadValueCents(lead: Lead & { offers?: Offer[] }): number {
-  const offers = lead.offers ?? []
-  const accepted = offers.find((o) => o.status === 'ACCEPTED')
-  if (accepted) return accepted.amountCents
-
-  const sent = offers
-    .filter((o) => o.status === 'SENT')
-    .sort((a, b) => (b.sentOn?.getTime() ?? 0) - (a.sentOn?.getTime() ?? 0))[0]
-  if (sent) return sent.amountCents
-
-  return lead.valueCents ?? 0
-}
-
-/** Gewichteter Wert: Summe mal deiner Wahrscheinlichkeit. */
-export function weightedCents(lead: Lead & { offers?: Offer[] }): number {
-  return Math.round((leadValueCents(lead) * lead.probability) / 100)
-}
-
-/** Tage ohne jede Aktivität. Treibt die „liegt zu lange still"-Anzeige. */
-export function stalenessDays(lead: Lead, now = new Date()): number {
-  return Math.floor((now.getTime() - lead.lastActivityAt.getTime()) / 86_400_000)
-}
 
 /**
  * Aktivität protokollieren und den Lead als „angefasst" markieren.

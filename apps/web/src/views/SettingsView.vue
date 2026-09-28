@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { api } from '@/api'
 import PageHeader from '@/components/PageHeader.vue'
 import CalendarAccounts from '@/components/CalendarAccounts.vue'
+import MailAccounts from '@/components/MailAccounts.vue'
 import { useAuth } from '@/stores/auth'
 import { useOnboarding } from '@/stores/onboarding'
 
@@ -74,6 +75,8 @@ const featureLabels: Record<string, string> = {
 
     <!-- Kalender: der Teil, der wirklich Einrichtung braucht -->
     <CalendarAccounts class="mb-4" />
+
+    <MailAccounts class="mb-4" />
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card">

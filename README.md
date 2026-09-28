@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Ein selbst gehostetes Betriebssystem für die Solo-Selbstständigkeit.</strong><br>
-  Kalender, Meetings, Notizen, Projekte, Uptime, CI/CD, Zeiten, Rechnungen —<br>
+  Kalender, Meetings, Notizen, Projekte, Leads, Postfach, Zeiten, Rechnungen —<br>
   an einem Ort, auf der eigenen Maschine, mit MCP-Zugang für Claude.
 </p>
 
@@ -15,13 +15,14 @@
   <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2d3748?style=flat-square&logo=prisma&logoColor=white">
   <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-22%20Tools-d8ff55?style=flat-square&labelColor=171714">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-31%20Tools-d8ff55?style=flat-square&labelColor=171714">
 </p>
 
 <p align="center">
   <a href="#schnellstart">Schnellstart</a> ·
   <a href="#module">Module</a> ·
   <a href="#kalender-sync-in-beide-richtungen">Kalender-Sync</a> ·
+  <a href="#postfach-und-lead-zuordnung">Postfach</a> ·
   <a href="#mcp-server">MCP</a> ·
   <a href="#deployment-auf-einem-kleinen-server">Deployment</a>
 </p>
@@ -36,7 +37,8 @@
 - [Architektur](#architektur) — vier Apps, ein Monorepo
 - [Module](#module) — was das Ding tatsächlich kann
 - [Kalender-Sync in beide Richtungen](#kalender-sync-in-beide-richtungen) — Google, CalDAV, Konfliktregeln
-- [MCP-Server](#mcp-server) — 22 Tools für Claude
+- [Postfach und Lead-Zuordnung](#postfach-und-lead-zuordnung) — IMAP, Regeln vor AI
+- [MCP-Server](#mcp-server) — 31 Tools für Claude
 - [Authentifizierung](#authentifizierung)
 - [Betrieb](#betrieb) — Logs, Schemaänderungen, Backup
 - [Deployment auf einem kleinen Server](#deployment-auf-einem-kleinen-server) — 2 Kerne, 2 GB RAM
@@ -128,7 +130,7 @@ Wiederverwendbare Klassen: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` 
 npm run check      # Format, Linter, Typen und Tests in einem Lauf
 npm run format     # Prettier über alles
 npm run lint:fix   # ESLint mit Autokorrektur
-npm run test       # RRULE-Expander (11 Fälle)
+npm run test       # RRULE-Expander und Vertriebslogik (39 Fälle)
 ```
 
 **Prettier** macht die Formatierung (keine Semikolons, einfache
@@ -163,7 +165,7 @@ Lücke verschwindet mit dem Prisma-Upgrade.
 ```
 apps/
   api/        Fastify + Prisma + Postgres — REST-API, PDF-Rendering, AI-Aufrufe
-  worker/     BullMQ — Kalender-Sync, UptimeRobot-Poll, CI/CD-Poll, Tages-Digests
+  worker/     BullMQ — Kalender- und Mail-Sync, Uptime, CI/CD, Digests, Lead-Scores
   web/        Vue 3 + Vite + Tailwind — die Oberfläche
   mcp/        MCP-Server (stdio) für Claude Code / Claude Desktop
 packages/
@@ -213,6 +215,19 @@ beiden Fremdkalendern.
 
 **Meetings.** Meeting anlegen (legt optional den Kalendereintrag mit an), Mitschrift
 tippen, danach optional eine AI-Zusammenfassung mit Entscheidungen und Action Items.
+
+**Vertrieb.** Leads in vier offenen Stufen (Neu, Qualifiziert, Angebot,
+Verhandlung) plus gewonnen und verloren. Zu jedem Lead gehört, **was du wofür
+angeboten hast**: Titel, Summe, Umfang, verschickt am, gültig bis. Sobald ein
+Angebot draußen ist, zählt dessen Summe als Wert des Leads — eine Zahl auf
+Papier ist belastbarer als eine Schätzung vom Erstkontakt. Ein verschicktes
+Angebot hebt die Stufe von allein.
+
+Der Forecast ist Summe mal **deiner** Wahrscheinlichkeit. Daneben steht ein
+AI-Score von 0 bis 100 mit Begründung und nächstem Schritt, werktags um 6:30
+erneuert. Er überschreibt deine Einschätzung nie — weichen beide um mehr als
+15 Punkte ab, zeigt die Oberfläche die Differenz, denn genau da lohnt das
+Nachdenken. Was länger als zwei Wochen ohne Kontakt liegt, wird markiert.
 
 **Notizen.** Markdown, Tags, Projektbezug, deutsche Postgres-Volltextsuche
 (GIN-Index über Titel + Body, angelegt beim API-Start).
@@ -316,11 +331,54 @@ entfernen.
 
 ---
 
+## Postfach und Lead-Zuordnung
+
+soloops liest ein bestehendes Postfach über IMAP und ordnet Mails automatisch
+Leads, Kunden und Projekten zu. Einrichtung unter _Einstellungen_ mit
+Serveradresse, Benutzer und Passwort; der Host wird aus der Adresse geraten
+(Strato, mailbox.org, Posteo, IONOS, All-Inkl, Gmail sind hinterlegt). Das
+Passwort liegt verschlüsselt at rest, wie die Kalender-Zugangsdaten.
+
+**Ausschließlich lesend.** Es gibt im Code kein Löschen, kein Verschieben und
+kein Setzen von Flags — auch nicht „als gelesen". Dein Mailclient merkt nicht,
+dass jemand mitliest, und ein Fehler in soloops kann das Postfach nicht
+beschädigen. Gespeichert werden Kopfdaten und Textkörper, keine Anhänge.
+
+### Regeln vor AI
+
+Die Zuordnung läuft in drei Stufen, und die billigste zuerst:
+
+1. **Absenderadresse** steht als Kontakt an einem Lead → Zuordnung sicher.
+2. **Absenderdomain** gehört zu einem bekannten Kunden → Zuordnung zum Kunden.
+   Freemail-Domains zählen hier nicht, sonst landet jede GMX-Adresse beim
+   erstbesten Kunden mit GMX-Konto.
+3. Erst wenn nichts greift, entscheidet die AI.
+
+Im Alltag trifft Stufe 1 fast immer — laufende Korrespondenz kommt von
+Adressen, die schon im System stehen. Damit kostet der Normalfall keinen
+einzigen API-Aufruf.
+
+Die AI bekommt nur Kurzfassungen der bekannten Leads, Kunden und Projekte und
+**muss auf eine der gelieferten Kennungen zeigen**; alles andere wird beim
+Einlesen verworfen. Eine Zuordnung von Hand trägt `MANUAL` und wird später nie
+automatisch überschrieben.
+
+### Zwei bewusste Grenzen
+
+- **Aus einer Mail wird nicht automatisch ein Lead.** Das ist ein Knopf im
+  Eingang. Sonst legt die erste Werbemail mit dem Wort „Angebot" einen an.
+- **Mailinhalte werden nie als Markdown gerendert.** Weder der Text selbst noch
+  das, was die AI daraus ableitet — beides geht als Klartext raus. Andernfalls
+  wäre eine präparierte Mail ein Weg, Skript in die eigene Oberfläche zu
+  bekommen. `MarkdownBlock.vue` bleibt eigenen Inhalten vorbehalten.
+
+---
+
 ## MCP-Server
 
 Gibt Claude Zugriff auf den kompletten Datenbestand — Tagesüberblick, Suche,
-Projekte, Timer, Zeitnachträge, Notizen, Meetings, Betriebsstatus, offene Zeiten,
-Rechnungsentwürfe, Umsatz.
+Projekte, Timer, Zeitnachträge, Notizen, Meetings, Leads und Angebote, Posteingang,
+Betriebsstatus, offene Zeiten, Rechnungsentwürfe, Umsatz.
 
 ```bash
 SOLOOPS_URL=http://localhost:3000 \
@@ -335,7 +393,10 @@ Verfügbare Tools: `soloops_today`, `soloops_search`, `soloops_list_projects`,
 `soloops_list_meetings`, `soloops_get_meeting`, `soloops_summarize_meeting`,
 `soloops_create_note`, `soloops_list_notes`, `soloops_ops_status`,
 `soloops_unbilled_time`, `soloops_list_invoices`,
-`soloops_draft_invoice_from_time`, `soloops_revenue`.
+`soloops_draft_invoice_from_time`, `soloops_revenue`, `soloops_pipeline`,
+`soloops_list_leads`, `soloops_get_lead`, `soloops_create_lead`,
+`soloops_log_offer`, `soloops_log_lead_activity`, `soloops_set_lead_stage`,
+`soloops_inbox`, `soloops_assign_mail`.
 
 Schreibende Tools sind bewusst zurückhaltend: `soloops_draft_invoice_from_time`
 erzeugt nur einen Entwurf — Versand und Übertragung an lexoffice bleiben manuell.
@@ -466,6 +527,10 @@ Image auf dem Entwicklungsrechner bauen und in eine Registry schieben.
 - `.env` ist in `.gitignore` und sollte es bleiben.
 - PDFs liegen unverschlüsselt im `./data`-Volume — Backup entsprechend
   behandeln.
+- Mailinhalte liegen im Klartext in Postgres. Wer das nicht will, verbindet
+  kein Postfach; ein halbes Auswerten gibt es nicht.
+- Das IMAP-Passwort ist mit `JWT_SECRET` verschlüsselt. Wird der Schlüssel
+  getauscht, ist das Konto neu zu verbinden — beabsichtigt.
 
 ---
 

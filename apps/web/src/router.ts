@@ -29,6 +29,9 @@ const routes = [
     component: () => import('@/views/ProjectDetailView.vue'),
   },
   { path: '/clients', name: 'clients', component: () => import('@/views/ClientsView.vue') },
+  { path: '/leads', name: 'leads', component: () => import('@/views/LeadsView.vue') },
+  { path: '/leads/:id', name: 'lead', component: () => import('@/views/LeadDetailView.vue') },
+  { path: '/inbox', name: 'inbox', component: () => import('@/views/InboxView.vue') },
   { path: '/time', name: 'time', component: () => import('@/views/TimeView.vue') },
   { path: '/invoices', name: 'invoices', component: () => import('@/views/InvoicesView.vue') },
   {

@@ -51,7 +51,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="search"]',
     route: '/',
     title: 'Suche über alles',
-    body: 'Ein Feld für Notizen, Meeting-Transkripte, Projekte, Kunden und Rechnungsnummern. Mit ⌘K von überall erreichbar — auch mitten im Gespräch.',
+    body: 'Ein Feld für Notizen, Meetings, Leads, Mails, Projekte, Kunden und Rechnungsnummern. Mit ⌘K von überall erreichbar — auch mitten im Gespräch.',
   },
   {
     target: '[data-tour="checklist"]',

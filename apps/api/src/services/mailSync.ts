@@ -1,9 +1,10 @@
-import type { MailCategory, Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
 import { fetchNew, type FetchedMail } from './imap.js'
 import { triageMail, type TriageContext } from '../ai/mailTriage.js'
 import { touchLead } from './leads.js'
+import { constrainToKnown, domainToCompany, matchByRule } from './mailRules.js'
 
 export type MailSyncResult = {
   account: string
@@ -63,7 +64,7 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
         if (!rule && env.ANTHROPIC_API_KEY && !outgoing) {
           const ai = await triageMail(mail, ctx).catch(() => null)
           if (ai) {
-            assignment = fromTriage(ai, ctx)
+            assignment = constrainToKnown(ai, ctx)
             assignedBy = 'AI'
           }
         }
@@ -146,15 +147,6 @@ export async function syncAllMailAccounts(): Promise<MailSyncResult[]> {
 // Zuordnung
 // ---------------------------------------------------------------------------
 
-type Assignment = {
-  category: MailCategory
-  leadId: string | null
-  clientId: string | null
-  projectId: string | null
-  confidence: number | null
-  reason: string | null
-}
-
 async function buildContext(ownEmail: string): Promise<TriageContext> {
   const [leads, clients, projects] = await Promise.all([
     prisma.lead.findMany({
@@ -194,106 +186,6 @@ async function buildContext(ownEmail: string): Promise<TriageContext> {
 }
 
 /**
- * Absenderadresse gegen bekannte Leads und Kunden. Trifft im Alltag fast
- * immer — laufende Korrespondenz kommt von Adressen, die schon im System
- * stehen. Kostet nichts und kann sich nicht vertun.
- */
-function matchByRule(mail: FetchedMail, ctx: TriageContext): Assignment | null {
-  const addresses = [mail.fromEmail, ...mail.toEmails.map((a) => a.toLowerCase())].filter(
-    (a) => a !== ctx.ownEmail,
-  )
-
-  for (const lead of ctx.leads) {
-    const email = lead.email?.toLowerCase()
-    if (email && addresses.includes(email)) {
-      return {
-        category: 'LEAD',
-        leadId: lead.id,
-        clientId: null,
-        projectId: null,
-        confidence: 1,
-        reason: `Absender ist der Kontakt von „${lead.title}"`,
-      }
-    }
-  }
-
-  for (const client of ctx.clients) {
-    const email = client.email?.toLowerCase()
-    if (email && addresses.includes(email)) {
-      return {
-        category: 'PROJECT',
-        leadId: null,
-        clientId: client.id,
-        projectId: null,
-        confidence: 1,
-        reason: `Absender ist ${client.name}`,
-      }
-    }
-  }
-
-  // Gleiche Domain wie ein bekannter Kunde — schwächeres Signal, reicht aber
-  // für die Zuordnung zum Kunden. Freemail-Domains sind dafür wertlos.
-  const domain = mail.fromEmail.split('@')[1]
-  if (domain && !FREEMAIL.has(domain)) {
-    for (const client of ctx.clients) {
-      if (client.email?.toLowerCase().endsWith(`@${domain}`)) {
-        return {
-          category: 'PROJECT',
-          leadId: null,
-          clientId: client.id,
-          projectId: null,
-          confidence: 0.7,
-          reason: `Gleiche Domain wie ${client.name}`,
-        }
-      }
-    }
-  }
-
-  return null
-}
-
-const FREEMAIL = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'web.de',
-  'gmx.de',
-  'gmx.net',
-  't-online.de',
-  'outlook.com',
-  'hotmail.com',
-  'hotmail.de',
-  'yahoo.com',
-  'yahoo.de',
-  'icloud.com',
-  'me.com',
-  'posteo.de',
-  'mailbox.org',
-  'proton.me',
-  'protonmail.com',
-])
-
-/** AI-Vorschlag auf bekannte Kennungen einschränken — geraten wird nichts. */
-function fromTriage(
-  ai: Awaited<ReturnType<typeof triageMail>>,
-  ctx: TriageContext,
-): Assignment | null {
-  if (!ai) return null
-
-  const leadId = ctx.leads.some((l) => l.id === ai.leadId) ? ai.leadId : null
-  const clientId = ctx.clients.some((c) => c.id === ai.clientId) ? ai.clientId : null
-  const projectId = ctx.projects.some((p) => p.id === ai.projectId) ? ai.projectId : null
-
-  return {
-    category: ai.category as MailCategory,
-    leadId,
-    clientId,
-    projectId,
-    confidence: ai.confidence,
-    reason: ai.reason,
-  }
-}
-
-/**
  * Aus einer unsortierten Mail einen Lead machen. Bewusst ein eigener Schritt
  * auf Knopfdruck statt automatisch: sonst legt jede Werbemail einen Lead an.
  */
@@ -328,11 +220,4 @@ export async function leadFromMail(
   })
 
   return lead
-}
-
-function domainToCompany(email: string): string | null {
-  const domain = email.split('@')[1]
-  if (!domain || FREEMAIL.has(domain)) return null
-  const name = domain.split('.')[0]
-  return name ? name.charAt(0).toUpperCase() + name.slice(1) : null
 }

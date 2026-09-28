@@ -42,6 +42,12 @@ type Dashboard = {
     openCount: number
     overdue: { id: string; number: string; client: string; totalCents: number; daysLate: number }[]
   }
+  sales: {
+    openCount: number
+    openValueCents: number
+    weightedCents: number
+    stale: { id: string; title: string; days: number }[]
+  }
   ops: {
     monitorsDown: { id: string; friendlyName: string }[]
     failedRuns: { id: string; branch: string; url: string | null; repo: { slug: string } }[]
@@ -151,6 +157,33 @@ const week = computed(() => {
           :tone="data.money.overdue.length ? 'bad' : 'default'"
         />
       </div>
+
+      <RouterLink
+        v-if="data.sales.openCount"
+        to="/leads"
+        class="mt-8 flex flex-wrap items-baseline gap-x-8 gap-y-2 border-t border-line pt-3 text-sm hover:text-ink"
+      >
+        <span class="eyebrow-muted">Vertrieb</span>
+        <span>
+          <strong class="font-display tabular-nums">{{ data.sales.openCount }}</strong>
+          offene Chancen
+        </span>
+        <span>
+          <strong class="font-display tabular-nums">
+            {{ formatMoney(data.sales.openValueCents) }}
+          </strong>
+          Volumen
+        </span>
+        <span>
+          gewichtet
+          <strong class="font-display tabular-nums">
+            {{ formatMoney(data.sales.weightedCents) }}
+          </strong>
+        </span>
+        <span v-if="data.sales.stale.length" class="text-warn">
+          {{ data.sales.stale.length }} liegen über zwei Wochen still
+        </span>
+      </RouterLink>
 
       <!-- ================================================================= -->
       <!-- Die nächsten sieben Tage — der Kalender im Kleinen                 -->

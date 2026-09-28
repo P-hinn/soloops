@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { prisma } from '../db.js'
+import { pipelineSummary } from '../services/leads.js'
 import { listEventsInRange } from '../services/calendarRead.js'
 
 const routes: FastifyPluginAsync = async (app) => {
@@ -91,6 +92,8 @@ const routes: FastifyPluginAsync = async (app) => {
       0,
     )
 
+    const sales = await pipelineSummary()
+
     return {
       today: { events: todayEvents },
       weekEvents,
@@ -115,6 +118,9 @@ const routes: FastifyPluginAsync = async (app) => {
         })),
       },
       ops: { monitorsDown, failedRuns },
+      // Aus demselben Service wie die Leads-Ansicht — sonst zeigen Kachel und
+      // Pipeline unterschiedliche Zahlen.
+      sales,
       openActions,
       activeProjects,
     }

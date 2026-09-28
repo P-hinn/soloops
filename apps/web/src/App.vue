@@ -30,6 +30,13 @@ const navGroups = [
     ],
   },
   {
+    label: 'Vertrieb',
+    items: [
+      { to: '/leads', label: 'Leads' },
+      { to: '/inbox', label: 'Eingang' },
+    ],
+  },
+  {
     label: 'Abrechnen',
     items: [
       { to: '/time', label: 'Zeiten' },

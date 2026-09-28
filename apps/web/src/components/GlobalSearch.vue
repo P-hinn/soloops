@@ -46,6 +46,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 const typeLabel: Record<string, string> = {
   note: 'Notiz',
   meeting: 'Meeting',
+  lead: 'Lead',
+  mail: 'Mail',
   project: 'Projekt',
   client: 'Kunde',
   invoice: 'Rechnung',
@@ -60,7 +62,7 @@ const typeLabel: Record<string, string> = {
         ref="field"
         v-model="query"
         class="w-full bg-transparent py-2 text-sm text-ink outline-none placeholder:text-muted/70"
-        placeholder="Notizen, Transkripte, Projekte, Rechnungen …"
+        placeholder="Leads, Mails, Notizen, Projekte, Rechnungen …"
         @focus="open = hits.length > 0"
         @keydown.escape="open = false"
       />

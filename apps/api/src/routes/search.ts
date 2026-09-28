@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 
 type Hit = {
-  type: 'note' | 'meeting' | 'project' | 'client' | 'invoice'
+  type: 'note' | 'meeting' | 'project' | 'client' | 'invoice' | 'lead' | 'mail'
   id: string
   title: string
   snippet: string
@@ -20,7 +20,7 @@ const routes: FastifyPluginAsync = async (app) => {
       .parse(req.query)
     const term = q.q
 
-    const [notes, meetings, projects, clients, invoices] = await Promise.all([
+    const [notes, meetings, projects, clients, invoices, leads, mails] = await Promise.all([
       prisma.$queryRaw<{ id: string; title: string; snippet: string }[]>`
         SELECT id, title,
                ts_headline('german', coalesce(body,''), websearch_to_tsquery('german', ${term}),
@@ -65,6 +65,32 @@ const routes: FastifyPluginAsync = async (app) => {
         take: 10,
         include: { client: { select: { name: true } } },
       }),
+      prisma.lead.findMany({
+        where: {
+          archived: false,
+          OR: [
+            { title: { contains: term, mode: 'insensitive' } },
+            { company: { contains: term, mode: 'insensitive' } },
+            { contactName: { contains: term, mode: 'insensitive' } },
+            { notes: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+        orderBy: { lastActivityAt: 'desc' },
+        include: { offers: { select: { amountCents: true, status: true } } },
+      }),
+      prisma.mailMessage.findMany({
+        where: {
+          OR: [
+            { subject: { contains: term, mode: 'insensitive' } },
+            { bodyText: { contains: term, mode: 'insensitive' } },
+            { fromEmail: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+        orderBy: { sentAt: 'desc' },
+        select: { id: true, subject: true, snippet: true, fromEmail: true, leadId: true },
+      }),
     ])
 
     const hits: Hit[] = [
@@ -95,6 +121,21 @@ const routes: FastifyPluginAsync = async (app) => {
         title: c.company ? `${c.name} (${c.company})` : c.name,
         snippet: c.notes?.slice(0, 200) ?? '',
         url: `/clients/${c.id}`,
+      })),
+      ...leads.map((l) => ({
+        type: 'lead' as const,
+        id: l.id,
+        title: l.title,
+        snippet: [l.company, l.notes?.slice(0, 160)].filter(Boolean).join(' — '),
+        url: `/leads/${l.id}`,
+      })),
+      // Mails führen zum Lead, wenn es einen gibt — dort steht der Zusammenhang.
+      ...mails.map((m) => ({
+        type: 'mail' as const,
+        id: m.id,
+        title: m.subject,
+        snippet: `${m.fromEmail} — ${m.snippet}`,
+        url: m.leadId ? `/leads/${m.leadId}` : '/inbox',
       })),
       ...invoices.map((i) => ({
         type: 'invoice' as const,

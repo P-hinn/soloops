@@ -68,7 +68,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader title="Meetings" subtitle="Termine, Mitschriften, Transkripte">
+    <PageHeader title="Meetings" subtitle="Termine, Mitschriften, Zusammenfassungen">
       <template #actions>
         <button class="btn-primary" @click="showForm = !showForm">Neues Meeting</button>
       </template>

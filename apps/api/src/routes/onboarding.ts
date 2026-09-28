@@ -140,7 +140,7 @@ const routes: FastifyPluginAsync = async (app) => {
       {
         id: 'meeting',
         title: 'Meeting mit Videoraum anlegen',
-        why: 'Raum, Kalendereintrag und Transkript-Slot entstehen in einem Schritt.',
+        why: 'Raum, Kalendereintrag und Mitschrift entstehen in einem Schritt.',
         done: meetings > 0,
         essential: false,
         action: { label: 'Meetings öffnen', url: '/meetings' },
@@ -156,7 +156,7 @@ const routes: FastifyPluginAsync = async (app) => {
       {
         id: 'notes',
         title: 'Erste Notiz schreiben',
-        why: 'Notizen sind das Gedächtnis — die Volltextsuche findet sie später samt Transkripten.',
+        why: 'Notizen sind das Gedächtnis — die Volltextsuche findet sie später samt Mails.',
         done: notes > 0,
         essential: false,
         action: { label: 'Notizen öffnen', url: '/notes' },

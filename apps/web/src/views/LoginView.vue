@@ -44,8 +44,8 @@ async function submit() {
           Alles,<br />was der Tag<br />verlangt.
         </h1>
         <p class="mt-6 max-w-md text-soft">
-          Kalender, Meetings, Transkripte, Projekte, Zeiten, Rechnungen und Betrieb — in einem
-          System, das dir gehört.
+          Kalender, Meetings, Leads, Notizen, Zeiten, Rechnungen und Betrieb — in einem System, das
+          dir gehört.
         </p>
       </div>
 
@@ -59,8 +59,8 @@ async function submit() {
           <div class="text-xs text-muted">Abos</div>
         </div>
         <div>
-          <div class="font-display text-lg font-semibold">lokal</div>
-          <div class="text-xs text-muted">Transkription</div>
+          <div class="font-display text-lg font-semibold">31</div>
+          <div class="text-xs text-muted">MCP-Tools</div>
         </div>
       </div>
     </div>
