@@ -2,6 +2,7 @@ import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } fr
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import { ZodError } from 'zod'
+import { Prisma } from '@prisma/client'
 
 import { env } from './env.js'
 import { ensureSearchIndexes, prisma } from './db.js'
@@ -40,6 +41,21 @@ app.setErrorHandler((error: FastifyError, _req: FastifyRequest, reply: FastifyRe
   if (error instanceof ZodError) {
     return reply.code(422).send({ error: 'Validierung fehlgeschlagen', issues: error.issues })
   }
+  // Prisma-Fehlermeldungen enthalten Query und Serverpfade — die gehören nicht
+  // ins Frontend. Die beiden Fälle, die im Alltag vorkommen, bekommen einen
+  // lesbaren Satz, alles andere bleibt im Log.
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2002') {
+      const fields = (error.meta?.target as string[] | undefined)?.join(', ')
+      return reply
+        .code(409)
+        .send({ error: `Eintrag existiert bereits${fields ? ` (${fields})` : ''}` })
+    }
+    if (error.code === 'P2025') return reply.code(404).send({ error: 'Nicht gefunden' })
+    app.log.error(error)
+    return reply.code(500).send({ error: 'Datenbankfehler' })
+  }
+
   const status = typeof error.statusCode === 'number' ? error.statusCode : 500
   if (status >= 500) app.log.error(error)
   return reply.code(status).send({ error: error.message || 'Interner Fehler' })
