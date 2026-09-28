@@ -32,6 +32,7 @@
 ## Inhalt
 
 - [Schnellstart](#schnellstart) — von null auf laufend in vier Befehlen
+- [Als macOS-App](#als-macos-app) — eigenes Fenster statt Browsertab
 - [Designsystem](#designsystem) — Tokens, Regeln, Klassen
 - [Werkzeuge und Regeln](#werkzeuge-und-regeln) — Prettier, ESLint, die 1000-Zeilen-Grenze
 - [Architektur](#architektur) — vier Apps, ein Monorepo
@@ -85,6 +86,48 @@ docker compose exec api npm -w @soloops/api run seed
 | Frontend | http://localhost:5174 |
 | API      | http://localhost:3000 |
 | Postgres | localhost:5433        |
+
+---
+
+## Als macOS-App
+
+Statt im Browsertab läuft soloops auch als eigenständige App mit Dock-Icon,
+Menüleiste und Tray — ein [Tauri](https://tauri.app)-Fenster auf dieselbe
+Oberfläche, rund 10 MB, mit der WebView von macOS statt einem eigenen Chromium.
+
+```bash
+npm run app          # App im Entwicklungsmodus starten
+npm run app:build    # soloops.app und ein DMG bauen
+```
+
+Das Ergebnis liegt unter
+`apps/desktop/src-tauri/target/release/bundle/macos/soloops.app` — einmal nach
+`/Programme` ziehen, fertig.
+
+**Was die App zusätzlich kann:**
+
+- **Container selbst starten.** Beim Öffnen prüft sie, ob Web und API
+  antworten. Wenn nicht, startet sie Docker Desktop und führt
+  `docker compose up -d` aus; der Startbildschirm zeigt, woran es gerade hängt.
+  Beim Schließen laufen die Container weiter, damit der Worker Kalender und
+  Postfach im Hintergrund abgleicht — beenden über das Tray-Menü.
+- **Tastenkürzel.** ⌘1 bis ⌘9 springen zu den Modulen, ⌘R lädt neu,
+  ⌘⇧M ruft das Postfach ab, ⌘⇧P öffnet die Port-Übersicht.
+- **Port-Übersicht** (⌘⇧P oder Tray). Dasselbe wie `npm run ports`, nur als
+  Fenster: welcher Dienst hört auf welchem Port, woher er kommt, und ein Knopf
+  zum Beenden. Die App ruft dafür [`scripts/ports.sh`](scripts/ports.sh) auf —
+  die Logik steht nur an dieser einen Stelle.
+- **Tray-Menü.** Fenster zeigen, Postfach abrufen, Ports, Container stoppen, beenden.
+
+Voraussetzungen sind die Rust-Toolchain ([rustup](https://rustup.rs)) und die
+Xcode Command Line Tools. Der Pfad zum Repository wird beim Bauen in die App
+geschrieben; zieht das Verzeichnis um, muss die App entweder neu gebaut oder mit
+`SOLOOPS_DIR` gestartet werden.
+
+Die geladene Oberfläche bekommt bewusst **keinen** Zugriff auf Tauri-APIs
+(siehe [`capabilities/default.json`](apps/desktop/src-tauri/capabilities/default.json)):
+es ist dieselbe Web-App wie im Browser, nur in einem anderen Rahmen. Menü, Tray
+und Container-Start laufen vollständig in Rust.
 
 ---
 
@@ -168,6 +211,7 @@ apps/
   worker/     BullMQ — Kalender- und Mail-Sync, Uptime, CI/CD, Digests, Lead-Scores
   web/        Vue 3 + Vite + Tailwind — die Oberfläche
   mcp/        MCP-Server (stdio) für Claude Code / Claude Desktop
+  desktop/    Tauri — dieselbe Oberfläche als macOS-App, mit Menü und Tray
 packages/
   shared/     Zod-Schemas und Formatierer, die API, Web und MCP teilen
 ```
@@ -420,7 +464,14 @@ Passwörter werden mit scrypt gehasht (kein natives Modul nötig).
 docker compose logs -f api worker    # Logs
 docker compose exec api npm -w @soloops/api run db:studio   # Prisma Studio
 docker compose down                  # stoppen
+npm run ports                        # wer hört gerade auf welchem Port?
+npm run ports:kill soloops           # Ports dieses Projekts freiräumen
 ```
+
+`npm run ports` listet alle lauschenden Dienste mit Prozess und Herkunft —
+bei Containern den Namen, sonst das Arbeitsverzeichnis. Das Freiräumen kennt
+den Unterschied: einen Port, den Docker hält, stoppt es über den Container
+statt den Daemon abzuschießen.
 
 Schemaänderungen: `prisma/schema.prisma` anpassen, dann `docker compose restart api` —
 der Container führt beim Start `prisma db push` aus. Es gibt bewusst keinen

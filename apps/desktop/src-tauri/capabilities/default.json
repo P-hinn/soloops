@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Die geladene Oberflaeche bekommt bewusst keinen Zugriff auf Tauri-APIs — sie ist dieselbe Web-App wie im Browser und laeuft unter einer entfernten Adresse, die hier nicht freigegeben ist. Erlaubt sind nur die beiden mitgelieferten lokalen Seiten: Startbildschirm und Port-Uebersicht.",
+  "windows": ["main", "ports"],
+  "permissions": ["core:default"]
+}

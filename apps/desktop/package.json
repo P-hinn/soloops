@@ -1,0 +1,14 @@
+{
+  "name": "@soloops/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "soloops als macOS-App — ein Fenster auf die lokale Oberfläche, plus Menüleiste, Tray und Container-Start.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon src-tauri/icons/icon-source.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0"
+  }
+}

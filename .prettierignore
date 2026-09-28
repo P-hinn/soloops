@@ -4,3 +4,5 @@ data
 package-lock.json
 apps/api/prisma/schema.prisma
 apps/web/public/fonts
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen

@@ -10,7 +10,17 @@ import prettier from 'eslint-config-prettier'
  * allen voran die Dateigröße.
  */
 export default [
-  { ignores: ['**/dist/**', '**/node_modules/**', 'data/**', 'apps/web/public/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      'data/**',
+      'apps/web/public/**',
+      // Rust-Buildartefakte der macOS-App, inklusive generiertem JavaScript.
+      'apps/desktop/src-tauri/target/**',
+      'apps/desktop/src-tauri/gen/**',
+    ],
+  },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

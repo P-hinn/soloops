@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ports</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f1efe8;
+        --ink: #171714;
+        --soft: #6b6a63;
+        --line: rgba(23, 23, 20, 0.14);
+        --bad: #a3341f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem 1.5rem 2rem;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          13px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--ink);
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--ink);
+        padding: 0.15rem 0.6rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: rgba(23, 23, 20, 0.06);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      button.armed {
+        background: var(--bad);
+        border-color: var(--bad);
+        color: #fff;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--soft);
+        font-weight: 500;
+        padding: 0.6rem 0.5rem 0.3rem 0;
+      }
+      td {
+        padding: 0.45rem 0.5rem 0.45rem 0;
+        border-top: 1px solid var(--line);
+        vertical-align: baseline;
+      }
+      td.port {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        width: 4.5rem;
+      }
+      td.proc {
+        width: 9rem;
+        color: var(--soft);
+      }
+      td.origin {
+        word-break: break-all;
+      }
+      td.action {
+        text-align: right;
+        white-space: nowrap;
+        width: 7rem;
+      }
+      .tag {
+        display: inline-block;
+        border: 1px solid var(--line);
+        padding: 0 0.35rem;
+        margin-right: 0.35rem;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--soft);
+      }
+      footer {
+        margin-top: 1rem;
+        color: var(--soft);
+        font-size: 12px;
+      }
+      #note {
+        min-height: 1.4em;
+      }
+      #note.bad {
+        color: var(--bad);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Offene Ports</h1>
+      <button id="refresh">Aktualisieren</button>
+    </header>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Port</th>
+          <th>Prozess</th>
+          <th>Woher</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <footer>
+      <p id="note"></p>
+      <p>
+        Nur Dienste unterhalb von Port 32768, ohne Hintergrunddienste von macOS. Ein Port, den
+        Docker hält, wird über den Container gestoppt — nie über den Daemon.
+      </p>
+    </footer>
+
+    <script>
+      const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args)
+      const rows = document.getElementById('rows')
+      const note = document.getElementById('note')
+
+      function say(text, bad) {
+        note.textContent = text
+        note.classList.toggle('bad', !!bad)
+      }
+
+      function cell(text, className) {
+        const td = document.createElement('td')
+        td.className = className
+        td.textContent = text
+        return td
+      }
+
+      async function load() {
+        say('lese Ports …')
+        try {
+          const list = JSON.parse(await invoke('list_ports'))
+          rows.replaceChildren()
+          for (const row of list) rows.append(render(row))
+          say(list.length ? '' : 'Nichts gefunden — keine Dev-Ports belegt.')
+        } catch (err) {
+          say(String(err), true)
+        }
+      }
+
+      function render(row) {
+        const tr = document.createElement('tr')
+        tr.append(cell(String(row.port), 'port'), cell(row.process, 'proc'))
+
+        const origin = cell('', 'origin')
+        if (row.container) {
+          const tag = document.createElement('span')
+          tag.className = 'tag'
+          tag.textContent = 'Container'
+          origin.append(tag, document.createTextNode(row.container))
+        } else {
+          origin.textContent = row.origin
+        }
+        tr.append(origin)
+
+        const action = document.createElement('td')
+        action.className = 'action'
+        action.append(killButton(row))
+        tr.append(action)
+        return tr
+      }
+
+      // Zwei Klicks statt eines Dialogs: der erste bewaffnet den Knopf, der
+      // zweite beendet. Ein Fehlgriff kostet so nichts.
+      function killButton(row) {
+        const button = document.createElement('button')
+        button.textContent = row.container ? 'Stoppen' : 'Beenden'
+        let armed = false
+
+        button.addEventListener('click', async () => {
+          if (!armed) {
+            armed = true
+            button.classList.add('armed')
+            button.textContent = 'Sicher?'
+            setTimeout(() => {
+              if (!armed) return
+              armed = false
+              button.classList.remove('armed')
+              button.textContent = row.container ? 'Stoppen' : 'Beenden'
+            }, 4000)
+            return
+          }
+
+          button.disabled = true
+          button.textContent = '…'
+          try {
+            say(await invoke('kill_port', { port: row.port }))
+          } catch (err) {
+            say(String(err), true)
+          }
+          await load()
+        })
+
+        return button
+      }
+
+      document.getElementById('refresh').addEventListener('click', load)
+      load()
+    </script>
+  </body>
+</html>
