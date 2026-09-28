@@ -16,6 +16,7 @@ withDefaults(defineProps<{ size?: number | string }>(), { size: 40 })
     :height="size"
     viewBox="0 0 858 858"
     fill="currentColor"
+    fill-rule="evenodd"
     aria-hidden="true"
     focusable="false"
   >
