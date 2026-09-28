@@ -44,7 +44,10 @@ const mails = ref<Mail[]>([])
 const leads = ref<Lead[]>([])
 const clients = ref<Client[]>([])
 const accounts = ref<Account[]>([])
-const filter = ref<'open' | 'unassigned' | 'all'>('open')
+const FILTERS = { open: 'Offen', unassigned: 'Nicht zugeordnet', all: 'Alle' } as const
+type Filter = keyof typeof FILTERS
+
+const filter = ref<Filter>('open')
 const open = ref<string | null>(null)
 const syncing = ref(false)
 const error = ref('')
@@ -72,6 +75,11 @@ async function load() {
   ])
   mails.value = list
   accounts.value = accs
+}
+
+function setFilter(key: Filter) {
+  filter.value = key
+  void load()
 }
 
 async function loadTargets() {
@@ -141,14 +149,11 @@ onMounted(async () => {
 
       <div class="mb-6 flex flex-wrap items-center gap-1.5">
         <button
-          v-for="(label, key) in { open: 'Offen', unassigned: 'Nicht zugeordnet', all: 'Alle' }"
+          v-for="(label, key) in FILTERS"
           :key="key"
           class="btn-xs"
           :class="filter === key ? 'btn-primary' : ''"
-          @click="
-            filter = key as 'open' | 'unassigned' | 'all'
-            load()
-          "
+          @click="setFilter(key)"
         >
           {{ label }}
         </button>
