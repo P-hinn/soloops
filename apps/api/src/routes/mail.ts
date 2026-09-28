@@ -6,6 +6,7 @@ import { seal } from '../services/secretbox.js'
 import { testConnection } from '../services/imap.js'
 import { leadFromMail, syncMailAccount, syncAllMailAccounts } from '../services/mailSync.js'
 import { touchLead } from '../services/leads.js'
+import { syncWindowStart } from '../services/mailRules.js'
 
 const accountInput = z.object({
   label: z.string().min(1),
@@ -15,7 +16,7 @@ const accountInput = z.object({
   imapSecure: z.coerce.boolean().default(true),
   imapUser: z.string().min(1),
   password: z.string().min(1),
-  folders: z.array(z.string()).default(['INBOX']),
+  folders: z.array(z.string()).optional(),
 })
 
 /** Das verschlüsselte Passwort verlässt die API nie. */
@@ -34,6 +35,14 @@ const publicAccount = {
   lastError: true,
 } as const
 
+/** Startpunkt eines frisch verbundenen Kontos — nie vor der globalen Grenze. */
+function backfillStart(): Date {
+  return syncWindowStart(
+    new Date(Date.now() - env.MAIL_BACKFILL_DAYS * 86_400_000),
+    env.MAIL_SYNC_FROM,
+  )
+}
+
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
@@ -45,35 +54,39 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/accounts', async (req, reply) => {
     const data = accountInput.parse(req.body)
-    const syncSince = new Date(Date.now() - env.MAIL_BACKFILL_DAYS * 86_400_000)
+    const email = data.email.toLowerCase()
 
-    const account = await prisma.mailAccount.create({
-      data: {
-        label: data.label,
-        email: data.email.toLowerCase(),
-        imapHost: data.imapHost,
-        imapPort: data.imapPort,
-        imapSecure: data.imapSecure,
-        imapUser: data.imapUser,
-        imapPassEnc: seal(data.password),
-        folders: data.folders,
-        syncSince,
-      },
-    })
+    const credentials = {
+      label: data.label,
+      email,
+      imapHost: data.imapHost,
+      imapPort: data.imapPort,
+      imapSecure: data.imapSecure,
+      imapUser: data.imapUser,
+      imapPassEnc: seal(data.password),
+      ...(data.folders ? { folders: data.folders } : {}),
+    }
 
-    // Sofort prüfen — ein Konto, das sich nicht anmelden kann, soll das hier
-    // sagen und nicht erst beim nächtlichen Lauf im Log auftauchen.
-    const test = await testConnection(account)
+    // Erst anmelden, dann speichern. Andernfalls bliebe nach einem Tippfehler
+    // im Passwort ein totes Konto zurück, das den zweiten Versuch blockiert.
+    const test = await testConnection(credentials)
     if (!test.ok) {
-      await prisma.mailAccount.update({
-        where: { id: account.id },
-        data: { enabled: false, lastError: test.error },
-      })
       return reply.code(400).send({ error: `Anmeldung fehlgeschlagen: ${test.error}` })
     }
 
-    const { imapPassEnc: _pass, ...rest } = account
-    return reply.code(201).send({ ...rest, availableFolders: test.folders })
+    // Dieselbe Adresse noch einmal verbinden heißt: Zugangsdaten erneuern.
+    const account = await prisma.mailAccount.upsert({
+      where: { email },
+      create: {
+        ...credentials,
+        folders: data.folders ?? ['INBOX'],
+        syncSince: backfillStart(),
+      },
+      update: { ...credentials, enabled: true, lastError: null },
+      select: publicAccount,
+    })
+
+    return reply.code(201).send({ ...account, availableFolders: test.folders })
   })
 
   app.patch('/accounts/:id', async (req) => {
