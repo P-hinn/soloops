@@ -44,6 +44,13 @@ const schema = z.object({
   CALDAV_APPLE_URL: z.string().default('https://caldav.icloud.com'),
   CALENDAR_SYNC_CRON: z.string().default('*/10 * * * *'),
 
+  // --- Postfach & Vertrieb -------------------------------------------------
+  MAIL_POLL_CRON: z.string().default('*/10 * * * *'),
+  /// Wie weit beim Verbinden eines Kontos zurückgelesen wird. Kein Archivimport.
+  MAIL_BACKFILL_DAYS: z.coerce.number().default(90),
+  /// Obergrenze pro Lauf, damit ein volles Postfach den Worker nicht blockiert.
+  MAIL_MAX_PER_RUN: z.coerce.number().default(200),
+
   // --- Videokonferenz -----------------------------------------------------
   VIDEO_PROVIDER: z.enum(['JITSI', 'GOOGLE_MEET', 'CUSTOM']).default('JITSI'),
   JITSI_BASE_URL: z.string().default('https://meet.jit.si'),

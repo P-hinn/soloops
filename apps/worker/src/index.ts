@@ -9,6 +9,8 @@ import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
 import { buildProjectDigest } from '../../api/src/ai/digest.js'
 import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
+import { syncMailAccount, syncAllMailAccounts } from '../../api/src/services/mailSync.js'
+import { scoreOpenLeads } from '../../api/src/ai/leadScore.js'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 const log = (scope: string, msg: string) => console.log(`[${scope}] ${msg}`)
@@ -111,6 +113,46 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[calendar]', err.message))
 
 // ---------------------------------------------------------------------------
+// Postfach
+// ---------------------------------------------------------------------------
+
+new Worker(
+  'mail',
+  async (job) => {
+    const data = job.data as { accountId?: string }
+    const results = data.accountId
+      ? [await syncMailAccount(data.accountId)]
+      : await syncAllMailAccounts()
+
+    for (const r of results) {
+      if (r.error) console.error(`[mail] ${r.account}: ${r.error}`)
+      else if (r.fetched) {
+        log('mail', `${r.account}: ${r.fetched} neu, ${r.byRule} per Regel, ${r.byAi} per AI`)
+      }
+    }
+    return results
+  },
+  // Ein Konto, eine Verbindung: parallele Läufe würden sich beim
+  // UID-Stand gegenseitig überholen.
+  { connection, concurrency: 1 },
+).on('failed', (_job, err) => console.error('[mail]', err.message))
+
+// ---------------------------------------------------------------------------
+// Lead-Bewertung
+// ---------------------------------------------------------------------------
+
+new Worker(
+  'leads',
+  async () => {
+    if (!env.ANTHROPIC_API_KEY) return { skipped: 'kein API-Key' }
+    const result = await scoreOpenLeads()
+    log('leads', `${result.scored} von ${result.total} Leads bewertet`)
+    return result
+  },
+  { connection, concurrency: 1 },
+).on('failed', (_job, err) => console.error('[leads]', err.message))
+
+// ---------------------------------------------------------------------------
 // Wiederkehrende Jobs
 // ---------------------------------------------------------------------------
 
@@ -118,6 +160,8 @@ const uptimeQueue = new Queue('uptime', { connection })
 const pipelineQueue = new Queue('pipelines', { connection })
 const digestQueue = new Queue('digest', { connection })
 const calendarQueue = new Queue('calendar', { connection })
+const mailQueue = new Queue('mail', { connection })
+const leadQueue = new Queue('leads', { connection })
 
 /**
  * Wiederkehrende Jobs.
@@ -131,6 +175,12 @@ async function scheduleRepeatables() {
   await calendarQueue.upsertJobScheduler(
     'calendar-sync',
     { pattern: env.CALENDAR_SYNC_CRON },
+    { name: 'sync-all', opts: { removeOnComplete: 20, removeOnFail: 20 } },
+  )
+
+  await mailQueue.upsertJobScheduler(
+    'mail-sync',
+    { pattern: env.MAIL_POLL_CRON },
     { name: 'sync-all', opts: { removeOnComplete: 20, removeOnFail: 20 } },
   )
 
@@ -158,6 +208,16 @@ async function scheduleRepeatables() {
         data: { kind: 'project' },
         opts: { removeOnComplete: 10, removeOnFail: 20 },
       },
+    )
+  }
+
+  if (env.ANTHROPIC_API_KEY) {
+    // Leads eine Stunde vor den Projekt-Digests — dann steht die Bewertung,
+    // wenn morgens der erste Blick auf die Pipeline fällt.
+    await leadQueue.upsertJobScheduler(
+      'lead-scores',
+      { pattern: '30 6 * * 1-5' },
+      { name: 'score-open', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
 

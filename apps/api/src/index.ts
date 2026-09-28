@@ -20,6 +20,8 @@ import invoiceRoutes from './routes/invoices.js'
 import accountingRoutes from './routes/accounting.js'
 import dashboardRoutes from './routes/dashboard.js'
 import searchRoutes from './routes/search.js'
+import leadRoutes from './routes/leads.js'
+import mailRoutes from './routes/mail.js'
 import calendarAccountRoutes from './routes/calendarAccounts.js'
 import assistantRoutes from './routes/assistant.js'
 import onboardingRoutes from './routes/onboarding.js'
@@ -61,6 +63,8 @@ await app.register(invoiceRoutes, { prefix: '/api/invoices' })
 await app.register(accountingRoutes, { prefix: '/api/accounting' })
 await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
 await app.register(searchRoutes, { prefix: '/api/search' })
+await app.register(leadRoutes, { prefix: '/api/leads' })
+await app.register(mailRoutes, { prefix: '/api/mail' })
 await app.register(calendarAccountRoutes, { prefix: '/api/calendar-accounts' })
 await app.register(assistantRoutes, { prefix: '/api/assistant' })
 await app.register(onboardingRoutes, { prefix: '/api/onboarding' })

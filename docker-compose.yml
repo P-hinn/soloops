@@ -53,7 +53,8 @@ services:
     restart: unless-stopped
     command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
     ports:
-      - '3000:3000'
+      # 3000 ist oft schon von einem anderen Dev-Server belegt
+      - '${API_PORT:-3000}:3000'
 
   worker:
     <<: *node

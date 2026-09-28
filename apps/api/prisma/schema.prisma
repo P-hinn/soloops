@@ -44,12 +44,14 @@ model Client {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  projects   Project[]
-  invoices   Invoice[]
+  projects    Project[]
+  invoices    Invoice[]
   timeEntries TimeEntry[]
-  events     CalendarEvent[]
-  meetings   Meeting[]
-  notes_     Note[]
+  events      CalendarEvent[]
+  meetings    Meeting[]
+  notes_      Note[]
+  leads       Lead[]
+  mails       MailMessage[]
 }
 
 enum ProjectStatus {
@@ -80,16 +82,18 @@ model Project {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  client       Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  timeEntries  TimeEntry[]
-  notes_       Note[]
-  meetings     Meeting[]
-  events       CalendarEvent[]
-  monitors     Monitor[]
-  repos        PipelineRepo[]
-  invoices     Invoice[]
-  actionItems  ActionItem[]
-  digests      AiDigest[]
+  client      Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  timeEntries TimeEntry[]
+  notes_      Note[]
+  meetings    Meeting[]
+  events      CalendarEvent[]
+  monitors    Monitor[]
+  repos       PipelineRepo[]
+  invoices    Invoice[]
+  actionItems ActionItem[]
+  digests     AiDigest[]
+  leads       Lead[]
+  mails       MailMessage[]
 
   @@index([status])
 }
@@ -127,8 +131,8 @@ model CalendarEvent {
 
   // Sync-Metadaten
   /// Serie aus einem fremden Kalender: wird gelesen, aber nie zurückgeschrieben.
-  recurring    Boolean   @default(false)
-  readOnly     Boolean   @default(false)
+  recurring Boolean @default(false)
+  readOnly  Boolean @default(false)
 
   // --- Serien -------------------------------------------------------------
   /// UID aus der Quelle. Verbindet einen überschriebenen Einzeltermin
@@ -206,7 +210,7 @@ model CalendarAccount {
   caldavPassEnc  String?
 
   /// Google: calendarId. CalDAV: Href der Kalender-Collection.
-  remoteCalendarId String?
+  remoteCalendarId   String?
   remoteCalendarName String?
 
   /// Farbe in Wochen- und Monatsansicht. Wird beim Verbinden aus einer
@@ -214,13 +218,13 @@ model CalendarAccount {
   color String @default("#5c76ff")
 
   /// Google: syncToken. CalDAV: WebDAV-Sync-Token.
-  syncToken   String?
+  syncToken  String?
   /// CalDAV-Fallback, wenn der Server kein sync-collection unterstützt.
-  ctag        String?
-  lastSyncAt  DateTime?
-  lastError   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  ctag       String?
+  lastSyncAt DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   links EventLink[]
 
@@ -234,9 +238,9 @@ model EventLink {
   eventId   String
 
   /// Google: event.id. CalDAV: Href der .ics-Ressource.
-  remoteId  String
+  remoteId        String
   /// CalDAV: ETag. Google: etag.
-  remoteEtag String?
+  remoteEtag      String?
   /// Stand, den wir zuletzt von der Gegenseite gesehen haben.
   remoteUpdatedAt DateTime?
   /// Stand, den wir zuletzt dorthin geschrieben haben.
@@ -251,16 +255,15 @@ model EventLink {
 
 /**
  * Grabstein für lokal gelöschte Termine.
- *
  * Ohne das wäre die Löschung beim Sync unsichtbar: mit dem Termin verschwindet
  * auch sein EventLink, und der Fremdkalender behielte den Eintrag für immer.
  */
 model SyncTombstone {
-  id        String   @id @default(cuid())
-  accountId String
-  remoteId  String
+  id         String   @id @default(cuid())
+  accountId  String
+  remoteId   String
   remoteEtag String?
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@unique([accountId, remoteId])
 }
@@ -351,20 +354,20 @@ model Note {
 // ---------------------------------------------------------------------------
 
 model Monitor {
-  id             String    @id @default(cuid())
-  uptimeRobotId  BigInt    @unique
-  friendlyName   String
-  url            String
-  type           Int       @default(1)
-  status         Int       @default(2) // 0 paused, 1 not checked, 2 up, 8 seems down, 9 down
-  intervalSec    Int       @default(300)
-  ratio24h       Float?
-  ratio7d        Float?
-  ratio30d       Float?
-  avgResponseMs  Int?
-  projectId      String?
-  lastCheckedAt  DateTime?
-  updatedAt      DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  uptimeRobotId BigInt    @unique
+  friendlyName  String
+  url           String
+  type          Int       @default(1)
+  status        Int       @default(2) // 0 paused, 1 not checked, 2 up, 8 seems down, 9 down
+  intervalSec   Int       @default(300)
+  ratio24h      Float?
+  ratio7d       Float?
+  ratio30d      Float?
+  avgResponseMs Int?
+  projectId     String?
+  lastCheckedAt DateTime?
+  updatedAt     DateTime  @updatedAt
 
   project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   incidents Incident[]
@@ -446,20 +449,20 @@ enum TimeSource {
 }
 
 model TimeEntry {
-  id          String     @id @default(cuid())
-  projectId   String
-  clientId    String?
-  description String     @default("")
-  startedAt   DateTime
-  endedAt     DateTime?
-  durationSec Int        @default(0)
-  billable    Boolean    @default(true)
-  rateCents   Int?
-  tags        String[]   @default([])
-  source      TimeSource @default(TIMER)
+  id            String     @id @default(cuid())
+  projectId     String
+  clientId      String?
+  description   String     @default("")
+  startedAt     DateTime
+  endedAt       DateTime?
+  durationSec   Int        @default(0)
+  billable      Boolean    @default(true)
+  rateCents     Int?
+  tags          String[]   @default([])
+  source        TimeSource @default(TIMER)
   invoiceItemId String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -482,27 +485,27 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id               String        @id @default(cuid())
-  number           String        @unique
-  status           InvoiceStatus @default(DRAFT)
-  clientId         String
-  projectId        String?
-  issueDate        DateTime      @default(now())
-  dueDate          DateTime
-  currency         String        @default("EUR")
-  subtotalCents    Int           @default(0)
-  taxRate          Float         @default(19)
-  taxCents         Int           @default(0)
-  totalCents       Int           @default(0)
-  smallBusiness    Boolean       @default(false)
-  intro            String?
-  notes            String?
-  pdfPath          String?
-  paidAt           DateTime?
-  lexofficeId      String?
+  id                String        @id @default(cuid())
+  number            String        @unique
+  status            InvoiceStatus @default(DRAFT)
+  clientId          String
+  projectId         String?
+  issueDate         DateTime      @default(now())
+  dueDate           DateTime
+  currency          String        @default("EUR")
+  subtotalCents     Int           @default(0)
+  taxRate           Float         @default(19)
+  taxCents          Int           @default(0)
+  totalCents        Int           @default(0)
+  smallBusiness     Boolean       @default(false)
+  intro             String?
+  notes             String?
+  pdfPath           String?
+  paidAt            DateTime?
+  lexofficeId       String?
   lexofficeSyncedAt DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -550,4 +553,240 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Vertrieb: Leads, Angebote, Verlauf
+// ---------------------------------------------------------------------------
+
+enum LeadStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum LeadSource {
+  REFERRAL
+  WEBSITE
+  OUTBOUND
+  NETWORK
+  EVENT
+  OTHER
+}
+
+model Lead {
+  id     String     @id @default(cuid())
+  title  String
+  stage  LeadStage  @default(NEW)
+  source LeadSource @default(OTHER)
+
+  // Kontakt. Ein Lead hat oft noch keinen Kunden-Datensatz — erst beim
+  // Gewinnen wird daraus einer. Bis dahin stehen die Daten hier.
+  contactName  String?
+  contactEmail String?
+  company      String?
+  phone        String?
+
+  /// Erwarteter Auftragswert. Sobald ein Angebot draußen ist, zieht die
+  /// Bewertung dessen Summe vor — siehe services/leadValue.ts.
+  valueCents Int?
+  currency   String @default("EUR")
+
+  /// Deine eigene Einschätzung in Prozent. Trägt den gewichteten Forecast.
+  probability Int @default(0)
+
+  expectedCloseOn DateTime?
+  lostReason      String?
+  notes           String?
+
+  // --- AI-Bewertung (überschreibt nie `probability`) -----------------------
+  aiScore       Int?
+  aiScoreReason String?
+  aiNextStep    String?
+  aiScoredAt    DateTime?
+
+  /// Letzte Aktivität jeder Art — Basis für „liegt zu lange still".
+  lastActivityAt DateTime @default(now())
+
+  clientId  String?
+  projectId String?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project    Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  offers     Offer[]
+  activities LeadActivity[]
+  mails      MailMessage[]
+
+  @@index([stage, archived])
+  @@index([lastActivityAt])
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+/// Was wurde wem für wie viel angeboten. Bewusst getrennt von Invoice:
+/// ein Angebot ist keine Forderung und darf nachträglich geändert werden.
+model Offer {
+  id     String      @id @default(cuid())
+  leadId String
+  number String?     @unique
+  title  String
+  status OfferStatus @default(DRAFT)
+
+  amountCents Int
+  currency    String @default("EUR")
+  taxRate     Float  @default(19)
+
+  scope      String?
+  sentOn     DateTime?
+  validUntil DateTime?
+  decidedOn  DateTime?
+  notes      String?
+
+  /// Rechnung, die aus dem angenommenen Angebot entstanden ist.
+  invoiceId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, status])
+}
+
+enum ActivityKind {
+  NOTE
+  CALL
+  MAIL
+  MEETING
+  OFFER
+  STAGE_CHANGE
+}
+
+model LeadActivity {
+  id         String       @id @default(cuid())
+  leadId     String
+  kind       ActivityKind
+  body       String
+  occurredAt DateTime     @default(now())
+  /// MANUAL | SYSTEM | AI — damit sich automatisch Erzeugtes wieder entfernen
+  /// lässt, ohne von Hand Getipptes mitzunehmen.
+  source     String       @default("MANUAL")
+  createdAt  DateTime     @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Postfach (nur lesend)
+// ---------------------------------------------------------------------------
+
+model MailAccount {
+  id    String @id @default(cuid())
+  label String
+  email String @unique
+
+  imapHost    String
+  imapPort    Int     @default(993)
+  imapSecure  Boolean @default(true)
+  imapUser    String
+  /// Verschlüsselt at rest, siehe services/secretbox.ts
+  imapPassEnc String
+
+  /// Welche Ordner gelesen werden. Mehr als INBOX ist selten nötig.
+  folders String[] @default(["INBOX"])
+
+  /// Kein Archiv-Import: älteres wird nicht geholt. Wird beim Verbinden auf
+  /// „vor 90 Tagen" gesetzt und danach nicht mehr angefasst.
+  syncSince DateTime
+
+  enabled    Boolean   @default(true)
+  lastSyncAt DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  folderStates MailFolderState[]
+  messages     MailMessage[]
+}
+
+/// IMAP zählt pro Ordner hoch. Die UIDVALIDITY muss mitgeführt werden: ändert
+/// der Server sie, sind alle gemerkten UIDs wertlos und es wird neu aufgesetzt.
+model MailFolderState {
+  id          String   @id @default(cuid())
+  accountId   String
+  folder      String
+  uidValidity BigInt?
+  lastUid     BigInt   @default(0)
+  updatedAt   DateTime @updatedAt
+
+  account MailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, folder])
+}
+
+enum MailCategory {
+  LEAD
+  PROJECT
+  INVOICE
+  ADMIN
+  OTHER
+}
+
+model MailMessage {
+  id        String @id @default(cuid())
+  accountId String
+
+  /// RFC-5322 Message-ID. Eindeutig über alle Ordner — verhindert Dubletten,
+  /// wenn dieselbe Mail in INBOX und einem Unterordner liegt.
+  messageId String @unique
+  uid       BigInt
+  folder    String
+
+  fromName  String?
+  fromEmail String
+  toEmails  String[]
+  subject   String
+  sentAt    DateTime
+
+  /// Kopf und Textkörper. Keine Anhänge — das Postfach bleibt die Quelle.
+  bodyText String
+  snippet  String
+
+  category   MailCategory @default(OTHER)
+  /// RULE | AI | MANUAL — eine Zuordnung von Hand wird nie überschrieben.
+  assignedBy String       @default("RULE")
+  confidence Float?
+  aiReason   String?
+
+  leadId    String?
+  clientId  String?
+  projectId String?
+
+  /// Abgehakt: gelesen und einsortiert, verschwindet aus dem Eingang.
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account MailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  lead    Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  client  Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([category, handled])
+  @@index([sentAt])
+  @@index([fromEmail])
 }
