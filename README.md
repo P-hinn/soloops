@@ -1,13 +1,13 @@
 <h1 align="center">soloops</h1>
 
 <p align="center">
-  <strong>Ein selbst gehostetes Betriebssystem für die Solo-Selbstständigkeit.</strong><br>
-  Kalender, Meetings, Notizen, Projekte, Leads, Postfach, Zeiten, Rechnungen —<br>
-  an einem Ort, auf der eigenen Maschine, mit MCP-Zugang für Claude.
+  <strong>A self-hosted operating system for working solo.</strong><br>
+  Calendar, meetings, notes, projects, leads, inbox, time tracking, invoices —<br>
+  in one place, on your own machine, with MCP access for Claude.
 </p>
 
 <p align="center">
-  <img alt="Lizenz MIT" src="https://img.shields.io/badge/Lizenz-MIT-171714?style=flat-square">
+  <img alt="MIT License" src="https://img.shields.io/badge/License-MIT-171714?style=flat-square">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Node 22" src="https://img.shields.io/badge/Node-22-5fa04e?style=flat-square&logo=nodedotjs&logoColor=white">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square&logo=vuedotjs&logoColor=white">
@@ -15,73 +15,104 @@
   <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2d3748?style=flat-square&logo=prisma&logoColor=white">
   <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-31%20Tools-d8ff55?style=flat-square&labelColor=171714">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-31%20tools-d8ff55?style=flat-square&labelColor=171714">
 </p>
 
 <p align="center">
-  <a href="#schnellstart">Schnellstart</a> ·
-  <a href="#module">Module</a> ·
-  <a href="#kalender-sync-in-beide-richtungen">Kalender-Sync</a> ·
-  <a href="#postfach-und-lead-zuordnung">Postfach</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#modules">Modules</a> ·
+  <a href="#two-way-calendar-sync">Calendar sync</a> ·
+  <a href="#inbox-and-lead-matching">Inbox</a> ·
   <a href="#mcp-server">MCP</a> ·
-  <a href="#deployment-auf-einem-kleinen-server">Deployment</a>
+  <a href="#deploying-on-a-small-server">Deployment</a>
 </p>
 
 ---
 
-## Inhalt
+## Contents
 
-- [Schnellstart](#schnellstart) — von null auf laufend in vier Befehlen
-- [Als macOS-App](#als-macos-app) — eigenes Fenster statt Browsertab
-- [Designsystem](#designsystem) — Tokens, Regeln, Klassen
-- [Werkzeuge und Regeln](#werkzeuge-und-regeln) — Prettier, ESLint, die 1000-Zeilen-Grenze
-- [Architektur](#architektur) — vier Apps, ein Monorepo
-- [Module](#module) — was das Ding tatsächlich kann
-- [Kalender-Sync in beide Richtungen](#kalender-sync-in-beide-richtungen) — Google, CalDAV, Konfliktregeln
-- [Postfach und Lead-Zuordnung](#postfach-und-lead-zuordnung) — IMAP, Regeln vor AI
-- [MCP-Server](#mcp-server) — 31 Tools für Claude
-- [Authentifizierung](#authentifizierung)
-- [Betrieb](#betrieb) — Logs, Schemaänderungen, Backup
-- [Deployment auf einem kleinen Server](#deployment-auf-einem-kleinen-server) — 2 Kerne, 2 GB RAM
-- [Sicherheitshinweise](#sicherheitshinweise-für-den-produktivbetrieb)
-- [Lizenz](#lizenz)
+- [What this is](#what-this-is) — scope, assumptions, and what it deliberately isn't
+- [Quick start](#quick-start) — from nothing to running in four commands
+- [Running as a macOS app](#running-as-a-macos-app) — its own window instead of a browser tab
+- [Design system](#design-system) — tokens, rules, classes
+- [Tooling and conventions](#tooling-and-conventions) — Prettier, ESLint, the 1000-line limit
+- [Architecture](#architecture) — five apps, one monorepo
+- [Modules](#modules) — what the thing actually does
+- [Two-way calendar sync](#two-way-calendar-sync) — Google, CalDAV, conflict rules
+- [Inbox and lead matching](#inbox-and-lead-matching) — IMAP, rules before AI
+- [Activity](#activity-what-the-mac-sees) — samples from the Mac, all local
+- [MCP server](#mcp-server) — 31 tools for Claude
+- [Authentication](#authentication)
+- [Operations](#operations) — logs, schema changes, backup
+- [Deploying on a small server](#deploying-on-a-small-server) — 2 cores, 2 GB RAM
+- [Security notes for production](#security-notes-for-production)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Schnellstart
+## What this is
 
-**Voraussetzungen:** Docker mit Compose v2. Node 22 nur, wenn du Linter, Tests
-oder den MCP-Server außerhalb der Container laufen lassen willst.
+soloops is the back office of a one-person software business, built as a single
+self-hosted application. It replaces the usual pile of SaaS subscriptions —
+calendar, CRM, time tracker, invoicing — with one Docker Compose stack that runs
+on a laptop or a small VPS and keeps its data in a database you control.
 
-**1. Konfiguration anlegen**
+It is published as-is, because it may be useful to someone with the same
+problem. A few things are worth knowing before you invest an evening in it:
+
+- **Single user by design.** There is one owner account and no tenancy
+  boundary anywhere. Do not run this for a team; nothing in the data model
+  separates one person's records from another's.
+- **The interface is German.** Code, comments and this document are English,
+  but every label in the UI is German, and so are the AI prompts. Translating
+  it is not hard, but nobody has done it.
+- **It assumes German invoicing rules** (sequential numbering per year,
+  §19 UStG small-business note, lexoffice as the accounting target).
+- **No migration history.** Schema changes go out with `prisma db push`. One
+  user, one database — see [Operations](#operations).
+- **AI is optional.** Everything except digests, lead scores, meeting
+  summaries and the quick-entry parser works without an `ANTHROPIC_API_KEY`.
+
+What it is not: a product, a hosted service, or something with a support
+promise. See [Contributing](#contributing) for what that means in practice.
+
+---
+
+## Quick start
+
+**Requirements:** Docker with Compose v2. Node 22 only if you want to run the
+linter, the tests or the MCP server outside the containers.
+
+**1. Create the configuration**
 
 ```bash
 cp .env.example .env
 ```
 
-In der `.env` mindestens setzen: `POSTGRES_PASSWORD`, `DATABASE_URL` (gleiches Passwort),
-`JWT_SECRET`, `SERVICE_TOKEN`, `OWNER_PASSWORD`. Secrets erzeugen:
+At minimum, set `POSTGRES_PASSWORD`, `DATABASE_URL` (same password),
+`JWT_SECRET`, `SERVICE_TOKEN` and `OWNER_PASSWORD`. Generate secrets with:
 
 ```bash
 openssl rand -hex 32
 ```
 
-**2. Hochfahren**
+**2. Bring it up**
 
 ```bash
 docker compose up -d --build
 ```
 
-**3. Owner-Konto und zwei Beispielprojekte anlegen**
+**3. Create the owner account and two example projects**
 
 ```bash
 docker compose exec api npm -w @soloops/api run seed
 ```
 
-**4. Einloggen** unter http://localhost:5174 mit `OWNER_EMAIL` und
-`OWNER_PASSWORD`. Beim ersten Login startet der Rundgang.
+**4. Log in** at http://localhost:5174 with `OWNER_EMAIL` and `OWNER_PASSWORD`.
+The guided tour starts on first login.
 
-| Dienst   | URL                   |
+| Service  | URL                   |
 | -------- | --------------------- |
 | Frontend | http://localhost:5174 |
 | API      | http://localhost:3000 |
@@ -89,348 +120,429 @@ docker compose exec api npm -w @soloops/api run seed
 
 ---
 
-## Als macOS-App
+## Running as a macOS app
 
-Statt im Browsertab läuft soloops auch als eigenständige App mit Dock-Icon,
-Menüleiste und Tray — ein [Tauri](https://tauri.app)-Fenster auf dieselbe
-Oberfläche, rund 10 MB, mit der WebView von macOS statt einem eigenen Chromium.
+Instead of living in a browser tab, soloops also runs as a standalone app with
+a dock icon, a menu bar and a tray item — a [Tauri](https://tauri.app) window
+onto the same interface, around 10 MB, using the macOS WebView rather than
+shipping its own Chromium.
 
 ```bash
-npm run app          # App im Entwicklungsmodus starten
-npm run app:build    # soloops.app und ein DMG bauen
+npm run app          # start the app in development mode
+npm run app:build    # build soloops.app and a DMG
 ```
 
-Das Ergebnis liegt unter
-`apps/desktop/src-tauri/target/release/bundle/macos/soloops.app` — einmal nach
-`/Programme` ziehen, fertig.
+The result lands in
+`apps/desktop/src-tauri/target/release/bundle/macos/soloops.app` — drag it to
+`/Applications` once and you're done.
 
-**Was die App zusätzlich kann:**
+**What the app adds on top of the web UI:**
 
-- **Container selbst starten.** Beim Öffnen prüft sie, ob Web und API
-  antworten. Wenn nicht, startet sie Docker Desktop und führt
-  `docker compose up -d` aus; der Startbildschirm zeigt, woran es gerade hängt.
-  Beim Schließen laufen die Container weiter, damit der Worker Kalender und
-  Postfach im Hintergrund abgleicht — beenden über das Tray-Menü.
-- **Tastenkürzel.** ⌘1 bis ⌘9 springen zu den Modulen, ⌘R lädt neu,
-  ⌘⇧M ruft das Postfach ab, ⌘⇧P öffnet die Port-Übersicht.
-- **Port-Übersicht** (⌘⇧P oder Tray). Dasselbe wie `npm run ports`, nur als
-  Fenster: welcher Dienst hört auf welchem Port, woher er kommt, und ein Knopf
-  zum Beenden. Die App ruft dafür [`scripts/ports.sh`](scripts/ports.sh) auf —
-  die Logik steht nur an dieser einen Stelle.
-- **Tray-Menü.** Fenster zeigen, Postfach abrufen, Ports, Container stoppen, beenden.
+- **Starting the containers itself.** On launch it checks whether web and API
+  respond. If they don't, it starts Docker Desktop and runs
+  `docker compose up -d`; the splash screen reports what it is waiting for.
+  Closing the window leaves the containers running so the worker keeps syncing
+  calendars and mail — quit them from the tray menu.
+- **Keyboard shortcuts.** ⌘1 to ⌘9 jump to the modules, ⌘R reloads,
+  ⌘⇧M fetches the inbox, ⌘⇧P opens the port overview.
+- **Port overview** (⌘⇧P or tray). The same thing as `npm run ports`, in a
+  window: which service listens on which port, where it comes from, and a
+  button to stop it. The app shells out to [`scripts/ports.sh`](scripts/ports.sh)
+  for this — the logic exists in exactly one place.
+- **Activity recording.** One sample every 20 seconds: which app is in front,
+  what its window is called, how long nobody has typed. Off by default — the
+  checkbox sits in the tray and under _Ansicht_ and takes effect immediately.
+  On first run macOS asks for **Accessibility** permission (System Settings >
+  Privacy & Security); without it, nothing is recorded. Details under
+  [Activity](#activity-what-the-mac-sees).
+- **Tray menu.** Show window, fetch inbox, ports, activity on/off, stop
+  containers, quit.
 
-Voraussetzungen sind die Rust-Toolchain ([rustup](https://rustup.rs)) und die
-Xcode Command Line Tools. Der Pfad zum Repository wird beim Bauen in die App
-geschrieben; zieht das Verzeichnis um, muss die App entweder neu gebaut oder mit
-`SOLOOPS_DIR` gestartet werden.
+Building requires the Rust toolchain ([rustup](https://rustup.rs)) and the
+Xcode command line tools. The path to the repository is baked in at build time;
+if the directory moves, either rebuild the app or start it with `SOLOOPS_DIR`.
 
-Die geladene Oberfläche bekommt bewusst **keinen** Zugriff auf Tauri-APIs
-(siehe [`capabilities/default.json`](apps/desktop/src-tauri/capabilities/default.json)):
-es ist dieselbe Web-App wie im Browser, nur in einem anderen Rahmen. Menü, Tray
-und Container-Start laufen vollständig in Rust.
+The loaded interface deliberately gets **no** access to Tauri APIs (see
+[`capabilities/default.json`](apps/desktop/src-tauri/capabilities/default.json)):
+it is the same web app as in the browser, just in a different frame. Menu, tray
+and container startup run entirely in Rust.
 
 ---
 
-## Designsystem
+## Design system
 
-Die Oberfläche übernimmt die Bildsprache von philippniestroj.com. Die Tokens
-liegen zentral in [`apps/web/src/style.css`](apps/web/src/style.css) und sind
-1:1 die der Website:
+The interface borrows its visual language from philippniestroj.com. The tokens
+live in one place, [`apps/web/src/style.css`](apps/web/src/style.css), and are
+identical to the website's:
 
-| Token                            | Wert                  | Rolle                             |
-| -------------------------------- | --------------------- | --------------------------------- |
-| `--color-paper`                  | `#f1efe8`             | warmes Off-White, Grundfläche     |
-| `--color-ink`                    | `#171714`             | Text, Primärbutton, starke Rahmen |
-| `--color-soft` / `--color-muted` | `#575750` / `#6c6b64` | Fließtext, Sekundäres             |
-| `--color-acid`                   | `#d8ff55`             | Limette — der eine laute Akzent   |
-| `--color-blue`                   | `#5c76ff`             | Kicker-Labels und Links           |
-| `--color-line`                   | `rgba(23,23,20,.15)`  | Haarlinie                         |
+| Token                            | Value                 | Role                                 |
+| -------------------------------- | --------------------- | ------------------------------------ |
+| `--color-paper`                  | `#f1efe8`             | warm off-white, the base surface     |
+| `--color-ink`                    | `#171714`             | text, primary button, strong borders |
+| `--color-soft` / `--color-muted` | `#575750` / `#6c6b64` | body copy, secondary text            |
+| `--color-acid`                   | `#d8ff55`             | lime — the one loud accent           |
+| `--color-blue`                   | `#5c76ff`             | kicker labels and links              |
+| `--color-line`                   | `rgba(23,23,20,.15)`  | hairline                             |
 
-Drei Regeln tragen den Look:
+Three rules carry the look:
 
-1. **Radius 0 überall — außer bei Buttons.** Flächen, Karten, Inputs und Badges
-   sind scharfkantig; Buttons sind immer vollrunde Pillen.
-2. **Linien statt Kästen.** Tabellen und Raster werden durch Haarlinien
-   gegliedert, nicht durch abgesetzte Boxen. Kennzahlen stehen unter einer
-   kräftigen Oberkante, ohne Rahmen.
-3. **Kicker-Labels.** Abschnitte tragen kein `<h2>` in Fließtextgröße, sondern
-   ein kleines, gesperrtes Versal-Label in Blau (`.eyebrow`).
+1. **Radius 0 everywhere — except buttons.** Surfaces, cards, inputs and badges
+   have sharp corners; buttons are always full pills.
+2. **Lines instead of boxes.** Tables and grids are structured by hairlines,
+   not by raised boxes. Key figures sit under a heavy top rule, without a frame.
+3. **Kicker labels.** Sections don't carry an `<h2>` at body size but a small,
+   letterspaced uppercase label in blue (`.eyebrow`).
 
-Schrift: **Space Grotesk** (variabel 400–700, selbst gehostet unter
-`apps/web/public/fonts/`) für Überschriften, Zahlen und alles Tabellarische;
-Helvetica Neue/Arial für Fließtext. Ziffern laufen überall tabellarisch, damit
-Beträge und Zeiten in Spalten untereinander stehen.
+Type: **Space Grotesk** (variable 400–700, self-hosted under
+`apps/web/public/fonts/`) for headings, numbers and anything tabular;
+Helvetica Neue/Arial for body copy. Digits are tabular throughout so that
+amounts and durations line up in columns.
 
-Wiederverwendbare Klassen: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` /
+Reusable classes: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` /
 `.btn-xs`, `.input`, `.label`, `.badge` (+ `-acid` / `-good` / `-warn` / `-bad` /
 `-blue`), `.table`, `.eyebrow`, `.display-xl`, `.prose-note`.
 
 ---
 
-## Werkzeuge und Regeln
+## Tooling and conventions
 
 ```bash
-npm run check      # Format, Linter, Typen und Tests in einem Lauf
-npm run format     # Prettier über alles
-npm run lint:fix   # ESLint mit Autokorrektur
-npm run test       # RRULE-Expander und Vertriebslogik (39 Fälle)
+npm run check      # format, lint, types and tests in one run
+npm run format     # Prettier over everything
+npm run lint:fix   # ESLint with autofix
+npm run test       # RRULE expander, sales logic and activity (60 cases)
+npm -w @soloops/desktop run test   # the Rust side of the macOS app (6 cases)
 ```
 
-**Prettier** macht die Formatierung (keine Semikolons, einfache
-Anführungszeichen, 100 Zeichen), **tsc** die Typen. Der **Linter** kümmert sich
-nur um das, was beide nicht sehen — allen voran die **Obergrenze von 1000
-Zeilen pro Datei** (`max-lines`, Leerzeilen und Kommentare zählen nicht mit,
-damit gute Dokumentation nicht bestraft wird). Wer sie reißt, hat zwei Dinge in
-einer Datei. Größte Datei aktuell: `CalendarView.vue` mit 814 Zeilen.
+The Rust tests are not part of `npm run check`: they need the toolchain, and
+only people who build the app need that.
 
-### Abhängigkeiten
+**Prettier** owns formatting (no semicolons, single quotes, 100 columns),
+**tsc** owns types. The **linter** only deals with what neither of them sees —
+above all the **1000-line limit per file** (`max-lines`; blank lines and
+comments don't count, so good documentation isn't punished). Breaking it means
+you have two things in one file. Largest file right now: `CalendarView.vue` at
+814 lines.
 
-Bewusst **nicht** mitgezogen, jeweils mit Grund:
+Comments and commit messages are English; the UI copy is German. Commits follow
+[Conventional Commits](https://www.conventionalcommits.org/).
 
-| Paket         | Aktuell | Verfügbar       | Warum nicht                                                               |
-| ------------- | ------- | --------------- | ------------------------------------------------------------------------- |
-| TypeScript    | 5.9     | 7.0             | Neu geschriebener Compiler, noch keine belastbare Erfahrung mit `vue-tsc` |
-| Prisma        | 6.19    | 7.10 (8 als RC) | Großer Migrationsschritt; lohnt als eigener Vorgang, nicht nebenbei       |
-| Zod           | 3.25    | 4.4             | Geänderte Semantik bei `.default()`/`.optional()` quer durch alle Schemas |
-| `@types/node` | 22      | 26              | Muss zur Laufzeit im Container passen, und die ist Node 22                |
+### Dependencies held back
 
-Offen und bekannt: `deepmerge-ts@7.1.5` unter `@prisma/config` hat eine
-Stack-Erschöpfung bei rekursiven Objektgraphen (GHSA-ggr8-5vv4-36mx, hoch).
-Der Pfad ist die Prisma-**CLI** (`generate`, `db push`), nicht die Query-Engine,
-und verarbeitet ausschließlich die eigene Konfiguration — praktisch keine
-Angriffsfläche. Ein npm-`override` auf 8.x greift mit npm 11 nicht durch; die
-Lücke verschwindet mit dem Prisma-Upgrade.
+Deliberately **not** upgraded, each with a reason:
+
+| Package       | Current | Available      | Why not                                                          |
+| ------------- | ------- | -------------- | ---------------------------------------------------------------- |
+| TypeScript    | 5.9     | 7.0            | Rewritten compiler, no solid experience with `vue-tsc` yet       |
+| Prisma        | 6.19    | 7.10 (8 as RC) | Large migration step; worth its own pass, not a drive-by         |
+| Zod           | 3.25    | 4.4            | Changed `.default()`/`.optional()` semantics across every schema |
+| `@types/node` | 22      | 26             | Has to match the container runtime, and that is Node 22          |
+
+Known and open: `deepmerge-ts@7.1.5` under `@prisma/config` has a stack
+exhaustion on recursive object graphs (GHSA-ggr8-5vv4-36mx, high). The affected
+path is the Prisma **CLI** (`generate`, `db push`), not the query engine, and it
+only ever processes our own configuration — effectively no attack surface. An
+npm `override` to 8.x doesn't take with npm 11; the advisory goes away with the
+Prisma upgrade.
 
 ---
 
-## Architektur
+## Architecture
 
 ```
 apps/
-  api/        Fastify + Prisma + Postgres — REST-API, PDF-Rendering, AI-Aufrufe
-  worker/     BullMQ — Kalender- und Mail-Sync, Uptime, CI/CD, Digests, Lead-Scores
-  web/        Vue 3 + Vite + Tailwind — die Oberfläche
-  mcp/        MCP-Server (stdio) für Claude Code / Claude Desktop
-  desktop/    Tauri — dieselbe Oberfläche als macOS-App, mit Menü und Tray
+  api/        Fastify + Prisma + Postgres — REST API, PDF rendering, AI calls
+  worker/     BullMQ — calendar and mail sync, uptime, CI/CD, digests, lead scores
+  web/        Vue 3 + Vite + Tailwind — the interface
+  mcp/        MCP server (stdio) for Claude Code / Claude Desktop
+  desktop/    Tauri — the same interface as a macOS app, with menu and tray
 packages/
-  shared/     Zod-Schemas und Formatierer, die API, Web und MCP teilen
+  shared/     Zod schemas and formatters shared by API, web and MCP
 ```
 
-Worker und API teilen sich Prisma-Client und Service-Layer über relative Importe —
-ein Monorepo, eine Quelle der Wahrheit, keine doppelten Integrationen.
+Worker and API share the Prisma client and the service layer through relative
+imports — one monorepo, one source of truth, no duplicated integrations.
 
 ---
 
-## Module
+## Modules
 
-**Onboarding.** Beim ersten Login startet ein Rundgang in sieben Schritten
-(Scheinwerfer auf das jeweilige Element, weiter mit → oder Klick, Esc bricht ab).
-Danach bleibt auf dem Dashboard eine Einrichtungsliste, die den **echten Zustand
-liest**: sie hakt nur ab, was tatsächlich existiert — angelegte Kunden, erfasste
-Zeiten, verbundene Kalender, gesetzte Umgebungsvariablen. Bewusst nichts, was man
-selbst abhaken kann; eine solche Liste sagt nach zwei Wochen nichts mehr über den
-Zustand aus. Standardmäßig ist sie eine Zeile — Fortschritt und nächster Schritt;
-alle Schritte auf Klick. Ausblenden geht jederzeit, zurückholen unter
-_Einstellungen_.
+**Onboarding.** The first login starts a seven-step tour (spotlight on the
+element in question, → or click to advance, Esc to abort). After that the
+dashboard keeps a setup checklist that **reads real state**: it only ticks what
+actually exists — clients created, time logged, calendars connected,
+environment variables set. Deliberately nothing you can tick yourself; a list
+like that stops saying anything about the system after two weeks. By default
+it is a single line — progress and next step; all steps on click. You can hide
+it any time and bring it back under _Settings_.
 
-**Schnelleingabe.** Ein Feld auf dem Dashboard: „Termin für neues Projekt mit
-Beispiel GmbH nächste Woche" wird zu einem _Plan_ — Kunde, Projekt, Termin,
-Videoraum, Meeting, Notiz, offene Punkte. Der Plan ist editierbar und wird erst
-auf Knopfdruck angelegt. Bewusst zweistufig: unterspezifizierte Sätze sind die
-Regel, und stilles Anlegen produziert mehr Aufräumarbeit als es spart. Daneben
-Schnellaktionen für Timer, Meeting, Termin, Notiz und Abrechnen.
+**Quick entry.** One field on the dashboard: "meeting for a new project with
+Example Ltd next week" turns into a _plan_ — client, project, event, video
+room, meeting, note, open points. The plan is editable and is only created on
+confirmation. Deliberately two-stage: underspecified sentences are the norm,
+and creating things silently produces more cleanup than it saves. Next to it,
+quick actions for timer, meeting, event, note and invoicing.
 
-Die KI bekommt als Kontext die bestehenden Kunden und Projekte sowie die echten
-freien Zeitfenster der nächsten zwei Wochen — sie erfindet also weder Kunden neu,
-die es schon gibt, noch Termine, die kollidieren. Was sie geraten hat, steht als
-Liste unter „Angenommen".
+The model gets the existing clients and projects plus the real free slots of
+the next two weeks as context — so it neither invents clients that already
+exist nor proposes times that collide. Whatever it guessed is listed under
+"Angenommen" (assumed).
 
-**Kalender.** Wochenansicht, Termine mit Projektbezug, Freie-Slots-Berechnung,
-ICS-Feed zum Abonnieren (`/api/calendar/feed.ics?token=<SERVICE_TOKEN>`) — und
-echter Zwei-Wege-Sync mit Google und Apple, siehe unten.
+**Calendar.** Week view, events with project references, free-slot
+calculation, an ICS feed to subscribe to
+(`/api/calendar/feed.ics?token=<SERVICE_TOKEN>`) — and real two-way sync with
+Google and Apple, see below.
 
-**Videoräume.** Jedes Meeting und jeder Termin kann per Häkchen einen Raum
-bekommen. Standard ist **Jitsi**: kein Konto, keine Einrichtung, der Raumname
-enthält 8 Zufallszeichen (bei Jitsi ist der Name das einzige Geheimnis). Mit
-verbundenem Google-Konto lässt sich stattdessen **Google Meet** erzeugen; ein
-eigener Dauerraum (Zoom, Teams) geht über `VIDEO_CUSTOM_URL` oder pro Meeting
-als eigener Link. Der Raum landet in Meeting, Kalendereintrag, ICS-Feed und in
-beiden Fremdkalendern.
+**Video rooms.** Every meeting and every event can get a room via checkbox.
+The default is **Jitsi**: no account, no setup, and the room name carries 8
+random characters (with Jitsi the name is the only secret). With a connected
+Google account you can create **Google Meet** links instead; a permanent room
+of your own (Zoom, Teams) works through `VIDEO_CUSTOM_URL` or per meeting as a
+custom link. The room ends up in the meeting, the calendar entry, the ICS feed
+and both remote calendars.
 
-**Meetings.** Meeting anlegen (legt optional den Kalendereintrag mit an), Mitschrift
-tippen, danach optional eine AI-Zusammenfassung mit Entscheidungen und Action Items.
+**Meetings.** Create a meeting (optionally creating the calendar entry with
+it), type up notes, then optionally an AI summary with decisions and action
+items.
 
-**Vertrieb.** Leads in vier offenen Stufen (Neu, Qualifiziert, Angebot,
-Verhandlung) plus gewonnen und verloren. Zu jedem Lead gehört, **was du wofür
-angeboten hast**: Titel, Summe, Umfang, verschickt am, gültig bis. Sobald ein
-Angebot draußen ist, zählt dessen Summe als Wert des Leads — eine Zahl auf
-Papier ist belastbarer als eine Schätzung vom Erstkontakt. Ein verschicktes
-Angebot hebt die Stufe von allein.
+**Sales.** Leads in four open stages (new, qualified, offer, negotiation) plus
+won and lost. Every lead records **what you offered for what**: title, amount,
+scope, sent on, valid until. Once an offer is out, its amount counts as the
+value of the lead — a number on paper is more reliable than a guess from the
+first call. Sending an offer advances the stage on its own.
 
-Der Forecast ist Summe mal **deiner** Wahrscheinlichkeit. Daneben steht ein
-AI-Score von 0 bis 100 mit Begründung und nächstem Schritt, werktags um 6:30
-erneuert. Er überschreibt deine Einschätzung nie — weichen beide um mehr als
-15 Punkte ab, zeigt die Oberfläche die Differenz, denn genau da lohnt das
-Nachdenken. Was länger als zwei Wochen ohne Kontakt liegt, wird markiert.
+The forecast is amount times **your** probability. Next to it sits an AI score
+from 0 to 100 with a rationale and a next step, refreshed at 6:30 on weekdays.
+It never overwrites your own estimate — when the two differ by more than 15
+points the UI shows the gap, because that is exactly where thinking pays off.
+Anything untouched for more than two weeks gets flagged.
 
-**Notizen.** Markdown, Tags, Projektbezug, deutsche Postgres-Volltextsuche
-(GIN-Index über Titel + Body, angelegt beim API-Start).
+**Notes.** Markdown, tags, project references, German Postgres full-text search
+(GIN index over title + body, created at API startup).
 
-**Projektübersichten mit AI.** Pro Projekt ein Lagebericht: Status-Ampel, nächste
-Schritte mit Dringlichkeit, Risiken, Abrechnungshinweis. Erzeugt über Structured
-Outputs (`claude-opus-5`, adaptives Thinking), damit die UI ein festes Schema
-rendert statt Freitext zu parsen. Werktags 7:30 Uhr baut der Worker alle Berichte neu.
+**Project digests with AI.** One status report per project: traffic light,
+next steps with urgency, risks, a billing hint. Produced through structured
+outputs (`claude-opus-5`, adaptive thinking) so the UI renders a fixed schema
+instead of parsing free text. The worker rebuilds every report at 7:30 on
+weekdays.
 
-**Uptime.** Spiegelt UptimeRobot-Monitore inkl. Down-Logs alle 5 Minuten; Monitore
-lassen sich Projekten zuordnen und tauchen dann in der Projektansicht auf.
+**Uptime.** Mirrors UptimeRobot monitors including down logs every 5 minutes;
+monitors can be assigned to projects and then show up in the project view.
 
-**CI/CD.** GitHub Actions und GitLab Pipelines, alle 3 Minuten gepollt, ebenfalls
-projektbezogen.
+**CI/CD.** GitHub Actions and GitLab pipelines, polled every 3 minutes, also
+per project.
 
-**Zeiterfassung.** Stoppuhr oben auf _Zeiten_: Projekt (das zuletzt bebuchte ist
-vorgewählt), Beschreibung, Start. Während sie läuft, lässt sich die Beschreibung
-nachtragen; „Verwerfen" stoppt und löscht in einem Zug, damit keine
-Zwei-Sekunden-Buchung in der Auswertung landet. „Weiter mit" nimmt die zuletzt
-gebuchten Kombinationen per Klick wieder auf. Der laufende Timer ist in
-Seitenleiste und Kopfzeile sichtbar; Start auf einem Projekt stoppt einen
-laufenden automatisch. Dazu Nachträge und Wochen-/Monatsauswertung mit Gegenwert
-in Euro. Stundensatz: Projekt > Kunde > globaler Default.
+**Time tracking.** A stopwatch at the top of _Zeiten_: project (the one you
+booked last is preselected), description, start. While it runs you can fill in
+the description; "discard" stops and deletes in one go so no two-second entry
+ends up in the report. "Continue with" picks up recent combinations by click.
+The running timer is visible in the sidebar and the header; starting one on a
+project stops a running one automatically. Plus manual entries and
+weekly/monthly reports with the value in euro. Hourly rate resolves project >
+client > global default.
 
-Einen Passwort-Manager gibt es bewusst nicht — dafür ist 1Password da. soloops
-speichert nur die Zugangsdaten, die es selbst zum Synchronisieren braucht
-(Kalender-Tokens, verschlüsselt at rest).
+There is deliberately no password manager — that is what 1Password is for.
+soloops only stores the credentials it needs for its own syncing (calendar
+tokens, encrypted at rest).
 
-**Rechnungen.** „Aus Zeiten erstellen" nimmt alle offenen, abrechenbaren Einträge
-eines Kunden im Zeitraum, gruppiert sie pro Projekt und verknüpft die Zeiteinträge
-fest mit der Position — damit landet nichts zweimal auf einer Rechnung. PDF wird
-serverseitig mit pdfkit gerendert (DIN-5008-nah, §19-UStG-Hinweis wenn konfiguriert).
-Fortlaufende Nummern pro Jahr. Gestellte Rechnungen sind gesperrt und können nur
-storniert werden.
+**Activity.** The day band at the bottom of _Zeiten_: what ran on the Mac, as
+stripes over an hour axis, with the segments spelled out underneath. Mapping to
+projects is the next stage — for now this is the raw material. See
+[Activity](#activity-what-the-mac-sees).
 
-**Buchhaltung.** lexoffice-Adapter: Kontakte anlegen, Rechnungen als finalisiertes
-Dokument übertragen (`finalize=true`), Monatsumsatz netto/USt/brutto für die
-USt-Voranmeldung.
+**Invoices.** "Create from time" takes all open, billable entries of a client
+in the period, groups them per project and links the time entries firmly to the
+line item — so nothing lands on two invoices. The PDF is rendered server-side
+with pdfkit (close to DIN 5008, with the §19 UStG note if configured).
+Sequential numbering per year. Issued invoices are locked and can only be
+cancelled.
 
----
-
-## Kalender-Sync in beide Richtungen
-
-Einrichtung unter _Einstellungen_. Der Abgleich läuft danach automatisch
-(`CALENDAR_SYNC_CRON`, Standard alle 10 Minuten) und lässt sich pro Konto auf
-_nur lesen_ oder _nur schreiben_ stellen.
-
-**Google Calendar** — OAuth mit Scope `calendar`, mehr nicht. Der Abgleich läuft
-inkrementell über Googles `syncToken`; läuft der ab, wird automatisch einmal voll
-gelesen. `singleEvents=true` löst Serien in Einzeltermine auf, dadurch sind auch
-wiederkehrende Termine vollständig editierbar.
-
-Vorbereitung: in der Google Cloud Console die Calendar API aktivieren, eine
-OAuth-Client-ID (Webanwendung) anlegen und als Redirect-URI exakt
-`http://localhost:3000/api/calendar-accounts/google/callback` eintragen.
-
-**Apple / iCloud** — über CalDAV, mit einem _app-spezifischen Passwort_
-(appleid.apple.com → Anmeldung und Sicherheit). Das normale Apple-Passwort
-funktioniert nicht. Änderungen kommen über WebDAV-Sync (RFC 6578); unterstützt
-ein Server das nicht, fällt soloops auf einen ETag-Vergleich zurück und meldet
-das in der Kalenderliste.
-
-Funktioniert genauso gegen Nextcloud, Fastmail oder Radicale — `CALDAV_APPLE_URL`
-zeigen lassen, wohin man will.
-
-### Wie Konflikte entschieden werden
-
-Jede Verknüpfung merkt sich zwei Stände: was zuletzt hinausgeschrieben wurde und
-was zuletzt hereingeholt wurde. Damit erkennt der Sync einen Termin, den er
-gerade selbst gepusht hat, und schreibt ihn nicht erneut — sonst gäbe es eine
-Endlosschleife zwischen den Systemen.
-
-Haben sich **beide Seiten** seit dem letzten Abgleich geändert, gewinnt der
-jüngere Zeitstempel. Es wird nichts feldweise zusammengeführt, und die
-Entscheidung landet im Log und in der Sync-Meldung. Löschungen hinterlassen einen
-Grabstein, damit sie auch dann noch weiterwandern, wenn der lokale Termin schon
-weg ist.
-
-### Was geschrieben wird, und was nicht
-
-Genau ein Konto trägt die Markierung **Zielkalender**. Nur dorthin gehen Termine,
-die in soloops entstehen. Ein Termin, der aus Kalender A stammt, wird nie nach
-Kalender B kopiert — sonst vervielfältigt sich bei mehreren verbundenen
-Kalendern jeder Eintrag über alle hinweg.
-
-**Gelöscht wird in der Gegenstelle nur mit ausdrücklicher Freigabe** pro Konto,
-Standard ist aus. Ein Fehlgriff in soloops soll nicht Termine auf allen Geräten
-entfernen.
-
-### Zwei bewusste Grenzen
-
-- **Serien aus CalDAV werden nur gelesen.** Sie erscheinen als ein Termin, sind
-  als schreibgeschützt markiert und werden nie zurückgeschrieben. Wiederholungs-
-  regeln korrekt bidirektional zu behandeln (Ausnahmen, verschobene Einzeltermine,
-  Zeitzonenwechsel) ist ein eigenes Projekt. Bei Google stellt sich die Frage
-  nicht, weil dort Instanzen synchronisiert werden.
-- **Ohne WebDAV-Sync erkennt der CalDAV-Fallback keine Löschungen.** Ein auf der
-  Apple-Seite gelöschter Termin bliebe lokal stehen. Statt zu raten (und dabei
-  Termine außerhalb des Zeitfensters zu verlieren) lässt soloops ihn stehen und
-  zeigt beim Verbinden einen Hinweis.
+**Accounting.** A lexoffice adapter: create contacts, transfer invoices as
+finalized documents (`finalize=true`), monthly revenue net/VAT/gross for the
+advance VAT return.
 
 ---
 
-## Postfach und Lead-Zuordnung
+## Two-way calendar sync
 
-soloops liest ein bestehendes Postfach über IMAP und ordnet Mails automatisch
-Leads, Kunden und Projekten zu. Einrichtung unter _Einstellungen_ mit
-Serveradresse, Benutzer und Passwort; der Host wird aus der Adresse geraten
-(Strato, mailbox.org, Posteo, IONOS, All-Inkl, Gmail sind hinterlegt). Das
-Passwort liegt verschlüsselt at rest, wie die Kalender-Zugangsdaten.
+Set up under _Settings_. After that the sync runs automatically
+(`CALENDAR_SYNC_CRON`, every 10 minutes by default) and can be set to _read
+only_ or _write only_ per account.
 
-**Ausschließlich lesend.** Es gibt im Code kein Löschen, kein Verschieben und
-kein Setzen von Flags — auch nicht „als gelesen". Dein Mailclient merkt nicht,
-dass jemand mitliest, und ein Fehler in soloops kann das Postfach nicht
-beschädigen. Gespeichert werden Kopfdaten und Textkörper, keine Anhänge.
+**Google Calendar** — OAuth with the `calendar` scope, nothing more. The sync
+runs incrementally on Google's `syncToken`; if that expires, one full read
+happens automatically. `singleEvents=true` expands series into individual
+events, which makes recurring events fully editable.
 
-### Regeln vor AI
+Preparation: in the Google Cloud Console enable the Calendar API, create an
+OAuth client ID (web application) and register exactly
+`http://localhost:3000/api/calendar-accounts/google/callback` as the redirect
+URI.
 
-Die Zuordnung läuft in drei Stufen, und die billigste zuerst:
+**Apple / iCloud** — over CalDAV, with an _app-specific password_
+(appleid.apple.com → Sign-In and Security). The regular Apple password does not
+work. Changes arrive through WebDAV sync (RFC 6578); if a server doesn't
+support it, soloops falls back to comparing ETags and says so in the calendar
+list.
 
-1. **Absenderadresse** steht als Kontakt an einem Lead → Zuordnung sicher.
-2. **Absenderdomain** gehört zu einem bekannten Kunden → Zuordnung zum Kunden.
-   Freemail-Domains zählen hier nicht, sonst landet jede GMX-Adresse beim
-   erstbesten Kunden mit GMX-Konto.
-3. Erst wenn nichts greift, entscheidet die AI.
+The same code works against Nextcloud, Fastmail or Radicale — just point
+`CALDAV_APPLE_URL` wherever you like.
 
-Im Alltag trifft Stufe 1 fast immer — laufende Korrespondenz kommt von
-Adressen, die schon im System stehen. Damit kostet der Normalfall keinen
-einzigen API-Aufruf.
+### How conflicts are decided
 
-Die AI bekommt nur Kurzfassungen der bekannten Leads, Kunden und Projekte und
-**muss auf eine der gelieferten Kennungen zeigen**; alles andere wird beim
-Einlesen verworfen. Eine Zuordnung von Hand trägt `MANUAL` und wird später nie
-automatisch überschrieben.
+Every link remembers two states: what was last written out, and what was last
+pulled in. That lets the sync recognise an event it pushed itself and not write
+it again — otherwise the two systems would ping-pong forever.
 
-### Zwei bewusste Grenzen
+If **both sides** changed since the last run, the newer timestamp wins. Nothing
+is merged field by field, and the decision ends up in the log and in the sync
+message. Deletions leave a tombstone so they still propagate once the local
+event is already gone.
 
-- **Aus einer Mail wird nicht automatisch ein Lead.** Das ist ein Knopf im
-  Eingang. Sonst legt die erste Werbemail mit dem Wort „Angebot" einen an.
-- **Mailinhalte werden nie als Markdown gerendert.** Weder der Text selbst noch
-  das, was die AI daraus ableitet — beides geht als Klartext raus. Andernfalls
-  wäre eine präparierte Mail ein Weg, Skript in die eigene Oberfläche zu
-  bekommen. `MarkdownBlock.vue` bleibt eigenen Inhalten vorbehalten.
+### What gets written, and what doesn't
+
+Exactly one account carries the **target calendar** flag. Only events created
+in soloops go there. An event that came from calendar A is never copied to
+calendar B — otherwise every entry would multiply across all connected
+calendars.
+
+**Remote deletion only happens with explicit per-account consent**, off by
+default. A misclick in soloops should not remove events from all your devices.
+
+### Two deliberate limits
+
+- **CalDAV series are read-only.** They appear as a single event, are marked
+  read-only and are never written back. Handling recurrence rules correctly in
+  both directions (exceptions, moved instances, timezone changes) is a project
+  of its own. With Google the question doesn't arise, because instances are
+  what gets synced.
+- **Without WebDAV sync, the CalDAV fallback cannot detect deletions.** An
+  event deleted on the Apple side would stay put locally. Rather than guessing
+  (and losing events outside the sync window in the process), soloops keeps it
+  and shows a warning when the account is connected.
 
 ---
 
-## MCP-Server
+## Inbox and lead matching
 
-Gibt Claude Zugriff auf den kompletten Datenbestand — Tagesüberblick, Suche,
-Projekte, Timer, Zeitnachträge, Notizen, Meetings, Leads und Angebote, Posteingang,
-Betriebsstatus, offene Zeiten, Rechnungsentwürfe, Umsatz.
+soloops reads an existing mailbox over IMAP and matches mail to leads, clients
+and projects. Set it up under _Settings_ with server, user and password; the
+host is guessed from the address (Strato, mailbox.org, Posteo, IONOS, All-Inkl
+and Gmail are known). The password is encrypted at rest, like the calendar
+credentials.
+
+**Read-only, strictly.** There is no delete, no move and no flag setting in the
+code — not even "mark as read". Your mail client cannot tell that something is
+reading along, and a bug in soloops cannot damage the mailbox. Headers and
+bodies are stored, attachments are not.
+
+### Rules before AI
+
+Matching runs in three stages, cheapest first:
+
+1. **Sender address** is a contact on a lead → certain match.
+2. **Sender domain** belongs to a known client → match to the client. Freemail
+   domains don't count here, otherwise every GMX address lands on the first
+   client who happens to use GMX.
+3. Only when nothing catches does the AI decide.
+
+In practice stage 1 hits almost every time — ongoing correspondence comes from
+addresses that are already in the system. Which means the normal case costs no
+API call at all.
+
+The model only ever sees short summaries of the known leads, clients and
+projects, and **must point at one of the supplied identifiers**; anything else
+is discarded on read. A manual assignment is marked `MANUAL` and is never
+overwritten automatically later.
+
+### Two deliberate limits
+
+- **A mail never becomes a lead automatically.** That is a button in the inbox.
+  Otherwise the first marketing mail containing the word "offer" creates one.
+- **Mail content is never rendered as Markdown.** Neither the text itself nor
+  what the AI derives from it — both go out as plain text. Otherwise a crafted
+  mail would be a way to get script into your own interface.
+  `MarkdownBlock.vue` stays reserved for your own content.
+
+---
+
+## Activity: what the Mac sees
+
+A stopwatch assumes you remember to press it when you switch tasks. The day
+band takes the other route: the macOS app measures what was worked on, and that
+should eventually become time entries you only have to confirm.
+
+**Stage 1 — measured and visible.** What exists today: recording, storage and
+display. Mapping to projects follows.
+
+### What gets measured
+
+One sample every `ACTIVITY_SAMPLE_SECONDS` (20 by default), with four fields:
+
+| Field        | Source                                 | Permission    |
+| ------------ | -------------------------------------- | ------------- |
+| Bundle ID    | `osascript` → System Events            | Accessibility |
+| App name     | same                                   | Accessibility |
+| Window title | `AXTitle` of the frontmost window      | Accessibility |
+| Idle time    | `ioreg -c IOHIDSystem` → `HIDIdleTime` | none          |
+
+No keystrokes, no screen contents, no network connections. The window title is
+where this gets interesting later: it holds the file name, the repository, the
+subject line or the ticket number — enough to attribute an activity to a
+project without reading along anywhere.
+
+### Why no AI
+
+To classify this, a model would mostly need world knowledge — and that is
+already in the database here: `Project.key`, `PipelineRepo.slug`,
+`Client.company`, `Lead.contactEmail`, today's calendar entries. A title like
+`philippniestroj/soloops · Pull Request` hits the project key directly. So the
+plan is three local layers instead of an API call:
+
+1. **Matching against your own database** — covers project work to a large
+   degree, and works for a new project from the second it is created.
+2. **Your own rules** — bundle ID plus title patterns for everything without a
+   database reference (sales, bookkeeping, learning).
+3. **A learning classifier** — naive Bayes over the words from title and bundle
+   ID, trained exclusively on your own confirmed bookings.
+
+That way no window title ever leaves this machine.
+
+### Privacy
+
+- **Off by default.** `ACTIVITY_TRACKING=false`; the tray checkbox switches at
+  runtime and takes effect on the next tick.
+- **Blocklist.** Apps listed in `ACTIVITY_PRIVATE_APPS` (password managers,
+  banking, messengers) are stored without a title. The time range stays
+  visible, the content does not.
+- **Forgetful.** The worker deletes anything older than
+  `ACTIVITY_RETENTION_DAYS` (30 by default) overnight. Individual segments can
+  be removed from the day band immediately with ✕.
+- **Local only.** The app posts samples to `127.0.0.1` and nowhere else.
+
+### When the API isn't running
+
+The app buffers line by line into `data/activity-pending.jsonl` and sends once
+a minute. If the containers are down or the app is quit, the buffer is still
+there on the next start; only after roughly four days of backlog does the
+oldest fall off. Sending happens over a raw HTTP request — the whole feature
+adds no Rust dependency at all.
+
+---
+
+## MCP server
+
+Gives Claude access to the full dataset — day overview, search, projects,
+timer, manual time entries, notes, meetings, leads and offers, inbox,
+operational status, unbilled time, invoice drafts, revenue.
 
 ```bash
 SOLOOPS_URL=http://localhost:3000 \
 SOLOOPS_TOKEN=<SERVICE_TOKEN> \
-claude mcp add soloops -- npx tsx /pfad/zu/soloops/apps/mcp/src/index.ts
+claude mcp add soloops -- npx tsx /path/to/soloops/apps/mcp/src/index.ts
 ```
 
-Verfügbare Tools: `soloops_today`, `soloops_search`, `soloops_list_projects`,
+Available tools: `soloops_today`, `soloops_search`, `soloops_list_projects`,
 `soloops_get_project`, `soloops_project_digest`, `soloops_timer_status`,
 `soloops_timer_start`, `soloops_timer_stop`, `soloops_log_time`,
 `soloops_time_report`, `soloops_free_slots`, `soloops_create_event`,
@@ -442,149 +554,177 @@ Verfügbare Tools: `soloops_today`, `soloops_search`, `soloops_list_projects`,
 `soloops_log_offer`, `soloops_log_lead_activity`, `soloops_set_lead_stage`,
 `soloops_inbox`, `soloops_assign_mail`.
 
-Schreibende Tools sind bewusst zurückhaltend: `soloops_draft_invoice_from_time`
-erzeugt nur einen Entwurf — Versand und Übertragung an lexoffice bleiben manuell.
+The writing tools are deliberately conservative:
+`soloops_draft_invoice_from_time` only produces a draft — sending it and
+transferring it to lexoffice stay manual.
 
 ---
 
-## Authentifizierung
+## Authentication
 
-Zwei Wege in die API:
+Two ways into the API:
 
-- **JWT** für die Oberfläche (`POST /api/auth/login`, 30 Tage gültig)
-- **`SERVICE_TOKEN`** als Bearer für Worker, MCP-Server und den ICS-Feed
+- **JWT** for the interface (`POST /api/auth/login`, valid for 30 days)
+- **`SERVICE_TOKEN`** as a bearer token for the worker, the MCP server and the
+  ICS feed
 
-Passwörter werden mit scrypt gehasht (kein natives Modul nötig).
+Passwords are hashed with scrypt (no native module required).
 
 ---
 
-## Betrieb
+## Operations
 
 ```bash
-docker compose logs -f api worker    # Logs
+docker compose logs -f api worker    # logs
 docker compose exec api npm -w @soloops/api run db:studio   # Prisma Studio
-docker compose down                  # stoppen
-npm run ports                        # wer hört gerade auf welchem Port?
-npm run ports:kill soloops           # Ports dieses Projekts freiräumen
+docker compose down                  # stop
+npm run ports                        # who is listening on what right now?
+npm run ports:kill soloops           # free this project's ports
 ```
 
-`npm run ports` listet alle lauschenden Dienste mit Prozess und Herkunft —
-bei Containern den Namen, sonst das Arbeitsverzeichnis. Das Freiräumen kennt
-den Unterschied: einen Port, den Docker hält, stoppt es über den Container
-statt den Daemon abzuschießen.
+`npm run ports` lists every listening service with its process and origin —
+the container name where there is one, otherwise the working directory.
+Freeing knows the difference: a port held by Docker is released by stopping the
+container rather than by killing the daemon.
 
-Schemaänderungen: `prisma/schema.prisma` anpassen, dann `docker compose restart api` —
-der Container führt beim Start `prisma db push` aus. Es gibt bewusst keinen
-Migrationsordner: ein Nutzer, eine Datenbank, `db push` reicht. Wer das ändert,
-sollte vorher ein Backup ziehen — `db push` kann Spalten fallen lassen.
+Schema changes: edit `prisma/schema.prisma`, then `docker compose restart api` —
+the container runs `prisma db push` on startup. There is deliberately no
+migrations folder: one user, one database, `db push` is enough. If you change
+that, take a backup first — `db push` can drop columns.
 
-### Konfiguration
+### Configuration
 
-Alle Umgebungsvariablen stehen kommentiert in
-[`.env.example`](.env.example); [`apps/api/src/env.ts`](apps/api/src/env.ts) ist
-die verbindliche Quelle mit Typen und Defaults. Fehlt etwas Pflichtiges, startet
-die API gar nicht erst und sagt, was.
+Every environment variable is documented in
+[`.env.example`](.env.example); [`apps/api/src/env.ts`](apps/api/src/env.ts) is
+the authoritative source with types and defaults. If something required is
+missing, the API refuses to start and says what.
 
 ### Backup
 
-Zwei Dinge müssen mit: die Datenbank und `./data` (Rechnungs-PDFs). Die `.env`
-gehört in den Passwort-Manager, nicht ins Backup-Archiv.
+Two things have to come along: the database and `./data` (invoice PDFs). The
+`.env` belongs in your password manager, not in the backup archive.
 
 ```bash
-# Sichern
+# Back up
 docker compose exec -T postgres pg_dump -U soloops -Fc soloops > soloops-$(date +%F).dump
 tar czf soloops-data-$(date +%F).tar.gz data/
 
-# Zurückspielen
+# Restore
 docker compose exec -T postgres pg_restore -U soloops -d soloops --clean --if-exists < soloops-2026-01-01.dump
 ```
 
-Der Kalender-Sync ist **kein** Backup: er trägt Änderungen weiter, auch das
-Löschen. Und `allowRemoteDelete` steht pro Konto standardmäßig auf aus, damit ein
-Fehlgriff hier nicht die Termine auf allen Geräten mitnimmt.
+Calendar sync is **not** a backup: it propagates changes, deletions included.
+And `allowRemoteDelete` is off per account by default so a misclick here does
+not take the events on all your devices with it.
 
-### Fehlersuche
+### Troubleshooting
 
-| Symptom                                     | Ursache und Abhilfe                                                                 |
-| ------------------------------------------- | ----------------------------------------------------------------------------------- |
-| API startet nicht, Log nennt Variablennamen | Pflichtfeld in `.env` fehlt oder ist zu kurz (`JWT_SECRET` braucht 16+ Zeichen)     |
-| Login schlägt fehl, obwohl `.env` stimmt    | Seed lief nie: `docker compose exec api npm -w @soloops/api run seed`               |
-| Termine fehlen in der Wochenansicht         | Konto neu verbunden? Erster Sync holt nur das Zeitfenster — Log von `worker` prüfen |
-| CalDAV meldet Anmeldefehler                 | Apple braucht ein app-spezifisches Passwort, nicht das Apple-ID-Passwort            |
-| Web lädt, API antwortet mit 502             | API-Container noch im Start (`prisma db push`); `docker compose logs -f api`        |
+| Symptom                                | Cause and fix                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| API won't start, log names a variable  | A required field in `.env` is missing or too short (`JWT_SECRET` needs 16+ chars)    |
+| Login fails although `.env` is correct | The seed never ran: `docker compose exec api npm -w @soloops/api run seed`           |
+| Events missing from the week view      | Account just connected? The first sync only fetches the window — check `worker`      |
+| CalDAV reports an authentication error | Apple needs an app-specific password, not the Apple ID password                      |
+| Web loads, API answers 502             | The API container is still starting (`prisma db push`); `docker compose logs -f api` |
+| Day band stays empty                   | Activity recording is off, or macOS has not been granted Accessibility               |
 
 ---
 
-## Deployment auf einem kleinen Server
+## Deploying on a small server
 
-Ausgelegt auf die Maschine, auf der auch das Portfolio läuft: **2 Kerne, 1,92 GB
-RAM, Port 3000 belegt**. `docker-compose.prod.yml` ist eine eigenständige
-Compose-Datei, kein Override.
+Sized for the machine that also runs the portfolio: **2 cores, 1.92 GB RAM,
+port 3000 taken**. `docker-compose.prod.yml` is a standalone compose file, not
+an override.
 
 ```bash
-cp .env.example .env       # ausfüllen, NODE_ENV=production, APP_URL setzen
+cp .env.example .env       # fill in, set NODE_ENV=production and APP_URL
 docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml exec api npm -w @soloops/api run seed
 ```
 
-Was anders ist als in der Entwicklung:
+What differs from development:
 
-|              | Entwicklung                       | Produktion                                  |
-| ------------ | --------------------------------- | ------------------------------------------- |
-| Web          | Vite-Devserver (`tsx watch`, HMR) | statisches Bundle hinter nginx              |
-| Offene Ports | 5174 Web, 3000 API, 5433 Postgres | genau einer: `SOLOOPS_PORT` (Standard 8090) |
-| Quellcode    | vom Host gemountet                | im Image                                    |
-| Node         | `tsx watch`                       | `tsx`, `NODE_OPTIONS=--max-old-space-size`  |
+|            | Development                        | Production                                 |
+| ---------- | ---------------------------------- | ------------------------------------------ |
+| Web        | Vite dev server (`tsx watch`, HMR) | static bundle behind nginx                 |
+| Open ports | 5174 web, 3000 API, 5433 Postgres  | exactly one: `SOLOOPS_PORT` (8090 default) |
+| Source     | mounted from the host              | baked into the image                       |
+| Node       | `tsx watch`                        | `tsx`, `NODE_OPTIONS=--max-old-space-size` |
 
-nginx liefert das Bundle aus und proxyt `/api` und `/health` an die API — die
-API selbst hat keinen Port nach außen, Postgres und Redis auch nicht.
-`SOLOOPS_PORT` ist bewusst **nicht** 3000; dahinter gehört ein Reverse Proxy mit
-TLS. Alle Betriebsbefehle oben — Logs, Backup, Restore — gelten hier genauso, nur
-mit `-f docker-compose.prod.yml`.
+nginx serves the bundle and proxies `/api` and `/health` to the API — the API
+itself has no port exposed, and neither do Postgres and Redis. `SOLOOPS_PORT`
+is deliberately **not** 3000; a reverse proxy with TLS belongs in front of it.
+All the operational commands above — logs, backup, restore — apply here too,
+just with `-f docker-compose.prod.yml`.
 
-### Speicher
+### Memory
 
-Grenzen pro Dienst (`mem_limit`) und was im Leerlauf tatsächlich anfällt:
+Per-service limits (`mem_limit`) and what is actually used at idle:
 
-| Dienst      | Grenze      | gemessen (idle) |
+| Service     | Limit       | Measured (idle) |
 | ----------- | ----------- | --------------- |
 | api         | 384 MB      | 138 MB          |
 | worker      | 320 MB      | 103 MB          |
 | postgres    | 320 MB      | 32 MB           |
 | redis       | 96 MB       | 11 MB           |
 | web (nginx) | 64 MB       | 10 MB           |
-| **Summe**   | **1184 MB** | **294 MB**      |
+| **Total**   | **1184 MB** | **294 MB**      |
 
-Postgres läuft mit `shared_buffers=96MB` und `max_connections=30` statt der
-Standardwerte, die für deutlich mehr RAM gedacht sind. Redis ist auf 64 MB
-gedeckelt mit `maxmemory-policy noeviction` — BullMQ-Jobs sollen bei vollem
-Speicher hart scheitern und im Log auftauchen, nicht stillschweigend verschwinden.
+Postgres runs with `shared_buffers=96MB` and `max_connections=30` instead of
+the defaults, which assume considerably more RAM. Redis is capped at 64 MB with
+`maxmemory-policy noeviction` — BullMQ jobs should fail loudly and show up in
+the log when memory runs out, not disappear quietly.
 
-Der Engpass ist nicht der Betrieb, sondern der **Build**: `npm install` plus
-Vite-Build auf zwei Kernen. Der Web-Build läuft deshalb mit
-`build:only` (ohne `vue-tsc`, das läuft in `npm run check`) und gedeckeltem Heap.
-Wenn der Build auf dem Server trotzdem eng wird, vorher Swap anlegen oder das
-Image auf dem Entwicklungsrechner bauen und in eine Registry schieben.
-
----
-
-## Sicherheitshinweise für den Produktivbetrieb
-
-- `postgres` und `redis` nicht nach außen mappen — beide haben keine eigene
-  Authentifizierung. Die [Produktions-Compose](#deployment-auf-einem-kleinen-server)
-  tut das bereits nicht; nur die Entwicklungs-Compose legt Postgres auf 5433.
-- Hinter einen Reverse Proxy mit TLS stellen; `SERVICE_TOKEN` taucht im ICS-Feed
-  als Query-Parameter auf und gehört nicht über HTTP übertragen.
-- `.env` ist in `.gitignore` und sollte es bleiben.
-- PDFs liegen unverschlüsselt im `./data`-Volume — Backup entsprechend
-  behandeln.
-- Mailinhalte liegen im Klartext in Postgres. Wer das nicht will, verbindet
-  kein Postfach; ein halbes Auswerten gibt es nicht.
-- Das IMAP-Passwort ist mit `JWT_SECRET` verschlüsselt. Wird der Schlüssel
-  getauscht, ist das Konto neu zu verbinden — beabsichtigt.
+The bottleneck is not running it, it is the **build**: `npm install` plus the
+Vite build on two cores. The web build therefore runs `build:only` (without
+`vue-tsc`, which runs in `npm run check`) with a capped heap. If the build is
+still tight on the server, add swap first, or build the image on your
+development machine and push it to a registry.
 
 ---
 
-## Lizenz
+## Security notes for production
+
+- Do not map `postgres` and `redis` to the outside — neither has
+  authentication of its own. The
+  [production compose](#deploying-on-a-small-server) already doesn't; only the
+  development compose exposes Postgres on 5433.
+- Put it behind a reverse proxy with TLS; `SERVICE_TOKEN` appears in the ICS
+  feed as a query parameter and has no business travelling over plain HTTP.
+- `.env` is in `.gitignore` and should stay there.
+- PDFs sit unencrypted in the `./data` volume — treat backups accordingly.
+- Mail bodies sit in Postgres in plain text. If you don't want that, don't
+  connect a mailbox; there is no half-way version.
+- The IMAP password is encrypted with `JWT_SECRET`. Rotate that key and the
+  account has to be reconnected — by design.
+
+Found a vulnerability? Please report it privately through GitHub's security
+advisories rather than opening a public issue.
+
+---
+
+## Contributing
+
+This is a personal tool that happens to be public. It is maintained for exactly
+one user's workflow, and that shapes what can be accepted:
+
+- **Bug reports are welcome**, especially with the log output and the steps to
+  reproduce.
+- **Pull requests are welcome** for bugs, documentation and portability. For
+  features, open an issue first — the answer may well be "that's out of scope",
+  and it's better to hear that before writing the code.
+- **Feature requests that add a second user, a tenancy model or a hosted mode
+  will be declined.** That is a different product.
+- Fork it. The license allows it, the stack is ordinary, and a fork that goes
+  its own way is a better outcome than a compromise nobody wanted.
+
+Before opening a pull request, run `npm run check` (and
+`npm -w @soloops/desktop run test` if you touched the macOS app). Keep the
+existing conventions: German UI copy, English code and comments, Conventional
+Commits.
+
+---
+
+## License
 
 [MIT](LICENSE) — Philipp Niestroj.
