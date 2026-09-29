@@ -11,10 +11,10 @@ export type RunningTimer = {
   project: { id: string; key: string; name: string; color: string }
 } | null
 
-/** Zuletzt bebuchtes Projekt — der Timer startet fast immer auf demselben. */
+/** The last project booked — the timer nearly always starts on the same one. */
 const LAST_PROJECT = 'soloops.lastProjectId'
 
-/** Ein globaler Timer, überall in der App sichtbar. */
+/** One global timer, visible everywhere in the app. */
 export const useTimer = defineStore('timer', () => {
   const running = ref<RunningTimer>(null)
   const now = ref(Date.now())
@@ -52,7 +52,7 @@ export const useTimer = defineStore('timer', () => {
     running.value = null
   }
 
-  /** Beschreibung nachziehen, während die Uhr läuft. */
+  /** Fill in the description while the clock runs. */
   async function describe(description: string) {
     if (!running.value) return
     await api.patch(`/api/time/${running.value.id}`, { description })
@@ -60,8 +60,8 @@ export const useTimer = defineStore('timer', () => {
   }
 
   /**
-   * Versehentlich gestartet: Eintrag stoppen und gleich löschen, statt eine
-   * Zwei-Sekunden-Buchung in der Auswertung stehen zu lassen.
+   * Started by accident: stop the entry and delete it in one go, rather than
+   * leave a two-second booking in the report.
    */
   async function discard() {
     if (!running.value) return

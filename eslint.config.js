@@ -5,9 +5,9 @@ import pluginVue from 'eslint-plugin-vue'
 import prettier from 'eslint-config-prettier'
 
 /**
- * Bewusst schlank: Formatierung macht Prettier, Typprüfung macht tsc.
- * Der Linter kümmert sich hier vor allem um das, was beide nicht sehen —
- * allen voran die Dateigröße.
+ * Deliberately lean: Prettier does the formatting, tsc does the types.
+ * The linter here deals mostly with what neither of them sees — above all
+ * the size of a file.
  */
 export default [
   {
@@ -16,7 +16,7 @@ export default [
       '**/node_modules/**',
       'data/**',
       'apps/web/public/**',
-      // Rust-Buildartefakte der macOS-App, inklusive generiertem JavaScript.
+      // Rust build artifacts of the macOS app, generated JavaScript included.
       'apps/desktop/src-tauri/target/**',
       'apps/desktop/src-tauri/gen/**',
     ],
@@ -33,25 +33,25 @@ export default [
     },
     rules: {
       /**
-       * Harte Obergrenze pro Datei. Wer sie reißt, hat zwei Dinge in einer
-       * Datei — Kommentare und Leerzeilen zählen bewusst nicht mit, damit
-       * gute Dokumentation nicht bestraft wird.
+       * A hard ceiling per file. Breaking it means you have two things in one
+       * file — comments and blank lines deliberately do not count, so that
+       * good documentation is not punished.
        */
       'max-lines': ['error', { max: 1000, skipBlankLines: true, skipComments: true }],
 
-      // Ungenutztes ist meist ein Rest vom Umbau; führendes _ heißt "Absicht".
+      // Unused is usually a leftover from a rewrite; a leading _ means intent.
       '@typescript-eslint/no-unused-vars': [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      // Wir setzen `any` nirgends bewusst ein, aber ein Fehler ist es nicht.
+      // We never reach for `any` on purpose, but it is not an error either.
       '@typescript-eslint/no-explicit-any': 'warn',
-      // Vue-Templates: mehrwortige Namen erzwingen wir nicht, die Ordner reichen.
+      // Vue templates: we do not enforce multi-word names, folders suffice.
       'vue/multi-word-component-names': 'off',
     },
   },
 
-  // Vue-Dateien brauchen den TS-Parser innerhalb von <script setup lang="ts">
+  // Vue files need the TS parser inside <script setup lang="ts">
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },

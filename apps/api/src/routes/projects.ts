@@ -22,7 +22,7 @@ const routes: FastifyPluginAsync = async (app) => {
       },
     })
 
-    // Aggregierte Zeit pro Projekt in einem Rutsch
+    // Aggregated time per project in one query
     const totals = await prisma.timeEntry.groupBy({
       by: ['projectId'],
       _sum: { durationSec: true },
@@ -111,7 +111,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
   // --- AI ------------------------------------------------------------------
 
-  /** Digest sofort erzeugen (synchron, damit die UI direkt etwas zeigt). */
+  /** Build a digest right now (synchronously, so the UI has something). */
   app.post('/:id/digest', async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY) {
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
@@ -120,7 +120,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return buildProjectDigest(id)
   })
 
-  /** Digests für alle aktiven Projekte im Hintergrund neu bauen. */
+  /** Rebuild the digests of all active projects in the background. */
   app.post('/digest/all', async () => {
     await digestQueue.add('all-projects', { kind: 'project' }, { removeOnComplete: 50 })
     return { queued: true }

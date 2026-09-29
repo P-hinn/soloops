@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * Bildmarke aus philippniestroj.com — dieselbe Pfaddefinition wie auf der
- * Website.
+ * The mark from philippniestroj.com — the same path definition as on the
+ * website.
  *
- * ACHTUNG Mindestgröße: 40px, und nur als Tinte auf hellem Grund. Invertiert
- * im dunklen Kasten laufen die Innenräume von P und N schon bei 44px zu — beide
- * Varianten wurden nebeneinander gemessen. Darunter bitte die Wortmarke nehmen.
+ * NOTE the minimum size: 40px, and only as ink on a light ground. Inverted
+ * in a dark box, the counters of the P and the N close up at 44px already —
+ * both variants were measured side by side. Below that, use the wordmark.
  */
 withDefaults(defineProps<{ size?: number | string }>(), { size: 40 })
 </script>

@@ -197,8 +197,8 @@
         return tr
       }
 
-      // Zwei Klicks statt eines Dialogs: der erste bewaffnet den Knopf, der
-      // zweite beendet. Ein Fehlgriff kostet so nichts.
+      // Two clicks instead of a dialog: the first arms the button, the second
+      // kills. That way a misclick costs nothing.
       function killButton(row) {
         const button = document.createElement('button')
         button.textContent = row.container ? 'Stoppen' : 'Beenden'

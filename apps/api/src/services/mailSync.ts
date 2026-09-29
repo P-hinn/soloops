@@ -18,19 +18,20 @@ export type MailSyncResult = {
   assigned: number
   byRule: number
   byAi: number
-  /** Gelesen, aber niemand konnte es einordnen — liegt im Eingang. */
+  /** Read, but nobody could place it — sits in the inbox. */
   unassigned: number
-  /** Fehlgeschlagene AI-Aufrufe. Nicht tödlich, aber nichts zum Verschweigen. */
+  /** Failed AI calls. Not fatal, but not something to swallow either. */
   aiFailed: number
   error?: string
 }
 
 /**
- * Postfach abgleichen und neue Mails einsortieren.
+ * Sync the mailbox and file the new mail.
  *
- * Reihenfolge ist Absicht: erst Regeln, dann AI. Eine Mail von einer bekannten
- * Adresse ist kostenlos und sicher zuzuordnen; die AI kostet Geld und irrt
- * gelegentlich. So läuft der Alltagsfall ohne einen einzigen API-Aufruf.
+ * The order is deliberate: rules first, AI second. A mail from a known
+ * address is free and certain to match; the AI costs money and is
+ * occasionally wrong. That way the everyday case runs without a single API
+ * call.
  */
 export async function syncMailAccount(accountId: string): Promise<MailSyncResult> {
   const account = await prisma.mailAccount.findUniqueOrThrow({ where: { id: accountId } })
@@ -62,12 +63,12 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
 
     for (const folder of folders) {
       for (const mail of folder.messages) {
-        // IMAP filtert SINCE nur tagesgenau und beim inkrementellen Lauf gar
-        // nicht — die Grenze wird deshalb hier noch einmal durchgesetzt.
+        // IMAP filters SINCE only to the day, and not at all on incremental
+        // runs — so the floor is enforced once more right here.
         if (mail.sentAt < since) continue
 
-        // Eigene gesendete Mails zählen als Aktivität, landen aber nicht im
-        // Eingang — sonst schlägt jede eigene Antwort als „unsortiert" auf.
+        // Your own sent mail counts as activity but does not land in the
+        // inbox — otherwise every reply you write shows up as "unfiled".
         const outgoing = mail.fromEmail === account.email.toLowerCase()
 
         const existing = await prisma.mailMessage.findUnique({
@@ -78,10 +79,9 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
 
         const rule = matchByRule(mail, ctx)
         let assignment = rule
-        // NONE heißt: nichts hat gegriffen. Früher stand hier RULE, was
-        // behauptete, eine Regel habe entschieden — dabei hatte niemand
-        // entschieden. Der Unterschied ist der zwischen „einsortiert" und
-        // „übrig geblieben", und den will man sehen können.
+        // NONE means: nothing caught. This used to say RULE, which claimed a
+        // rule had decided — when in fact nobody had. That is the difference
+        // between "filed" and "left over", and you want to be able to see it.
         let assignedBy: 'RULE' | 'AI' | 'NONE' = rule ? 'RULE' : 'NONE'
         let suggestion: Prisma.InputJsonValue | undefined
 
@@ -91,15 +91,15 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
             if (ai) {
               assignment = constrainToKnown(ai, ctx)
               assignedBy = 'AI'
-              // Hält die AI die Mail für eine neue Anfrage, hebt sie ihren
-              // Vorschlag auf. Angelegt wird daraus nichts — das bleibt ein
-              // Knopf im Eingang.
+              // If the AI takes the mail for a new enquiry, its suggestion is
+              // kept. Nothing is created from it — that stays a button in the
+              // inbox.
               if (ai.newLead) suggestion = { ...ai.newLead, amountEur: ai.amountEur }
             }
           } catch (err) {
-            // Früher verschluckte ein stilles catch jeden Fehler. Dann sieht
-            // niemand, dass die AI gar nicht läuft — und alles landet
-            // unsortiert im Eingang, als wäre das ein Ergebnis.
+            // A silent catch used to swallow every error. Then nobody sees
+            // that the AI is not running at all — and everything lands
+            // unfiled in the inbox as though that were a result.
             aiErrors.push((err as Error).message)
           }
         }
@@ -160,9 +160,9 @@ export async function syncMailAccount(accountId: string): Promise<MailSyncResult
     }
 
     result.aiFailed = aiErrors.length
-    // Ein durchgelaufener Abruf mit lauter gescheiterten AI-Aufrufen ist kein
-    // Erfolg. Der erste Fehler steht am Konto, damit er in der Oberfläche
-    // auftaucht statt nur im Log.
+    // A run that completed with nothing but failed AI calls is not a
+    // success. The first error is stored on the account so that it shows up
+    // in the interface and not only in the log.
     const note = aiErrors.length
       ? `${aiErrors.length} AI-Zuordnung(en) fehlgeschlagen: ${aiErrors[0]}`
       : null
@@ -190,7 +190,7 @@ export async function syncAllMailAccounts(): Promise<MailSyncResult[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Zuordnung
+// Matching
 // ---------------------------------------------------------------------------
 
 async function buildContext(ownEmail: string): Promise<TriageContext> {
@@ -232,12 +232,13 @@ async function buildContext(ownEmail: string): Promise<TriageContext> {
 }
 
 /**
- * Aus einer unsortierten Mail einen Lead machen. Bewusst ein eigener Schritt
- * auf Knopfdruck statt automatisch: sonst legt jede Werbemail einen Lead an.
+ * Turn an unfiled mail into a lead. Deliberately a separate step at the push
+ * of a button rather than automatic: otherwise every marketing mail creates
+ * a lead.
  *
- * Die Reihenfolge der Quellen: was du übergibst, dann was die AI beim
- * Einlesen vorgeschlagen hat, dann die nackte Mail. Der Betreff als Titel ist
- * die letzte Rückfalloption, nicht die erste Wahl.
+ * The order of sources: what you pass in, then what the AI suggested while
+ * reading, then the bare mail. The subject line as a title is the last
+ * fallback, not the first choice.
  */
 export async function leadFromMail(
   mailId: string,

@@ -7,23 +7,22 @@ import * as caldav from './caldav.js'
 import { buildEventIcs, parseIcs } from './icsParse.js'
 
 /**
- * Zwei-Wege-Abgleich mit Google Calendar und Apple/iCloud (CalDAV).
+ * Two-way sync with Google Calendar and Apple/iCloud (CalDAV).
  *
- * Grundregeln, die überall gleich gelten:
+ * Ground rules that hold everywhere:
  *
- * 1. Jede Verknüpfung merkt sich zwei Stände: `pushedUpdatedAt` (was wir
- *    zuletzt hinausgeschrieben haben) und `remoteUpdatedAt` (was wir zuletzt
- *    hereingeholt haben). Genau das verhindert Echo-Schleifen — ein Termin, den
- *    wir gerade gepusht haben, kommt beim nächsten Pull zurück und wird
- *    erkannt statt erneut geschrieben.
- * 2. Konflikt = beide Seiten haben sich seit dem letzten Abgleich geändert.
- *    Dann gewinnt der jüngere Zeitstempel, und die Entscheidung wird geloggt.
- *    Kein stilles Zusammenführen von Feldern.
- * 3. Neue Termine gehen ausschließlich in den als Ziel markierten Kalender,
- *    und gelöscht wird in der Gegenstelle nur mit ausdrücklicher Freigabe.
- * 4. Serien aus Fremdkalendern werden nur gelesen. Google löst sie über
- *    `singleEvents=true` in Einzeltermine auf, dort ist das kein Thema.
- *    Bei CalDAV landet die Serie als ein Termin mit `readOnly = true`.
+ * 1. Every link remembers two states: `pushedUpdatedAt` (what we last wrote
+ *    out) and `remoteUpdatedAt` (what we last pulled in). That is exactly
+ *    what prevents echo loops — an event we just pushed comes back on the
+ *    next pull and is recognised instead of written again.
+ * 2. A conflict means both sides changed since the last run. The newer
+ *    timestamp then wins, and the decision is logged. No silent merging of
+ *    individual fields.
+ * 3. New events go exclusively to the calendar marked as the target, and
+ *    remote deletion only happens with explicit consent.
+ * 4. Series from remote calendars are read-only. Google expands them into
+ *    individual events through `singleEvents=true`, so it is a non-issue
+ *    there. With CalDAV the series lands as one event with `readOnly = true`.
  */
 
 const PULL_PAST_DAYS = 90
@@ -48,14 +47,14 @@ function windowEnd(): Date {
   return new Date(Date.now() + PULL_FUTURE_DAYS * 86_400_000)
 }
 
-/** UID, die wir selbst geschrieben haben, zurück auf die lokale Kennung mappen. */
+/** Map a UID we wrote ourselves back onto the local identifier. */
 function localUidFrom(uid: string): string | null {
   const m = /^(.+)@soloops$/.exec(uid)
   return m?.[1] ?? null
 }
 
 // ---------------------------------------------------------------------------
-// Einstieg
+// Entry points
 // ---------------------------------------------------------------------------
 
 export async function syncAccount(accountId: string): Promise<SyncResult> {
@@ -100,7 +99,7 @@ export async function syncAllAccounts(): Promise<SyncResult[]> {
 // Google
 // ---------------------------------------------------------------------------
 
-/** Access-Token holen und bei Bedarf erneuern (und die Erneuerung speichern). */
+/** Fetch an access token, refreshing it when needed (and storing the refresh). */
 async function googleToken(account: CalendarAccount): Promise<string> {
   if (!account.accessTokenEnc) throw new Error('Kein Google-Token gespeichert')
 
@@ -128,7 +127,7 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
       changes = await google.listChanges(token, calendarId, account.syncToken, windowStart())
     } catch (err) {
       if ((err as Error).name !== 'GoogleSyncTokenGone') throw err
-      // Token verfallen: einmal komplett neu lesen.
+      // The token expired: read everything once more.
       console.warn(`[sync] ${account.label}: syncToken verfallen, Vollabgleich`)
       changes = await google.listChanges(token, calendarId, null, windowStart())
     }
@@ -156,7 +155,7 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
         endsAt: new Date(end),
         allDay,
         videoUrl: google.meetLink(remote),
-        // singleEvents=true liefert Instanzen — die sind einzeln editierbar.
+        // singleEvents=true yields instances — those are editable one by one.
         recurring: !!remote.recurringEventId,
         readOnly: false,
       })
@@ -173,8 +172,8 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
 
   if (account.direction === 'PULL') return
 
-  // --- Löschungen zuerst, damit ein neu angelegter Termin sie nicht überholt.
-  // Ohne Freigabe bleiben die Grabsteine liegen und der Fremdkalender unberührt.
+  // --- Deletions first, so that a newly created event cannot overtake them.
+  // Without consent the tombstones stay and the remote calendar is untouched.
   if (account.allowRemoteDelete) {
     for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
       await google.deleteEvent(token, calendarId, stone.remoteId)
@@ -193,7 +192,7 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
       endsAt: event.endsAt,
       allDay: event.allDay,
       localId: event.id,
-      // Meet nur bei Neuanlage und nur, wenn noch kein Link gesetzt ist
+      // Meet only on creation, and only when no link is set yet
       withMeet: !link && event.videoProvider === 'GOOGLE_MEET' && !event.videoUrl,
     }
 
@@ -203,8 +202,8 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
         ? await google.patchEvent(token, calendarId, link.remoteId, input)
         : await google.insertEvent(token, calendarId, input)
     } catch (err) {
-      // Ein einzelner Termin, den die Gegenstelle ablehnt, darf nicht den
-      // gesamten Abgleich stoppen. Merken, überspringen, weitermachen.
+      // A single event the remote side rejects must not stop the whole sync.
+      // Note it, skip it, carry on.
       result.conflicts++
       console.warn(
         `[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`,
@@ -213,7 +212,7 @@ async function syncGoogle(account: CalendarAccount, result: SyncResult): Promise
       continue
     }
 
-    // Google hat einen Meet-Raum erzeugt -> lokal übernehmen
+    // Google created a Meet room -> adopt it locally
     const meet = google.meetLink(remote)
     if (meet && !event.videoUrl) {
       await prisma.calendarEvent.update({
@@ -261,13 +260,13 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
       nextToken = sync.syncToken
       sawDeletions = true
     } else {
-      // Ohne WebDAV-Sync bleibt nur: alle ETags im Fenster vergleichen.
+      // Without WebDAV sync the only option is comparing every ETag in the window.
       const listed = await caldav.listEtags(creds, calendarHref, windowStart(), windowEnd())
       const links = await prisma.eventLink.findMany({ where: { accountId: account.id } })
       const known = new Map(links.map((l) => [l.remoteId, l.remoteEtag]))
       changed = listed.filter((r) => known.get(r.href) !== r.etag)
-      // Löschungen lassen sich so nicht sicher erkennen (Fenstergrenzen) —
-      // wir raten hier bewusst nicht und lassen sie stehen.
+      // Deletions cannot be detected reliably that way (window boundaries) —
+      // we deliberately do not guess and leave them in place.
       nextToken = null
     }
 
@@ -297,9 +296,9 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
           allDay: parsed.allDay,
           videoUrl: parsed.videoUrl,
           recurring: parsed.recurring,
-          // Serien und überschriebene Einzelinstanzen bleiben schreibgeschützt:
-          // sie als eigenständigen VEVENT zurückzuschreiben würde die Serie
-          // in der Gegenstelle zerlegen.
+          // Series and overridden single instances stay read-only: writing
+          // them back as a standalone VEVENT would take the series on the
+          // remote side apart.
           readOnly: parsed.recurring || parsed.recurrenceId !== null,
           sourceUid: parsed.uid,
           rrule: parsed.rrule,
@@ -308,7 +307,7 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
           recurrenceId: parsed.recurrenceId,
         })
         result.pulled++
-        break // eine Ressource = ein Termin (Serien nicht expandieren)
+        break // one resource = one event (do not expand series)
       }
     }
 
@@ -320,7 +319,7 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
 
   if (account.direction === 'PULL') return
 
-  // Löschen im Fremdkalender nur, wenn dafür ausdrücklich freigegeben.
+  // Delete in the remote calendar only where that was explicitly allowed.
   if (account.allowRemoteDelete) {
     for (const stone of await prisma.syncTombstone.findMany({ where: { accountId: account.id } })) {
       await caldav.deleteEvent(creds, stone.remoteId, stone.remoteEtag)
@@ -351,8 +350,8 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
     try {
       put = await caldav.putEvent(creds, href, ics, link?.remoteEtag ?? null)
     } catch (err) {
-      // Einzelner Termin abgelehnt (z.B. UID existiert dort schon): notieren
-      // und weitermachen, statt den ganzen Kalender abzubrechen.
+      // A single event was rejected (say, the UID already exists there):
+      // note it and carry on instead of aborting the whole calendar.
       result.conflicts++
       console.warn(
         `[sync] ${account.label}: "${event.title}" abgelehnt — ${(err as Error).message}`,
@@ -361,7 +360,7 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
       continue
     }
     if (put.conflict) {
-      // Die Gegenseite war schneller. Beim nächsten Pull gewinnt der jüngere Stand.
+      // The remote side was faster. On the next pull the newer state wins.
       result.conflicts++
       console.warn(`[sync] ${account.label}: Konflikt bei "${event.title}" — Pull entscheidet`)
       await markPushed(account.id, event)
@@ -373,14 +372,14 @@ async function syncCaldav(account: CalendarAccount, result: SyncResult): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Gemeinsame Bausteine
+// Shared building blocks
 // ---------------------------------------------------------------------------
 
 type RemoteEvent = {
   remoteId: string
   remoteEtag: string | null
   remoteUpdatedAt: Date
-  /** Lokale Event-Id bzw. externalUid, falls der Termin von uns stammt. */
+  /** The local event id or externalUid, if the event came from us. */
   localHint: string | null
   title: string
   description: string | null
@@ -391,7 +390,7 @@ type RemoteEvent = {
   videoUrl: string | null
   recurring: boolean
   readOnly: boolean
-  // Serien-Metadaten; bei Google immer leer, weil dort Instanzen kommen.
+  // Series metadata; always empty for Google, which sends instances.
   sourceUid?: string | null
   rrule?: string | null
   timeZone?: string | null
@@ -399,7 +398,7 @@ type RemoteEvent = {
   recurrenceId?: Date | null
 }
 
-/** Einen Fremdtermin lokal anwenden — anlegen, aktualisieren oder verwerfen. */
+/** Apply a remote event locally — create, update or discard. */
 async function applyRemote(
   account: CalendarAccount,
   result: SyncResult,
@@ -434,10 +433,10 @@ async function applyRemote(
     const remoteIsNewer =
       !existingLink.remoteUpdatedAt || remote.remoteUpdatedAt > existingLink.remoteUpdatedAt
 
-    if (!remoteIsNewer) return // nichts Neues von der Gegenseite
+    if (!remoteIsNewer) return // nothing new from the remote side
 
     if (localChanged && local.updatedAt > remote.remoteUpdatedAt) {
-      // Beide geändert, lokal ist jünger -> lokal behalten, Push räumt es auf.
+      // Both changed, local is newer -> keep local, the push sorts it out.
       result.conflicts++
       console.warn(
         `[sync] ${account.label}: "${local.title}" beidseitig geändert — lokale Version gewinnt`,
@@ -456,13 +455,13 @@ async function applyRemote(
       data: {
         remoteEtag: remote.remoteEtag,
         remoteUpdatedAt: remote.remoteUpdatedAt,
-        // Der lokale Stand entspricht jetzt dem entfernten: nicht neu pushen.
+        // The local state now equals the remote one: do not push again.
         pushedUpdatedAt: updated.updatedAt,
       },
     })
-    // Und zwar für ALLE Konten: die Änderung kam von außen, sie ist keine
-    // Bearbeitung durch den Nutzer. Ohne das hält jedes andere verbundene
-    // Konto den Termin für lokal geändert und schreibt ihn erneut hinaus.
+    // And for ALL accounts: the change came from outside, it is not an edit
+    // by the user. Without this, every other connected account would take the
+    // event for locally changed and write it out again.
     await prisma.eventLink.updateMany({
       where: { eventId: local.id, id: { not: existingLink.id } },
       data: { pushedUpdatedAt: updated.updatedAt },
@@ -470,7 +469,7 @@ async function applyRemote(
     return
   }
 
-  // Kein Link: stammt der Termin ursprünglich von uns?
+  // No link: did the event originally come from us?
   const own = remote.localHint
     ? await prisma.calendarEvent.findFirst({
         where: { OR: [{ id: remote.localHint }, { externalUid: remote.localHint }] },
@@ -484,7 +483,7 @@ async function applyRemote(
     }))
 
   if (own) {
-    // Nur die Verknüpfung fehlte — lokalen Stand nicht überschreiben.
+    // Only the link was missing — do not overwrite the local state.
     await prisma.eventLink.create({
       data: {
         accountId: account.id,
@@ -509,14 +508,14 @@ async function applyRemote(
   }
 }
 
-/** Lokalen Termin entfernen, weil er in der Gegenstelle gelöscht wurde. */
+/** Remove a local event because it was deleted on the remote side. */
 async function removeLocalByRemoteId(accountId: string, remoteId: string): Promise<boolean> {
   const link = await prisma.eventLink.findUnique({
     where: { accountId_remoteId: { accountId, remoteId } },
   })
   if (!link) return false
 
-  // Grabstein für *andere* Konten setzen, damit die Löschung weiterwandert.
+  // Leave a tombstone for the *other* accounts so the deletion propagates.
   const others = await prisma.eventLink.findMany({
     where: { eventId: link.eventId, accountId: { not: accountId } },
   })
@@ -539,13 +538,12 @@ async function removeLocalByRemoteId(accountId: string, remoteId: string): Promi
 type EventWithLinks = CalendarEvent & { links: EventLink[] }
 
 /**
- * Termine, die dieses Konto schreiben soll.
+ * The events this account is supposed to write.
  *
- * Entscheidend ist die Herkunft: ein Termin, der aus Kalender A stammt, darf
- * nicht in Kalender B kopiert werden — sonst vervielfältigt sich bei mehreren
- * verbundenen Kalendern jeder Termin über alle hinweg. Geschrieben wird also
- * nur, was hier entstanden ist, plus Änderungen an dem, was dieses Konto
- * bereits kennt.
+ * Origin is what matters: an event that came from calendar A must not be
+ * copied into calendar B — otherwise, with several calendars connected, every
+ * event multiplies across all of them. So we only write what was created
+ * here, plus changes to what this account already knows.
  */
 async function pushCandidates(account: CalendarAccount): Promise<EventWithLinks[]> {
   const events = await prisma.calendarEvent.findMany({
@@ -553,8 +551,8 @@ async function pushCandidates(account: CalendarAccount): Promise<EventWithLinks[
       readOnly: false,
       startsAt: { gte: windowStart(), lte: windowEnd() },
     },
-    // Alle Verknüpfungen, nicht nur die eigene — sonst ist die Herkunft
-    // eines Termins nicht erkennbar.
+    // Every link, not just our own — otherwise an event's origin cannot be
+    // told.
     include: { links: true },
     orderBy: { startsAt: 'asc' },
   })
@@ -564,22 +562,22 @@ async function pushCandidates(account: CalendarAccount): Promise<EventWithLinks[
       .filter((event) => {
         const mine = event.links.find((l) => l.accountId === account.id)
         if (mine) {
-          // Bekannt: nur bei echter Änderung erneut schreiben.
+          // Known: write again only on a real change.
           if (!mine.pushedUpdatedAt) return true
           return event.updatedAt.getTime() > mine.pushedUpdatedAt.getTime() + 1000
         }
-        // Unbekannt: nur der Zielkalender nimmt neue Termine auf, und nur solche,
-        // die nicht aus einem anderen Fremdkalender stammen.
+        // Unknown: only the target calendar takes new events, and only those
+        // that did not come from another remote calendar.
         return account.isDefault && event.links.length === 0
       })
-      // Der Rest des Codes erwartet in `links` die Verknüpfung dieses Kontos.
+      // The rest of the code expects `links` to hold this account's link.
       .map((event) => ({ ...event, links: event.links.filter((l) => l.accountId === account.id) }))
   )
 }
 
 /**
- * Nach einem abgelehnten Push den Stand festhalten, damit derselbe Termin
- * nicht bei jedem Lauf erneut versucht und derselbe Fehler wiederholt wird.
+ * After a rejected push, record the state so that the same event is not
+ * retried on every run and the same error repeated.
  */
 async function markPushed(accountId: string, event: CalendarEvent): Promise<void> {
   await prisma.eventLink
@@ -597,10 +595,10 @@ async function linkUp(
   remoteEtag: string | null,
   remoteUpdated: string | undefined,
 ): Promise<void> {
-  // Reihenfolge ist entscheidend: `lastPushedAt` zu schreiben hebt über
-  // @updatedAt auch `updatedAt` an. Stempelten wir die Verknüpfung vorher,
-  // sähe der Termin gleich darauf wieder "lokal geändert" aus und würde bei
-  // jedem Lauf erneut hinausgeschrieben — eine Endlosschleife im Zehnminutentakt.
+  // Order matters: writing `lastPushedAt` also bumps `updatedAt` through
+  // @updatedAt. If we stamped the link first, the event would look "locally
+  // changed" again straight afterwards and be written out on every run — an
+  // endless loop on a ten-minute beat.
   const current = await prisma.calendarEvent.update({
     where: { id: event.id },
     data: { lastPushedAt: new Date() },
@@ -619,7 +617,7 @@ async function linkUp(
   })
 }
 
-/** Videoraum in die Beschreibung spiegeln, damit er im Fremdkalender sichtbar ist. */
+/** Mirror the video room into the description so it shows in remote calendars. */
 function descriptionWithVideo(event: CalendarEvent): string | null {
   if (!event.videoUrl) return event.description
   const line = `Videoraum: ${event.videoUrl}`
@@ -628,8 +626,8 @@ function descriptionWithVideo(event: CalendarEvent): string | null {
 }
 
 /**
- * Vor dem lokalen Löschen aufrufen: merkt sich, was in den Fremdkalendern
- * noch entfernt werden muss.
+ * Call before deleting locally: records what still has to be removed from the
+ * remote calendars.
  */
 export async function tombstoneEvent(eventId: string): Promise<void> {
   const links = await prisma.eventLink.findMany({ where: { eventId } })

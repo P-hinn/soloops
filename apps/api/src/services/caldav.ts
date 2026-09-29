@@ -1,10 +1,10 @@
 /**
- * Schlanker CalDAV-Client für Apple/iCloud (funktioniert genauso gegen
+ * A lean CalDAV client for Apple/iCloud (works just as well against
  * Nextcloud, Fastmail, Radicale).
  *
- * Bewusst ohne XML-Bibliothek: CalDAV-Antworten sind flach und
- * maschinengeneriert, ein Namensraum-toleranter Extraktor reicht. Wird der
- * Parser hier je komplexer, ist der Zeitpunkt für eine echte XML-Lib gekommen.
+ * Deliberately without an XML library: CalDAV responses are flat and machine
+ * generated, a namespace-tolerant extractor is enough. The day this parser
+ * gets any more complicated is the day to reach for a real XML library.
  */
 
 export type CalDavCredentials = {
@@ -27,9 +27,9 @@ export type CalDavResource = {
   deleted: boolean
 }
 
-// --- XML-Hilfen -------------------------------------------------------------
+// --- XML helpers ------------------------------------------------------------
 
-/** Inhalte aller Elemente mit diesem lokalen Namen, unabhängig vom Präfix. */
+/** The contents of every element with this local name, prefix regardless. */
 function elements(xml: string, localName: string): string[] {
   const re = new RegExp(
     `<(?:[A-Za-z0-9_.-]+:)?${localName}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[A-Za-z0-9_.-]+:)?${localName}>`,
@@ -42,7 +42,7 @@ function element(xml: string, localName: string): string | null {
   return elements(xml, localName)[0] ?? null
 }
 
-/** Für leere Marker-Elemente wie <D:calendar/> oder <C:calendar />. */
+/** For empty marker elements like <D:calendar/> or <C:calendar />. */
 function hasElement(xml: string, localName: string): boolean {
   return new RegExp(`<(?:[A-Za-z0-9_.-]+:)?${localName}[\\s/>]`, 'i').test(xml)
 }
@@ -64,7 +64,7 @@ function authHeader(creds: CalDavCredentials): string {
   return `Basic ${Buffer.from(`${creds.username}:${creds.password}`).toString('base64')}`
 }
 
-/** Relative Hrefs aus der Antwort auf den Server-Origin beziehen. */
+/** Resolve relative hrefs from the response against the server origin. */
 function absolute(baseUrl: string, href: string): string {
   return new URL(href, baseUrl).toString()
 }
@@ -92,7 +92,7 @@ async function dav(
 
 // --- Discovery -------------------------------------------------------------
 
-/** Findet alle Kalender-Collections des Kontos. */
+/** Finds every calendar collection of the account. */
 export async function discoverCalendars(creds: CalDavCredentials): Promise<CalDavCalendar[]> {
   const base = creds.baseUrl.replace(/\/$/, '')
 
@@ -126,7 +126,7 @@ export async function discoverCalendars(creds: CalDavCredentials): Promise<CalDa
   )
   if (!homeHref) throw new Error('CalDAV: calendar-home-set nicht gefunden')
 
-  // 3) Kalender auflisten
+  // 3) list the calendars
   const listRes = await dav(
     creds,
     absolute(base, homeHref),
@@ -150,7 +150,7 @@ export async function discoverCalendars(creds: CalDavCredentials): Promise<CalDa
     const resourceType = element(response, 'resourcetype') ?? ''
     if (!href || !hasElement(resourceType, 'calendar')) continue
 
-    // Nur Kalender, die VEVENT tragen (iCloud liefert auch VTODO-Listen)
+    // Only calendars that carry VEVENT (iCloud also returns VTODO lists)
     const components = element(response, 'supported-calendar-component-set') ?? ''
     if (components && !/VEVENT/i.test(components)) continue
 
@@ -164,11 +164,11 @@ export async function discoverCalendars(creds: CalDavCredentials): Promise<CalDa
   return calendars
 }
 
-// --- Lesen ---------------------------------------------------------------
+// --- Reading -------------------------------------------------------------
 
 /**
- * WebDAV-Sync (RFC 6578). Liefert nur Änderungen seit dem Token.
- * Ein leerer Token bedeutet Erstabgleich — dann liefert der Server alles.
+ * WebDAV sync (RFC 6578). Returns only what changed since the token.
+ * An empty token means first sync — then the server returns everything.
  */
 export async function syncCollection(
   creds: CalDavCredentials,
@@ -188,7 +188,7 @@ export async function syncCollection(
     { Depth: '1' },
   )
 
-  // 403/409 mit "valid-sync-token": Token ist zu alt geworden.
+  // 403/409 with "valid-sync-token": the token has grown too old.
   if (res.status === 403 || res.status === 409 || /valid-sync-token/i.test(res.text)) {
     return { resources: [], syncToken: null, needsFullSync: true }
   }
@@ -212,7 +212,7 @@ export async function syncCollection(
   return { resources, syncToken: nextToken, needsFullSync: false }
 }
 
-/** Fallback ohne WebDAV-Sync: alle ETags im Zeitfenster holen. */
+/** Fallback without WebDAV sync: fetch every ETag in the window. */
 export async function listEtags(
   creds: CalDavCredentials,
   calendarHref: string,
@@ -253,7 +253,7 @@ export async function listEtags(
   return out
 }
 
-/** Mehrere Ressourcen in einem Rutsch laden (RFC 4791 calendar-multiget). */
+/** Load several resources at once (RFC 4791 calendar-multiget). */
 export async function multiget(
   creds: CalDavCredentials,
   calendarHref: string,
@@ -262,7 +262,7 @@ export async function multiget(
   if (!hrefs.length) return []
   const out: CalDavResource[] = []
 
-  // iCloud mag keine riesigen Multigets — in Blöcken anfragen.
+  // iCloud dislikes huge multigets — ask in chunks.
   for (let i = 0; i < hrefs.length; i += 50) {
     const chunk = hrefs.slice(i, i + 50)
     const res = await dav(
@@ -293,11 +293,11 @@ export async function multiget(
   return out
 }
 
-// --- Schreiben -----------------------------------------------------------
+// --- Writing -------------------------------------------------------------
 
 /**
- * Anlegen oder aktualisieren. `etag` schützt vor Überschreiben fremder
- * Änderungen (If-Match); ohne etag wird mit If-None-Match: * nur angelegt.
+ * Create or update. `etag` guards against overwriting someone else's changes
+ * (If-Match); without an etag, If-None-Match: * only ever creates.
  */
 export async function putEvent(
   creds: CalDavCredentials,
@@ -319,7 +319,7 @@ export async function putEvent(
   if (res.status >= 400) {
     throw new Error(`CalDAV PUT ${href}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`)
   }
-  // Manche Server liefern kein ETag zurück — dann holen wir es beim nächsten Sync.
+  // Some servers return no ETag — then we pick it up on the next sync.
   return { etag: res.headers.get('etag')?.replace(/^"|"$/g, '') ?? null, conflict: false }
 }
 
@@ -335,13 +335,13 @@ export async function deleteEvent(
       ...(etag ? { 'If-Match': `"${etag}"` } : {}),
     },
   })
-  // 404 heißt: schon weg. Das ist kein Fehler.
+  // 404 means: already gone. That is not an error.
   if (res.status >= 400 && res.status !== 404 && res.status !== 412) {
     throw new Error(`CalDAV DELETE ${href}: HTTP ${res.status}`)
   }
 }
 
-/** Href für einen neuen Termin — UID als Dateiname, wie es üblich ist. */
+/** The href for a new event — UID as the file name, as is customary. */
 export function resourceHref(calendarHref: string, uid: string): string {
   const base = calendarHref.endsWith('/') ? calendarHref : `${calendarHref}/`
   return `${base}${encodeURIComponent(uid)}.ics`

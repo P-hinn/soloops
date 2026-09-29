@@ -110,7 +110,7 @@ onMounted(load)
       <StatCard label="Offene Punkte" :value="String(project.actionItems.length)" />
     </div>
 
-    <!-- AI-Lagebericht: der eine Block auf der Seite, der laut sein darf -->
+    <!-- The AI status report: the one block on the page allowed to be loud -->
     <section v-if="project.digests[0]" class="mt-10 border-2 border-ink">
       <div class="flex flex-wrap items-center gap-3 border-b border-ink bg-acid px-5 py-2.5">
         <span class="eyebrow-muted !text-ink">Lagebericht</span>

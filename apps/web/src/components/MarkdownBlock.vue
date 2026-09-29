@@ -5,20 +5,21 @@ import { marked } from 'marked'
 const props = defineProps<{ source?: string | null }>()
 
 /**
- * Rendert Markdown ohne Sanitisierung — das ist nur zulässig, weil hier
- * ausschließlich selbst getippte Inhalte durchlaufen (Notizen, Mitschriften).
+ * Renders Markdown without sanitising — which is only acceptable because
+ * nothing but self-written content passes through here (notes, transcripts).
  *
- * Seit dem Postfach liegen auch fremde Texte im System: Mailinhalte und alles,
- * was eine AI daraus ableitet. Die werden bewusst als Klartext ausgegeben und
- * dürfen hier nicht durch. Wer das ändert, schaltet vorher DOMPurify davor.
+ * Since the inbox arrived, foreign text lives in the system too: mail bodies
+ * and everything an AI derives from them. Those are deliberately emitted as
+ * plain text and must not come through here. Change that, and put DOMPurify
+ * in front of it first.
  */
 const html = computed(() => (props.source ? marked.parse(props.source, { async: false }) : ''))
 </script>
 
 <template>
   <!--
-    v-html ist hier Absicht: der Inhalt stammt aus eigener Hand. Nichts, was
-    aus einer Mail kommt, darf diesen Weg nehmen — siehe Kommentar oben.
+    v-html is deliberate here: the content is our own. Nothing that came out
+    of a mail may take this path — see the comment above.
   -->
   <!-- eslint-disable-next-line vue/no-v-html -->
   <div v-if="html" class="prose-note text-sm" v-html="html" />

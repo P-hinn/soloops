@@ -31,7 +31,7 @@ type LexInvoice = {
   }[]
 }
 
-/** ISO-3166-alpha-2 für lexoffice. Deckt die üblichen Fälle ab. */
+/** ISO 3166-1 alpha-2 for lexoffice. Covers the usual cases. */
 function countryCode(country: string): string {
   const map: Record<string, string> = {
     deutschland: 'DE',
@@ -67,7 +67,7 @@ export const lexoffice = {
   profile: () =>
     call<{ organizationId: string; companyName: string; taxType: string }>('/v1/profile'),
 
-  /** Legt den Kontakt an, falls noch keine lexoffice-ID hinterlegt ist. */
+  /** Creates the contact unless a lexoffice id is already stored. */
   async upsertContact(client: LexClient): Promise<string> {
     if (client.lexofficeContactId) return client.lexofficeContactId
 
@@ -105,11 +105,11 @@ export const lexoffice = {
   },
 
   /**
-   * Überträgt die Rechnung als finalisiertes Dokument (`finalize=true`),
-   * damit lexoffice sie sofort in den Buchungsstapel nimmt.
+   * Transfers the invoice as a finalized document (`finalize=true`), so that
+   * lexoffice takes it straight into the posting batch.
    */
   async createInvoice(invoice: LexInvoice, contactId: string): Promise<string> {
-    // Kleinunternehmer nach §19 UStG weisen keine USt aus -> vatfree
+    // Small businesses under §19 UStG show no VAT -> vatfree
     const taxType = invoice.smallBusiness ? 'vatfree' : 'net'
     const payload = {
       voucherDate: invoice.issueDate.toISOString(),

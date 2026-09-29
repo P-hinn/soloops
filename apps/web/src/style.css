@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 
 /* ===========================================================================
-   Designsystem — übernommen aus philippniestroj.com
-   Papier statt Bildschirm: warmes Off-White, Tinte fast schwarz, Haarlinien
-   statt Kästen, scharfe Ecken (radius 0) und ausschließlich Pillen-Buttons.
-   Akzente: Acid für "jetzt", Blau für Labels und Links.
+   Design system — taken from philippniestroj.com
+   Paper rather than screen: warm off-white, near-black ink, hairlines instead
+   of boxes, sharp corners (radius 0) and nothing but pill buttons.
+   Accents: acid for "now", blue for labels and links.
    =========================================================================== */
 
 @font-face {
@@ -16,15 +16,15 @@
 }
 
 @theme {
-  /* Drei Ebenen aus derselben warmen Familie. Ohne diese Staffelung liegt
-     alles auf einer Fläche und das Werkzeug wirkt flach:
-       shell   — Rahmen der Anwendung (Navigation, Kopfzeile)
-       paper   — Arbeitsfläche, die CI-Grundfarbe
-       raised  — was darüber liegt: Karten, Dialoge, Menüs */
+  /* Three levels from the same warm family. Without that layering everything
+     sits on one surface and the tool reads as flat:
+       shell   — the application frame (navigation, header)
+       paper   — the work surface, the brand base colour
+       raised  — what lies on top: cards, dialogs, menus */
   --color-shell: #dbd7ca;
   --color-paper: #f1efe8;
   --color-raised: #fbfaf7;
-  --color-paper-2: #e9e7df; /* Tabellenköpfe, Hover */
+  --color-paper-2: #e9e7df; /* table heads, hover */
   --color-ink: #171714;
   --color-soft: #575750;
   --color-muted: #6c6b64;
@@ -42,7 +42,7 @@
 
   --radius-none: 0;
   --shadow-paper: 0 32px 90px rgba(23, 23, 20, 0.14);
-  /* Warmer, weicher Schatten — hebt Flächen, ohne nach Material Design zu riechen */
+  /* A warm, soft shadow — lifts surfaces without smelling of Material Design */
   --shadow-raise: 0 1px 2px rgba(23, 23, 20, 0.05), 0 4px 16px -6px rgba(23, 23, 20, 0.12);
 }
 
@@ -72,7 +72,7 @@ h3,
   letter-spacing: -0.01em;
 }
 
-/* Tabellenzahlen und IDs immer im Display-Font — die Ziffern sitzen dort besser */
+/* Table figures and ids always in the display font — the digits sit better */
 .tabular-nums,
 .font-mono {
   font-family: var(--font-display);
@@ -84,7 +84,7 @@ h3,
   color: var(--color-ink);
 }
 
-/* --- Flächen -------------------------------------------------------------- */
+/* --- Surfaces ------------------------------------------------------------- */
 
 .card {
   @apply border border-line bg-raised p-5;
@@ -94,7 +94,7 @@ h3,
     var(--shadow-raise);
 }
 
-/* Volle Fläche in Tinte — für den einen Block, der herausstechen soll */
+/* A full surface in ink — for the one block that should stand out */
 .card-ink {
   @apply border border-ink bg-ink p-5 text-paper;
   border-radius: 0;
@@ -104,9 +104,9 @@ h3,
   @apply border-t border-line;
 }
 
-/* --- Typografie ----------------------------------------------------------- */
+/* --- Typography ----------------------------------------------------------- */
 
-/* Das Kicker-Label über Überschriften: klein, versal, gesperrt, blau */
+/* The kicker label above headings: small, uppercase, letterspaced, blue */
 .eyebrow {
   @apply text-[11px] font-bold uppercase tracking-[0.14em] text-blue;
 }
@@ -127,7 +127,7 @@ h3,
   font-weight: 600;
 }
 
-/* --- Buttons: ausschließlich Pillen ---------------------------------------- */
+/* --- Buttons: pills, nothing else ------------------------------------------ */
 
 .btn,
 .btn-primary,
@@ -148,7 +148,7 @@ h3,
   @apply border border-line-strong text-ink hover:border-ink hover:bg-ink hover:text-paper;
 }
 
-/* Der eine laute Button pro Seite */
+/* The one loud button per page */
 .btn-acid {
   @apply bg-acid text-ink hover:brightness-95;
 }
@@ -164,7 +164,7 @@ h3,
          transition-colors hover:border-ink hover:bg-ink hover:text-paper;
 }
 
-/* --- Formular -------------------------------------------------------------- */
+/* --- Forms ----------------------------------------------------------------- */
 
 .input {
   @apply w-full border border-line bg-transparent px-3 py-2 text-sm text-ink
@@ -193,7 +193,7 @@ input[type='checkbox'] {
   accent-color: var(--color-ink);
 }
 
-/* --- Badges: eckig, Haarlinie, versal --------------------------------------- */
+/* --- Badges: square, hairline, uppercase ------------------------------------ */
 
 .badge {
   @apply inline-flex items-center border border-line px-2 py-0.5
@@ -219,7 +219,7 @@ input[type='checkbox'] {
   @apply border-bad/35 bg-bad/10 text-bad;
 }
 
-/* --- Tabellen: Rasterlinien statt Zebrastreifen ------------------------------ */
+/* --- Tables: grid lines instead of zebra stripes ----------------------------- */
 
 .table {
   @apply w-full text-sm;
@@ -285,16 +285,16 @@ input[type='checkbox'] {
   @apply my-3 border-l-2 border-acid pl-4 text-soft;
 }
 
-/* Volltext-Treffer werden serverseitig mit «» markiert */
+/* Full-text hits are marked with «» on the server */
 .prose-note mark,
 mark {
   background: var(--color-acid);
   color: var(--color-ink);
 }
 
-/* --- Seitenwechsel ------------------------------------------------------------
-   Dieselbe Blende wie auf der Website, aber kürzer: in einem Werkzeug, das man
-   den ganzen Tag benutzt, wären 250ms pro Richtung spürbar zäh. */
+/* --- Page transitions ----------------------------------------------------------
+   The same fade as on the website, but shorter: in a tool you use all day,
+   250ms per direction would feel noticeably sluggish. */
 
 .page-enter-active,
 .page-leave-active {
@@ -326,18 +326,18 @@ mark {
    Feinschliff
    =========================================================================== */
 
-/* Papierstruktur: ein kaum sichtbares Punktraster. Karten und der Kalender
-   liegen mit deckendem Papier darüber — das erzeugt die Schichtung, die dem
-   Flächenlayout sonst fehlt. */
-/* Papierstruktur nur auf der Arbeitsfläche. Auf dem Rahmen wäre sie Unruhe. */
+/* Paper texture: a barely visible dot grid. Cards and the calendar sit on
+   top of it in opaque paper — that creates the layering a flat layout
+   otherwise lacks. */
+/* Paper texture on the work surface only. On the frame it would be noise. */
 main {
   background-image: radial-gradient(rgba(23, 23, 20, 0.06) 1px, transparent 1px);
   background-size: 22px 22px;
   background-position: -1px -1px;
 }
 
-/* Tastaturfokus sichtbar machen — der Acid-Ring ist unverwechselbar und
-   stört den Mausbetrieb nicht, weil :focus-visible greift. */
+/* Make keyboard focus visible — the acid ring is unmistakable and does not
+   get in the way of mouse use, because :focus-visible applies. */
 :focus-visible {
   outline: 2px solid var(--color-acid);
   outline-offset: 2px;
@@ -347,7 +347,7 @@ main {
   outline-color: var(--color-ink);
 }
 
-/* Buttons dürfen sich beim Drücken kurz bewegen. */
+/* Buttons are allowed to move a little when pressed. */
 .btn:active,
 .btn-primary:active,
 .btn-ghost:active,
@@ -356,7 +356,7 @@ main {
   transform: translateY(1px);
 }
 
-/* Karte, die zu einem Ziel führt */
+/* A card that leads somewhere */
 .card-link {
   @apply transition-all duration-150;
 }
@@ -366,7 +366,7 @@ main {
   transform: translate(-2px, -2px);
 }
 
-/* Leerer Zustand: nicht bloß grauer Text, sondern eine gerahmte Fläche */
+/* Empty state: not merely grey text but a framed surface */
 .empty-state {
   @apply flex flex-col items-center justify-center gap-2 border border-dashed border-line-strong
          px-6 py-12 text-center;
@@ -375,22 +375,22 @@ main {
   @apply max-w-sm text-sm text-muted;
 }
 
-/* Zahlen in Überschriften sollen nicht springen */
+/* Figures in headings should not jump around */
 h1,
 h2,
 h3 {
   font-variant-numeric: tabular-nums;
 }
 
-/* --- Flächen-Hilfsklassen ---------------------------------------------------
-   Damit Ansichten die Staffelung benutzen können, ohne Hexwerte zu streuen. */
+/* --- Surface helper classes -------------------------------------------------
+   So that views can use the layering without scattering hex values around. */
 
 .surface-shell {
   background: var(--color-shell);
 }
 
-/* Die Seitenleiste bekommt einen kaum merklichen Verlauf — genug, damit die
-   Fläche nicht wie ein Farbeimer wirkt, zu wenig, um als Effekt aufzufallen. */
+/* The sidebar gets a barely perceptible gradient — enough that the surface
+   does not read as a paint bucket, too little to register as an effect. */
 aside {
   background-image: linear-gradient(180deg, #e3dfd3 0%, var(--color-shell) 50%, #d4d0c2 100%);
 }
@@ -398,7 +398,7 @@ aside {
   background: var(--color-raised);
 }
 
-/* Dialoge und Menüs liegen ganz oben */
+/* Dialogs and menus sit on top of everything */
 .popover {
   @apply border-2 border-ink bg-raised;
   box-shadow:
@@ -406,8 +406,8 @@ aside {
     0 24px 60px rgba(23, 23, 20, 0.18);
 }
 
-/* Rasterflächen, die durch Fugen getrennt sind (Dashboard, Kalenderköpfe).
-   Die Fuge ist die Linienfarbe, die Kacheln liegen darüber. */
+/* Grid surfaces separated by seams (dashboard, calendar heads).
+   The seam is the line colour, the tiles lie on top of it. */
 .tile-grid {
   @apply gap-px border border-line bg-line;
   display: grid;
@@ -417,8 +417,8 @@ aside {
   @apply bg-raised p-5;
 }
 
-/* Aktiver Navigationspunkt liegt auf einer eigenen Fläche — die Leiste wird
-   dadurch als Bedienfeld lesbar statt als Textliste. */
+/* The active navigation item sits on a surface of its own — that makes the
+   bar read as a control panel rather than a list of text. */
 .nav-active {
   background: linear-gradient(90deg, rgba(251, 250, 247, 0.95), rgba(251, 250, 247, 0.55));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);

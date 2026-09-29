@@ -32,7 +32,7 @@ function go(hit: Hit) {
   router.push(hit.url)
 }
 
-/** ⌘K / Strg+K fokussiert die Suche von überall. */
+/** ⌘K / Ctrl+K focuses the search from anywhere. */
 function onKeydown(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
@@ -88,8 +88,8 @@ const typeLabel: Record<string, string> = {
           <span class="truncate text-sm font-medium">{{ hit.title }}</span>
         </div>
         <!--
-          v-html ist hier Absicht: der Auszug kommt aus ts_headline der eigenen
-          Datenbank, die Markierungen darin setzen wir selbst.
+          v-html is deliberate here: the excerpt comes from ts_headline in our
+          own database, and we set the markup inside it ourselves.
         -->
         <!-- eslint-disable vue/no-v-html -->
         <div

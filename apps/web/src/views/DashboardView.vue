@@ -68,7 +68,7 @@ const onboarding = useOnboarding()
 async function load() {
   data.value = await api.get<Dashboard>('/api/dashboard')
   loading.value = false
-  // Nach jeder Neuanlage kann sich der Einrichtungsstand geändert haben.
+  // Anything newly created may have moved the setup progress along.
   if (onboarding.loaded) await onboarding.load()
 }
 
@@ -77,7 +77,7 @@ onMounted(load)
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
 
-/** Ein Satz oben: was heute wirklich zählt, nach Dringlichkeit sortiert. */
+/** One sentence at the top: what really matters today, most urgent first. */
 const headline = computed(() => {
   const d = data.value
   if (!d) return ''
@@ -93,7 +93,7 @@ const allGreen = computed(
   () => !data.value?.ops.monitorsDown.length && !data.value?.ops.failedRuns.length,
 )
 
-/** Die kommenden sieben Tage als Spalten — der Kalender im Kleinen. */
+/** The next seven days as columns — the calendar in miniature. */
 const week = computed(() => {
   const start = startOfDay(new Date())
   return Array.from({ length: 7 }, (_, i) => {
@@ -101,8 +101,8 @@ const week = computed(() => {
     const from = date.getTime()
     const to = from + 86_400_000
     const events = (data.value?.weekEvents ?? []).filter((e) => {
-      // Ganztägiges sind Kalendertage, keine Zeitpunkte — sonst ragt jeder
-      // solche Termin bei UTC+2 zwei Stunden in den Folgetag.
+      // All-day items are calendar days, not instants — otherwise every one
+      // of them spills two hours into the next day at UTC+2.
       if (e.allDay) return allDayCoversDay(new Date(e.startsAt), new Date(e.endsAt), date)
       const s = new Date(e.startsAt).getTime()
       const en = new Date(e.endsAt).getTime()
@@ -134,7 +134,7 @@ const week = computed(() => {
     <p v-if="loading" class="text-sm text-muted">Lade …</p>
 
     <template v-else-if="data">
-      <!-- Die Schlagzeile trägt die Seite -->
+      <!-- The headline carries the page -->
       <p
         class="mb-10 max-w-4xl font-display text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.03em]"
       >
@@ -186,7 +186,7 @@ const week = computed(() => {
       </RouterLink>
 
       <!-- ================================================================= -->
-      <!-- Die nächsten sieben Tage — der Kalender im Kleinen                 -->
+      <!-- The next seven days — the calendar in miniature                    -->
       <!-- ================================================================= -->
       <section class="mt-12">
         <div class="mb-3 flex items-baseline justify-between">
@@ -246,7 +246,7 @@ const week = computed(() => {
       </section>
 
       <!-- ================================================================= -->
-      <!-- Geld, Betrieb, offene Punkte                                       -->
+      <!-- Money, operations, action items                                    -->
       <!-- ================================================================= -->
       <div class="tile-grid mt-8 lg:grid-cols-3">
         <section class="tile">

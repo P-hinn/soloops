@@ -12,8 +12,8 @@ const idParam = z.object({ id: z.string() })
 
 const routes: FastifyPluginAsync = async (app) => {
   /**
-   * ICS-Feed für Apple/Google Kalender. Nutzt den SERVICE_TOKEN als Query-Param,
-   * weil Kalender-Clients keine Header setzen können.
+   * ICS feed for Apple/Google Calendar. Uses the SERVICE_TOKEN as a query
+   * parameter because calendar clients cannot set headers.
    */
   app.get('/feed.ics', async (req, reply) => {
     const q = z.object({ token: z.string() }).parse(req.query)
@@ -80,7 +80,7 @@ const routes: FastifyPluginAsync = async (app) => {
           .send({ error: 'Serie aus einem Fremdkalender — bitte dort bearbeiten' })
       }
 
-      // Videoraum nachträglich anfordern
+      // Request a video room after the fact
       const room =
         data.withVideo && !current.videoUrl ? createVideoRoom(data.title ?? current.title) : null
 
@@ -104,15 +104,15 @@ const routes: FastifyPluginAsync = async (app) => {
 
     secured.delete('/:id', async (req, reply) => {
       const { id } = idParam.parse(req.params)
-      // Erst merken, was in den Fremdkalendern noch wegmuss — danach löschen.
+      // First note what still has to go from the remote calendars, then delete.
       await tombstoneEvent(id)
       await prisma.calendarEvent.delete({ where: { id } })
       return reply.code(204).send()
     })
 
     /**
-     * Die Kalender, zwischen denen die Ansicht farblich unterscheidet:
-     * das lokale soloops plus jedes verbundene Konto.
+     * The calendars the view tells apart by colour: the local soloops one
+     * plus every connected account.
      */
     secured.get('/sources', async () => {
       const accounts = await prisma.calendarAccount.findMany({
@@ -139,7 +139,7 @@ const routes: FastifyPluginAsync = async (app) => {
       ]
     })
 
-    /** Farbe eines Kalenders ändern. */
+    /** Change a calendar's colour. */
     secured.patch('/sources/:id/color', async (req, reply) => {
       const { id } = idParam.parse(req.params)
       const body = z.object({ color: z.string().regex(/^#[0-9a-fA-F]{6}$/) }).parse(req.body)
@@ -152,8 +152,8 @@ const routes: FastifyPluginAsync = async (app) => {
     })
 
     /**
-     * Freie Slots im Arbeitszeitfenster finden — Basis für "wann passt ein
-     * Termin rein" und für das gleichnamige MCP-Tool.
+     * Find free slots inside working hours — the basis for "when does a
+     * meeting fit" and for the MCP tool of the same name.
      */
     secured.get('/free-slots', async (req) => {
       const q = z
@@ -218,7 +218,7 @@ function addDays(d: Date, n: number): Date {
 
 function startOfWeek(d: Date): Date {
   const copy = new Date(d)
-  const day = (copy.getDay() + 6) % 7 // Montag = 0
+  const day = (copy.getDay() + 6) % 7 // Monday = 0
   copy.setDate(copy.getDate() - day)
   copy.setHours(0, 0, 0, 0)
   return copy

@@ -1,8 +1,8 @@
 import type { LeadStage } from '@prisma/client'
 
 /**
- * Reine Vertriebsrechnung — bewusst ohne Prisma- und env-Import, damit sie
- * sich ohne laufende Datenbank testen lässt.
+ * Pure sales arithmetic — deliberately without a Prisma or env import, so it
+ * can be tested without a running database.
  */
 
 export const STAGE_PROBABILITY: Record<LeadStage, number> = {
@@ -29,12 +29,12 @@ type OfferLike = { status: string; amountCents: number; sentOn: Date | null }
 type LeadLike = { valueCents: number | null; probability: number; offers?: OfferLike[] }
 
 /**
- * Was ist der Lead wert?
+ * What is the lead worth?
  *
- * Ein herausgeschicktes Angebot ist belastbarer als eine Schätzung vom
- * Erstkontakt — deshalb schlägt die Angebotssumme den eingetragenen Wert,
- * sobald es eins gibt. Angenommen > verschickt > eigene Schätzung. Ein
- * Entwurf zählt nicht: der ist noch nicht raus.
+ * An offer that has gone out is more reliable than a guess from the first
+ * call — so the offer amount beats the recorded value as soon as there is
+ * one. Accepted > sent > your own estimate. A draft does not count: it has
+ * not left the building.
  */
 export function leadValueCents(lead: LeadLike): number {
   const offers = lead.offers ?? []
@@ -50,12 +50,12 @@ export function leadValueCents(lead: LeadLike): number {
   return lead.valueCents ?? 0
 }
 
-/** Gewichteter Wert: Summe mal deiner Wahrscheinlichkeit. */
+/** Weighted value: amount times your own probability. */
 export function weightedCents(lead: LeadLike): number {
   return Math.round((leadValueCents(lead) * lead.probability) / 100)
 }
 
-/** Tage ohne jede Aktivität. Treibt die „liegt zu lange still"-Anzeige. */
+/** Days without any activity. Drives the "gone quiet for too long" flag. */
 export function stalenessDays(lead: { lastActivityAt: Date }, now = new Date()): number {
   return Math.floor((now.getTime() - lead.lastActivityAt.getTime()) / 86_400_000)
 }

@@ -19,7 +19,7 @@ const accountInput = z.object({
   folders: z.array(z.string()).optional(),
 })
 
-/** Das verschlüsselte Passwort verlässt die API nie. */
+/** The encrypted password never leaves the API. */
 const publicAccount = {
   id: true,
   label: true,
@@ -35,7 +35,7 @@ const publicAccount = {
   lastError: true,
 } as const
 
-/** Startpunkt eines frisch verbundenen Kontos — nie vor der globalen Grenze. */
+/** Where a freshly connected account starts — never before the global floor. */
 function backfillStart(): Date {
   return syncWindowStart(
     new Date(Date.now() - env.MAIL_BACKFILL_DAYS * 86_400_000),
@@ -46,7 +46,7 @@ function backfillStart(): Date {
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  // --- Konten --------------------------------------------------------------
+  // --- Accounts ------------------------------------------------------------
 
   app.get('/accounts', async () =>
     prisma.mailAccount.findMany({ select: publicAccount, orderBy: { createdAt: 'asc' } }),
@@ -67,14 +67,14 @@ const routes: FastifyPluginAsync = async (app) => {
       ...(data.folders ? { folders: data.folders } : {}),
     }
 
-    // Erst anmelden, dann speichern. Andernfalls bliebe nach einem Tippfehler
-    // im Passwort ein totes Konto zurück, das den zweiten Versuch blockiert.
+    // Log in first, store second. Otherwise a typo in the password would
+    // leave a dead account behind that blocks the second attempt.
     const test = await testConnection(credentials)
     if (!test.ok) {
       return reply.code(400).send({ error: `Anmeldung fehlgeschlagen: ${test.error}` })
     }
 
-    // Dieselbe Adresse noch einmal verbinden heißt: Zugangsdaten erneuern.
+    // Connecting the same address again means: refresh the credentials.
     const account = await prisma.mailAccount.upsert({
       where: { email },
       create: {
@@ -113,7 +113,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/sync', async () => syncAllMailAccounts())
 
-  // --- Posteingang ---------------------------------------------------------
+  // --- Inbox ---------------------------------------------------------------
 
   app.get('/', async (req) => {
     const q = z
@@ -157,7 +157,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return mail
   })
 
-  /** Zuordnung von Hand. Überschreibt jede automatische Einordnung dauerhaft. */
+  /** Manual assignment. Permanently overrides any automatic one. */
   app.patch('/:id', async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const body = z

@@ -41,23 +41,23 @@ const run = (
     windowEnd: new Date(to),
   }).map((o) => fmt(o.start))
 
-// Jährlich — der Fall "Danny Moldenhauer" (Start 2021, gesucht 2026)
+// Yearly — the "birthday in 2021, looked up in 2026" case
 check(
   'YEARLY seit 2021 -> 2026',
   run('FREQ=YEARLY', '2021-08-25T00:00:00Z', '2026-08-24T00:00:00Z', '2026-08-31T00:00:00Z'),
   ['25.08.2026, 02:00'],
 )
 
-// Monatlich — der Fall "Miete"
-// Start im Winter (09:00Z = 10:00 CET). Im August muss weiterhin 10:00 LOKAL
-// stehen — nicht 11:00. Genau das ist der Sinn der Zonenrechnung.
+// Monthly — the "rent" case.
+// Starts in winter (09:00Z = 10:00 CET). In August it still has to read
+// 10:00 LOCAL — not 11:00. That is the whole point of computing in the zone.
 check(
   'MONTHLY seit 2022 -> Aug 2026 (10:00 lokal bleibt 10:00)',
   run('FREQ=MONTHLY', '2022-12-25T09:00:00Z', '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z'),
   ['25.08.2026, 10:00'],
 )
 
-// Wöchentlich mit mehreren Wochentagen
+// Weekly with several weekdays
 check(
   'WEEKLY BYDAY=MO,WE',
   run(
@@ -69,7 +69,7 @@ check(
   ['24.08.2026, 10:00', '26.08.2026, 10:00'],
 )
 
-// Sommerzeit: 10:00 Berliner Zeit muss 10:00 bleiben
+// Daylight saving: 10:00 Berlin time has to stay 10:00
 check(
   'WEEKLY über die Zeitumstellung (10:00 lokal bleibt 10:00)',
   run(
@@ -81,14 +81,14 @@ check(
   ['19.10.2026, 10:00', '26.10.2026, 10:00', '02.11.2026, 10:00'],
 )
 
-// COUNT begrenzt
+// COUNT limits the series
 check(
   'DAILY;COUNT=3',
   run('FREQ=DAILY;COUNT=3', '2026-08-24T08:00:00Z', '2026-08-24T00:00:00Z', '2026-09-01T00:00:00Z'),
   ['24.08.2026, 10:00', '25.08.2026, 10:00', '26.08.2026, 10:00'],
 )
 
-// UNTIL begrenzt
+// UNTIL limits the series
 check(
   'WEEKLY;UNTIL=20260831',
   run(
@@ -118,7 +118,7 @@ check(
   ['10.02.2026, 09:00', '10.05.2026, 09:00', '10.08.2026, 09:00', '10.11.2026, 09:00'],
 )
 
-// Ordinal-BYDAY: jeder letzte Freitag
+// Ordinal BYDAY: every last Friday
 check(
   'MONTHLY;BYDAY=-1FR',
   run(
@@ -130,7 +130,7 @@ check(
   ['28.08.2026, 10:00', '25.09.2026, 10:00'],
 )
 
-// Der 31. existiert nicht in jedem Monat -> Monat fällt aus (RFC 5545)
+// The 31st does not exist in every month -> that month is skipped (RFC 5545)
 check(
   'MONTHLY am 31. überspringt kurze Monate',
   run('FREQ=MONTHLY', '2026-01-31T08:00:00Z', '2026-01-01T00:00:00Z', '2026-05-01T00:00:00Z'),
@@ -151,7 +151,7 @@ check(
   ['24.08.2026, 10:00', '26.08.2026, 10:00'],
 )
 
-// Kaputte Regel darf nicht endlos laufen
+// A broken rule must not run forever
 const t0 = Date.now()
 const weird = run(
   'FREQ=BOGUS;INTERVAL=0',

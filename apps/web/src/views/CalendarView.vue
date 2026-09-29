@@ -52,7 +52,7 @@ type Project = { id: string; key: string; name: string }
 
 type ViewMode = 'day' | 'week' | 'month'
 
-/** Zeilenhöhe einer Stunde im Raster. Trägt die gesamte Geometrie. */
+/** The row height of one hour in the grid. Carries the whole geometry. */
 const HOUR = 52
 const DAY_MINUTES = 24 * 60
 
@@ -80,7 +80,7 @@ const form = ref({
 
 watch(view, (v) => localStorage.setItem('soloops.calendarView', v))
 
-// --- Zeitraum der aktuellen Ansicht ----------------------------------------
+// --- The period of the current view ----------------------------------------
 
 const days = computed<Date[]>(() => {
   if (view.value === 'day') return [anchor.value]
@@ -88,7 +88,7 @@ const days = computed<Date[]>(() => {
     const start = startOfWeek(anchor.value)
     return Array.from({ length: 7 }, (_, i) => addDays(start, i))
   }
-  // Monat: immer 6 volle Wochen, damit das Raster nicht springt
+  // Month: always 6 full weeks, so the grid does not jump around
   const first = startOfWeek(startOfMonth(anchor.value))
   return Array.from({ length: 42 }, (_, i) => addDays(first, i))
 })
@@ -109,7 +109,7 @@ const title = computed(() => {
 
 const subtitle = computed(() => {
   if (view.value === 'month') {
-    // Der Kalenderwochen-Bereich ist im Monat nützlicher als "6 Wochen".
+    // In month view the week-number range is more useful than "6 weeks".
     const first = isoWeek(days.value[0]!)
     const last = isoWeek(days.value[days.value.length - 1]!)
     return `KW ${first} – ${last}`
@@ -117,7 +117,7 @@ const subtitle = computed(() => {
   return `KW ${isoWeek(rangeFrom.value)}`
 })
 
-// --- Laden ------------------------------------------------------------------
+// --- Loading ----------------------------------------------------------------
 
 async function load() {
   loading.value = true
@@ -133,18 +133,18 @@ async function load() {
 
 watch([view, anchor], load)
 
-// Ansichtswechsel setzt den Blick zurück auf den Arbeitstag; Blättern innerhalb
-// einer Ansicht behält die Scrollposition, wie man es von Apple Kalender kennt.
+// Switching views resets the viewport to the working day; paging inside one
+// view keeps the scroll position, the way Apple Calendar behaves.
 watch(view, async () => {
   await nextTick()
   scrollToWorkday()
 })
 
-// --- Quellen und Farben -----------------------------------------------------
+// --- Sources and colours ----------------------------------------------------
 
 const sourceById = computed(() => new Map(sources.value.map((s) => [s.id, s])))
 
-/** Ein Termin gehört dem ersten verknüpften Konto, sonst dem lokalen Kalender. */
+/** An event belongs to the first linked account, otherwise to the local calendar. */
 function sourceOf(event: EventItem): Source {
   const accountId = event.links[0]?.accountId
   return (
@@ -161,9 +161,9 @@ function sourceOf(event: EventItem): Source {
 }
 
 /**
- * Die Farbe kommt vom Kalender, nicht vom Projekt: beim Blick auf die Woche
- * ist "woher stammt der Termin" die Frage, die man ohne Lesen beantwortet
- * haben will. Das Projekt steht als Kürzel im Termin.
+ * The colour comes from the calendar, not from the project: glancing at the
+ * week, "where does this event come from" is the question you want answered
+ * without reading. The project sits inside the event as a key.
  */
 function colorOf(event: EventItem): string {
   return sourceOf(event).color
@@ -178,7 +178,7 @@ function toggleSource(id: string) {
 
 const visibleEvents = computed(() => events.value.filter((e) => !hidden.value.has(sourceOf(e).id)))
 
-// --- Termine je Tag ---------------------------------------------------------
+// --- Events per day ---------------------------------------------------------
 
 function eventsOn(day: Date, opts: { allDay: boolean }): EventItem[] {
   const from = day.getTime()
@@ -190,13 +190,13 @@ function eventsOn(day: Date, opts: { allDay: boolean }): EventItem[] {
   })
 }
 
-/** Positionierte Termine einer Tagesspalte. */
+/** The positioned events of one day column. */
 function timedLayout(day: Date) {
   const dayStart = day.getTime()
   const items = eventsOn(day, { allDay: false }).map((e) => {
     const s = new Date(e.startsAt)
     const en = new Date(e.endsAt)
-    // Über Mitternacht laufende Termine an der Tagesgrenze kappen
+    // Clip events running past midnight at the day boundary
     const startMin = s.getTime() < dayStart ? 0 : minutesOfDay(s)
     const endMin =
       en.getTime() > dayStart + 86_400_000
@@ -205,7 +205,7 @@ function timedLayout(day: Date) {
     return {
       id: e.id,
       start: startMin,
-      // Mindesthöhe, damit 15-Minuten-Termine noch anklickbar bleiben
+      // A minimum height, so 15-minute events stay clickable
       end: Math.max(endMin, startMin + 20),
       event: e,
     }
@@ -228,7 +228,7 @@ function timedLayout(day: Date) {
 
 const hasAllDay = computed(() => days.value.some((d) => eventsOn(d, { allDay: true }).length > 0))
 
-// --- Jetzt-Linie ------------------------------------------------------------
+// --- The now line -----------------------------------------------------------
 
 let clock: ReturnType<typeof setInterval> | null = null
 
@@ -255,7 +255,7 @@ function openDay(day: Date) {
   view.value = 'day'
 }
 
-/** Beim Öffnen nicht bei Mitternacht stehen, sondern beim Arbeitstag. */
+/** Open on the working day rather than at midnight. */
 function scrollToWorkday() {
   if (!scroller.value) return
   const target = isSameDay(anchor.value, new Date())
@@ -264,14 +264,14 @@ function scrollToWorkday() {
   scroller.value.scrollTop = (target / 60) * HOUR
 }
 
-// --- Anlegen ----------------------------------------------------------------
+// --- Creating ---------------------------------------------------------------
 
 function localInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-/** Klick ins leere Raster: Formular mit der getroffenen Viertelstunde öffnen. */
+/** A click on empty grid: open the form at the quarter hour that was hit. */
 function slotClick(day: Date, event: MouseEvent) {
   const box = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const minutes = Math.floor((((event.clientY - box.top) / HOUR) * 60) / 15) * 15
@@ -314,7 +314,7 @@ async function remove(event: EventItem) {
   await load()
 }
 
-// --- Start ------------------------------------------------------------------
+// --- Startup ----------------------------------------------------------------
 
 onMounted(async () => {
   ;[sources.value, projects.value] = await Promise.all([
@@ -338,7 +338,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 <template>
   <div class="flex h-full flex-col bg-paper">
     <!-- ==================================================================== -->
-    <!-- Kopf                                                                  -->
+    <!-- Header                                                                -->
     <!-- ==================================================================== -->
     <header class="shrink-0 border-b border-line bg-shell px-6 py-3">
       <div class="flex flex-wrap items-center gap-4">
@@ -349,7 +349,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
           </h1>
         </div>
 
-        <!-- Blättern -->
+        <!-- Paging -->
         <div class="ml-2 flex items-center">
           <button
             class="flex h-8 w-8 items-center justify-center border border-line-strong transition-colors hover:bg-ink hover:text-paper"
@@ -373,7 +373,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
           </button>
         </div>
 
-        <!-- Ansicht -->
+        <!-- View -->
         <div class="flex items-center border border-line-strong">
           <button
             v-for="mode in ['day', 'week', 'month'] as ViewMode[]"
@@ -394,7 +394,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
         </div>
       </div>
 
-      <!-- Kalenderlegende: gleichzeitig Filter -->
+      <!-- The calendar legend, which doubles as a filter -->
       <div v-if="sources.length > 1" class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <button
           v-for="source in sources"
@@ -417,7 +417,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     </header>
 
     <!-- ==================================================================== -->
-    <!-- Monatsansicht                                                         -->
+    <!-- Month view                                                            -->
     <!-- ==================================================================== -->
     <div v-if="view === 'month'" class="flex min-h-0 flex-1 flex-col">
       <div class="grid shrink-0 grid-cols-7 border-b border-line bg-shell">
@@ -505,10 +505,10 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     </div>
 
     <!-- ==================================================================== -->
-    <!-- Tages- und Wochenansicht                                              -->
+    <!-- Day and week views                                                    -->
     <!-- ==================================================================== -->
     <div v-else class="flex min-h-0 flex-1 flex-col">
-      <!-- Spaltenköpfe -->
+      <!-- Column heads -->
       <div
         class="grid shrink-0 border-b border-line bg-shell pr-[10px]"
         :style="{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0, 1fr))` }"
@@ -533,7 +533,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
         </div>
       </div>
 
-      <!-- Ganztägig -->
+      <!-- All-day -->
       <div
         v-if="hasAllDay"
         class="grid max-h-24 shrink-0 overflow-y-auto border-b border-line-strong bg-paper-2/60 pr-[10px]"
@@ -560,7 +560,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
         </div>
       </div>
 
-      <!-- Zeitraster -->
+      <!-- The time grid -->
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto">
         <div
           class="relative grid"
@@ -569,7 +569,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             height: `${24 * HOUR}px`,
           }"
         >
-          <!-- Stundenachse -->
+          <!-- Hour axis -->
           <div class="relative">
             <div
               v-for="h in hours"
@@ -581,7 +581,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             </div>
           </div>
 
-          <!-- Tagesspalten -->
+          <!-- Day columns -->
           <div
             v-for="day in days"
             :key="day.toISOString()"
@@ -589,7 +589,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             :class="isWeekend(day) ? 'bg-ink/[0.015]' : ''"
             @click.self="slotClick(day, $event)"
           >
-            <!-- Stundenlinien; die halbe Stunde nur angedeutet -->
+            <!-- Hour lines; the half hour only hinted at -->
             <div
               v-for="h in hours"
               :key="h"
@@ -603,7 +603,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
               :style="{ top: `${h * HOUR + HOUR / 2}px` }"
             />
 
-            <!-- Termine -->
+            <!-- Events -->
             <button
               v-for="placed in timedLayout(day)"
               :key="placed.event.id"
@@ -632,7 +632,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
               </div>
             </button>
 
-            <!-- Jetzt -->
+            <!-- Now -->
             <div
               v-if="nowVisible && isSameDay(day, now)"
               class="pointer-events-none absolute inset-x-0 z-20 flex items-center"
@@ -643,7 +643,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
             </div>
           </div>
 
-          <!-- Jetzt-Marke auf der Achse -->
+          <!-- The now marker on the axis -->
           <div
             v-if="nowVisible"
             class="pointer-events-none absolute left-0 w-14 -translate-y-1/2 pr-2 text-right"
@@ -658,7 +658,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     </div>
 
     <!-- ==================================================================== -->
-    <!-- Termin-Detail                                                         -->
+    <!-- Event detail                                                          -->
     <!-- ==================================================================== -->
     <Teleport to="body">
       <div v-if="selected" class="fixed inset-0 z-50 flex items-center justify-center p-6">
@@ -745,7 +745,7 @@ const weekdayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     </Teleport>
 
     <!-- ==================================================================== -->
-    <!-- Neuer Termin                                                          -->
+    <!-- New event                                                             -->
     <!-- ==================================================================== -->
     <Teleport to="body">
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-6">

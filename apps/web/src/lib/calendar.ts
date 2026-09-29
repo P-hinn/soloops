@@ -1,4 +1,4 @@
-/** Datums- und Layout-Helfer für die Kalenderansichten. */
+/** Date and layout helpers for the calendar views. */
 
 export const MS_DAY = 86_400_000
 
@@ -21,7 +21,7 @@ export function addMonths(d: Date, n: number): Date {
   return c
 }
 
-/** Montag als Wochenanfang — deutsche Konvention. */
+/** Monday starts the week — the German convention. */
 export function startOfWeek(d: Date): Date {
   const c = startOfDay(d)
   c.setDate(c.getDate() - ((c.getDay() + 6) % 7))
@@ -52,12 +52,12 @@ export function isWeekend(d: Date): boolean {
 }
 
 /**
- * Kalendertag als YYYY-MM-DD.
+ * A calendar day as YYYY-MM-DD.
  *
- * Ganztägige Termine sind Datumsangaben ohne Zeitpunkt; gespeichert werden sie
- * als UTC-Mitternacht. Vergleicht man sie gegen lokale Tagesgrenzen, ragt jeder
- * von ihnen in den Folgetag hinein (bei UTC+2 um zwei Stunden). Deshalb wird
- * hier auf Datumsebene verglichen statt auf Zeitpunkten.
+ * All-day events are dates without a time; they are stored as UTC midnight.
+ * Compare them against local day boundaries and every one of them spills into
+ * the next day (by two hours at UTC+2). So the comparison happens at the date
+ * level rather than on instants.
  */
 export function dayKeyLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -68,7 +68,7 @@ export function dayKeyUtc(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-/** DTEND ist bei Ganztägigem exklusiv: 25.->26. bedeutet nur den 25. */
+/** For all-day events DTEND is exclusive: 25th->26th means only the 25th. */
 export function allDayCoversDay(startsAt: Date, endsAt: Date, day: Date): boolean {
   const key = dayKeyLocal(day)
   const from = dayKeyUtc(startsAt)
@@ -76,7 +76,7 @@ export function allDayCoversDay(startsAt: Date, endsAt: Date, day: Date): boolea
   return key >= from && (key < to || from === to)
 }
 
-/** Minuten seit Mitternacht — Basis für die Positionierung im Zeitraster. */
+/** Minutes since midnight — the basis for positioning in the time grid. */
 export function minutesOfDay(d: Date): number {
   return d.getHours() * 60 + d.getMinutes()
 }
@@ -89,29 +89,29 @@ export const fmtDate = (d: Date) => d.toLocaleDateString('de-DE')
 export const fmtMonthYear = (d: Date) =>
   d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
 
-/** ISO-Kalenderwoche (DIN 1355 / ISO 8601). */
+/** ISO week number (DIN 1355 / ISO 8601). */
 export function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  // Donnerstag der laufenden Woche bestimmt das Jahr
+  // The Thursday of the current week determines the year
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
   return Math.ceil(((d.getTime() - yearStart.getTime()) / MS_DAY + 1) / 7)
 }
 
 // ---------------------------------------------------------------------------
-// Überlappungs-Layout
+// Overlap layout
 // ---------------------------------------------------------------------------
 
 export type Placeable = { id: string; start: number; end: number }
 export type Placed<T> = { item: T; column: number; columns: number }
 
 /**
- * Verteilt sich überlappende Termine nebeneinander — wie in Apple Kalender.
+ * Lays overlapping events out side by side — the way Apple Calendar does.
  *
- * Zwei Durchgänge: erst werden Termine zu Clustern gruppiert, die sich
- * transitiv überschneiden, dann bekommt jeder Termin im Cluster die erste
- * freie Spalte. Die Spaltenzahl gilt für das ganze Cluster, damit die
- * Kacheln bündig sind statt unterschiedlich breit.
+ * Two passes: first events are grouped into clusters that overlap
+ * transitively, then every event in a cluster takes the first free column.
+ * The column count applies to the whole cluster, so the tiles line up
+ * instead of varying in width.
  */
 export function layoutOverlaps<T extends Placeable>(items: T[]): Placed<T>[] {
   const sorted = [...items].sort((a, b) => a.start - b.start || b.end - a.end)
@@ -122,7 +122,7 @@ export function layoutOverlaps<T extends Placeable>(items: T[]): Placed<T>[] {
 
   const flush = () => {
     if (!cluster.length) return
-    // Spaltenbelegung: pro Spalte das Ende des letzten Termins
+    // Column occupancy: per column, the end of the last event
     const columnEnds: number[] = []
     const assigned = cluster.map((item) => {
       let column = columnEnds.findIndex((end) => end <= item.start)
@@ -140,8 +140,8 @@ export function layoutOverlaps<T extends Placeable>(items: T[]): Placed<T>[] {
   }
 
   for (const item of sorted) {
-    // Mindestens 1 Minute Überlappung, damit direkt anschließende Termine
-    // nicht künstlich nebeneinander landen.
+    // At least a minute of overlap, so that back-to-back events do not end
+    // up side by side for no reason.
     if (item.start >= clusterEnd) flush()
     cluster.push(item)
     clusterEnd = Math.max(clusterEnd, item.end)
@@ -152,10 +152,10 @@ export function layoutOverlaps<T extends Placeable>(items: T[]): Placed<T>[] {
 }
 
 // ---------------------------------------------------------------------------
-// Farben
+// Colours
 // ---------------------------------------------------------------------------
 
-/** #rrggbb -> rgba(...) mit Alpha, für Füllungen auf Papier. */
+/** #rrggbb -> rgba(...) with alpha, for fills on paper. */
 export function withAlpha(hex: string, alpha: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
   if (!m) return hex
@@ -164,8 +164,8 @@ export function withAlpha(hex: string, alpha: number): string {
 }
 
 /**
- * Lesbare Textfarbe zu einer Hintergrundfarbe (WCAG-Relativluminanz).
- * Bei Acid als Kalenderfarbe wäre weißer Text unlesbar.
+ * A readable text colour for a background (WCAG relative luminance).
+ * With acid as the calendar colour, white text would be unreadable.
  */
 export function readableOn(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
@@ -180,11 +180,11 @@ export function readableOn(hex: string): string {
 }
 
 /**
- * Flächenstil eines Termins zu einer Kalenderfarbe.
+ * The surface style of an event for a given calendar colour.
  *
- * Eine feste Deckkraft funktioniert nicht für beide Enden der Palette: Acid
- * bei 16 % verschwindet auf Papier, Tinte bei 45 % wird zum schwarzen Klotz.
- * Deshalb entscheidet die Helligkeit über Füllung und Textfarbe.
+ * A fixed opacity does not work for both ends of the palette: acid at 16 %
+ * disappears on paper, ink at 45 % turns into a black slab. So lightness
+ * decides the fill and the text colour.
  */
 export function chipStyle(color: string): {
   background: string
@@ -195,7 +195,7 @@ export function chipStyle(color: string): {
   return {
     background: withAlpha(color, isLight ? 0.5 : 0.14),
     borderColor: color,
-    // Helle Farben taugen nicht als Schrift auf Papier — dann Tinte.
+    // Light colours are no good as type on paper — use ink instead.
     color: isLight ? '#171714' : color,
   }
 }

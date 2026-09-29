@@ -5,8 +5,8 @@ export const prisma = new PrismaClient({
 })
 
 /**
- * Volltextsuche für Notizen, Meetings und Mails. Prisma kennt tsvector nicht,
- * darum legen wir die GIN-Indizes einmalig beim Start an.
+ * Full-text search for notes, meetings and mail. Prisma has no notion of
+ * tsvector, so the GIN indexes are created once at startup.
  */
 export async function ensureSearchIndexes(): Promise<void> {
   const statements = [
@@ -28,7 +28,7 @@ export async function ensureSearchIndexes(): Promise<void> {
   }
 }
 
-/** BigInt (UptimeRobot-IDs) ist nicht JSON-serialisierbar — global patchen. */
+/** BigInt (UptimeRobot ids) is not JSON-serializable — patch it globally. */
 Object.defineProperty(BigInt.prototype, 'toJSON', {
   value: function (this: bigint) {
     return this.toString()

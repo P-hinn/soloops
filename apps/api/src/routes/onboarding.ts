@@ -4,11 +4,11 @@ import { prisma } from '../db.js'
 import { env } from '../env.js'
 
 /**
- * Einrichtungsstand — abgeleitet aus dem, was wirklich da ist.
+ * Setup progress — derived from what is actually there.
  *
- * Bewusst keine abhakbaren Häkchen: eine Checkliste, die man selbst abhaken
- * kann, sagt nach zwei Wochen nichts mehr über den tatsächlichen Zustand aus.
- * Jeder Schritt hier fragt die Datenbank oder die Konfiguration.
+ * Deliberately no boxes you can tick: a checklist you tick yourself stops
+ * saying anything about the real state of things after two weeks. Every step
+ * here asks the database or the configuration.
  */
 
 type Step = {
@@ -16,10 +16,10 @@ type Step = {
   title: string
   why: string
   done: boolean
-  /** Ohne diesen Schritt fehlt dem Werkzeug ein Kernstück. */
+  /** Without this step the tool is missing something essential. */
   essential: boolean
   action: { label: string; url: string } | null
-  /** Was zu tun ist, wenn es nicht in der UI geht (z.B. .env). */
+  /** What to do when the UI cannot do it (the .env, for instance). */
   hint?: string
 }
 
@@ -69,8 +69,8 @@ const routes: FastifyPluginAsync = async (app) => {
       flag(SETTING_TOUR_SEEN),
     ])
 
-    // Rechnungen brauchen eine vollständige Absenderadresse — sonst ist das PDF
-    // formal unbrauchbar. Steuernummer *oder* USt-IdNr. reicht.
+    // Invoices need a complete sender address — without one the PDF is
+    // formally useless. Either a tax number *or* a VAT id will do.
     const companyComplete =
       !!env.COMPANY_STREET &&
       !!env.COMPANY_ZIP &&
@@ -172,7 +172,7 @@ const routes: FastifyPluginAsync = async (app) => {
       total: steps.length,
       essentialDone: essential.filter((s) => s.done).length,
       essentialTotal: essential.length,
-      /** Der nächste sinnvolle Schritt: Pflicht vor Kür. */
+      /** The next sensible step: the necessary before the nice-to-have. */
       next: (essential.find((s) => !s.done) ?? steps.find((s) => !s.done))?.id ?? null,
     }
   })

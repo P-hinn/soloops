@@ -202,14 +202,14 @@ onMounted(async () => {
           </button>
 
           <div v-if="open === mail.id" class="border-t border-line bg-raised p-4">
-            <!-- Klartext, nie gerendert: der Inhalt kommt von außen. -->
+            <!-- Plain text, never rendered: the content comes from outside. -->
             <p class="mb-4 max-h-64 overflow-y-auto whitespace-pre-line text-sm">
               {{ mail.snippet }}
             </p>
 
-            <!-- Was die AI beim Einlesen über eine mögliche neue Anfrage
-                 notiert hat. Ein Vorschlag, kein Lead — angelegt wird er
-                 erst über den Knopf unten. -->
+            <!-- What the AI noted about a possible new enquiry while
+                 reading. A suggestion, not a lead — it is created through
+                 the button below. -->
             <div
               v-if="mail.leadSuggestion && !mail.lead"
               class="mb-4 border-l-2 border-acid bg-raised p-3"

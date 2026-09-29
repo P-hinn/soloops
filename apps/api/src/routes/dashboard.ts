@@ -6,7 +6,7 @@ import { listEventsInRange } from '../services/calendarRead.js'
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  /** Ein Aufruf, ein Bild: Termine, Timer, Betrieb, Geld, offene Punkte. */
+  /** One call, one picture: events, timer, operations, money, action items. */
   app.get('/', async () => {
     const now = new Date()
     const todayStart = new Date(now)
@@ -35,8 +35,8 @@ const routes: FastifyPluginAsync = async (app) => {
       openActions,
       activeProjects,
     ] = await Promise.all([
-      // Derselbe Leser wie im Kalender — sonst meldet das Dashboard einen
-      // freien Tag, an dem der Kalender Serientermine zeigt.
+      // The same reader the calendar uses — otherwise the dashboard reports a
+      // free day on which the calendar shows recurring events.
       listEventsInRange(todayStart, weekEnd, { take: 120 }),
       listEventsInRange(todayStart, todayEnd),
       prisma.meeting.findMany({
@@ -118,8 +118,8 @@ const routes: FastifyPluginAsync = async (app) => {
         })),
       },
       ops: { monitorsDown, failedRuns },
-      // Aus demselben Service wie die Leads-Ansicht — sonst zeigen Kachel und
-      // Pipeline unterschiedliche Zahlen.
+      // From the same service as the leads view — otherwise the tile and the
+      // pipeline would show different numbers.
       sales,
       openActions,
       activeProjects,

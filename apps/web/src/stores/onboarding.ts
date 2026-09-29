@@ -34,7 +34,7 @@ export const useOnboarding = defineStore('onboarding', () => {
   async function load() {
     state.value = await api.get<Onboarding>('/api/onboarding')
     loaded.value = true
-    // Tour beim allerersten Login von selbst öffnen — danach nur auf Wunsch.
+    // Open the tour by itself on the very first login — after that on request.
     if (!state.value.tourSeen) tourOpen.value = true
   }
 

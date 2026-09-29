@@ -1,11 +1,11 @@
 /**
- * Minimaler iCalendar-Parser für den CalDAV-Sync.
+ * A minimal iCalendar parser for the CalDAV sync.
  *
- * Deckt bewusst nur ab, was für Termine gebraucht wird: VEVENT mit SUMMARY,
- * DTSTART/DTEND (inkl. TZID und VALUE=DATE), DESCRIPTION, LOCATION, UID,
- * LAST-MODIFIED, SEQUENCE und die Konferenz-URL. RRULE wird erkannt, aber
- * nicht expandiert — solche Termine markieren wir als Serie und schreiben sie
- * nie zurück (siehe calendarSync.ts).
+ * Deliberately covers only what events need: VEVENT with SUMMARY,
+ * DTSTART/DTEND (including TZID and VALUE=DATE), DESCRIPTION, LOCATION, UID,
+ * LAST-MODIFIED, SEQUENCE and the conference URL. RRULE is recognised but not
+ * expanded — those events are marked as a series and never written back
+ * (see calendarSync.ts).
  */
 
 import { utcOf } from './tz.js'
@@ -22,17 +22,17 @@ export type ParsedEvent = {
   videoUrl: string | null
   lastModified: Date | null
   sequence: number
-  /** Rohe RRULE, falls vorhanden — wird beim Lesen aufgespannt. */
+  /** The raw RRULE if there is one — expanded on read. */
   rrule: string | null
-  /** TZID von DTSTART. Serien müssen in ihrer Zone gerechnet werden. */
+  /** DTSTART's TZID. Series have to be computed in their own zone. */
   timeZone: string | null
-  /** EXDATE-Einträge: ausgenommene Starttermine. */
+  /** EXDATE entries: excluded start times. */
   exDates: Date[]
-  /** Gesetzt, wenn dieser VEVENT eine einzelne Instanz überschreibt. */
+  /** Set when this VEVENT overrides a single instance. */
   recurrenceId: Date | null
 }
 
-/** Zeilen entfalten: Fortsetzungen beginnen mit Space oder Tab (RFC 5545 §3.1). */
+/** Unfold lines: continuations start with a space or tab (RFC 5545 §3.1). */
 function unfold(raw: string): string[] {
   const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   const out: string[] = []
@@ -70,7 +70,7 @@ function parseProp(line: string): Prop | null {
   return { name: (name ?? '').toUpperCase(), params, value }
 }
 
-/** Doppelpunkte innerhalb von Anführungszeichen zählen nicht als Trenner. */
+/** Colons inside quotes do not count as separators. */
 function indexOfUnquoted(text: string, char: string): number {
   let quoted = false
   for (let i = 0; i < text.length; i++) {
@@ -81,11 +81,11 @@ function indexOfUnquoted(text: string, char: string): number {
   return -1
 }
 
-/** DTSTART/DTEND in allen drei Schreibweisen. */
+/** DTSTART/DTEND in all three notations. */
 export function parseIcsDate(prop: Prop): { date: Date; allDay: boolean } | null {
   const value = prop.value.trim()
 
-  // VALUE=DATE:20260811 — ganztägig
+  // VALUE=DATE:20260811 — all-day
   if (prop.params.VALUE === 'DATE' || /^\d{8}$/.test(value)) {
     const y = Number(value.slice(0, 4))
     const mo = Number(value.slice(4, 6))
@@ -111,14 +111,14 @@ export function parseIcsDate(prop: Prop): { date: Date; allDay: boolean } | null
     try {
       return { date: utcOf({ y, mo, d, h, mi, s }, tzid), allDay: false }
     } catch {
-      // Unbekannte TZID: als UTC lesen statt den Termin zu verlieren.
+      // Unknown TZID: read it as UTC rather than lose the event.
     }
   }
-  // Floating time: als UTC behandeln.
+  // Floating time: treat it as UTC.
   return { date: new Date(Date.UTC(y, mo - 1, d, h, mi, s)), allDay: false }
 }
 
-/** Nimmt eine .ics-Ressource und liefert alle enthaltenen VEVENTs. */
+/** Takes an .ics resource and returns every VEVENT it contains. */
 export function parseIcs(raw: string): ParsedEvent[] {
   const lines = unfold(raw)
   const events: ParsedEvent[] = []
@@ -158,7 +158,7 @@ function buildEvent(props: Prop[]): ParsedEvent | null {
   let end = dtend ? parseIcsDate(dtend) : null
 
   if (!end) {
-    // DURATION statt DTEND, oder gar nichts: sinnvoll ergänzen.
+    // DURATION instead of DTEND, or nothing at all: fill in something sane.
     const duration = get('DURATION')?.value
     const ms = duration ? parseDuration(duration) : null
     end = {
@@ -167,7 +167,7 @@ function buildEvent(props: Prop[]): ParsedEvent | null {
     }
   }
 
-  // Konferenz-URL: CONFERENCE (RFC 7986), X-GOOGLE-CONFERENCE oder aus dem Text.
+  // Conference URL: CONFERENCE (RFC 7986), X-GOOGLE-CONFERENCE or from the text.
   const description = get('DESCRIPTION')?.value ? unescapeText(get('DESCRIPTION')!.value) : null
   const videoUrl =
     get('X-GOOGLE-CONFERENCE')?.value?.trim() ||
@@ -208,7 +208,7 @@ function buildEvent(props: Prop[]): ParsedEvent | null {
   }
 }
 
-/** ISO-8601-Dauer, wie sie in DURATION steht: PT1H30M, P1D … */
+/** An ISO 8601 duration as it appears in DURATION: PT1H30M, P1D … */
 function parseDuration(value: string): number | null {
   const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(
     value.trim().toUpperCase(),
@@ -238,7 +238,7 @@ function findMeetingUrl(text: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Schreibrichtung: einen lokalen Termin als .ics-Ressource ausgeben
+// The writing direction: emit a local event as an .ics resource
 // ---------------------------------------------------------------------------
 
 function escapeText(text: string): string {
@@ -276,7 +276,7 @@ export type IcsEventInput = {
   updatedAt: Date
 }
 
-/** Eine vollständige VCALENDAR-Ressource mit genau einem VEVENT. */
+/** A complete VCALENDAR resource with exactly one VEVENT. */
 export function buildEventIcs(event: IcsEventInput, sequence = 0): string {
   const description = [event.description, event.videoUrl ? `Videoraum: ${event.videoUrl}` : null]
     .filter(Boolean)

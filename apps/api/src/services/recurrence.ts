@@ -1,17 +1,17 @@
 import { utcOf, wallOf, type Wall } from './tz.js'
 
 /**
- * RRULE-Expansion (RFC 5545, praxisnahe Teilmenge).
+ * RRULE expansion (RFC 5545, the subset that comes up in practice).
  *
- * Gerechnet wird in der Ursprungszone der Serie, nicht in Millisekunden:
- * "jeden Montag 10 Uhr" bleibt sonst über die Zeitumstellung hinweg nicht
- * 10 Uhr. Deshalb wandern wir in Kalendereinheiten durch die Wanduhrzeit und
- * rechnen erst am Ende nach UTC.
+ * The arithmetic happens in the series' original zone, not in milliseconds:
+ * otherwise "every Monday at 10" stops being 10 o'clock across a daylight
+ * saving change. So we walk through wall-clock time in calendar units and
+ * only convert to UTC at the very end.
  *
- * Unterstützt: FREQ=DAILY|WEEKLY|MONTHLY|YEARLY, INTERVAL, COUNT, UNTIL,
- * BYDAY (mit Ordinal, z.B. -1FR), BYMONTHDAY, BYMONTH, BYSETPOS (±1).
- * Nicht unterstützt: BYWEEKNO, BYYEARDAY, BYHOUR/BYMINUTE. Solche Regeln
- * liefern die Serienstart-Instanz und werden nicht weiter aufgefächert.
+ * Supported: FREQ=DAILY|WEEKLY|MONTHLY|YEARLY, INTERVAL, COUNT, UNTIL,
+ * BYDAY (with an ordinal, e.g. -1FR), BYMONTHDAY, BYMONTH, BYSETPOS (±1).
+ * Not supported: BYWEEKNO, BYYEARDAY, BYHOUR/BYMINUTE. Rules like that yield
+ * the starting instance and are not expanded any further.
  */
 
 const WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const
@@ -71,9 +71,9 @@ export function parseRRule(rrule: string): ParsedRule {
     })
     .filter((v): v is { ordinal: number | null; weekday: number } => v !== null)
 
-  // Achtung: ''.split(',') liefert [''] und Number('') ist 0. Ohne das
-  // Herausfiltern leerer Teile wird aus einem fehlenden BYMONTHDAY ein [0] —
-  // und der Monatszweig sucht dann nach dem nullten Tag des Monats.
+  // Careful: ''.split(',') yields [''] and Number('') is 0. Without filtering
+  // the empty parts out, a missing BYMONTHDAY turns into [0] — and the
+  // monthly branch then goes looking for the zeroth day of the month.
   const numbers = (key: string) =>
     (parts.get(key) ?? '')
       .split(',')
@@ -98,12 +98,12 @@ function daysInMonth(y: number, mo: number): number {
   return new Date(Date.UTC(y, mo, 0)).getUTCDate()
 }
 
-/** Wochentag (0=So) eines Kalendertags, unabhängig von Zonen. */
+/** Weekday (0=Sun) of a calendar day, independent of any zone. */
 function weekdayOf(y: number, mo: number, d: number): number {
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay()
 }
 
-/** Alle Tage eines Monats, die auf einen der BYDAY-Wochentage fallen. */
+/** Every day of a month that falls on one of the BYDAY weekdays. */
 function monthDaysMatchingByDay(y: number, mo: number, rule: ParsedRule): number[] {
   const out: number[] = []
   const total = daysInMonth(y, mo)
@@ -123,7 +123,7 @@ function monthDaysMatchingByDay(y: number, mo: number, rule: ParsedRule): number
   return [...new Set(out)].sort((a, b) => a - b)
 }
 
-/** BYSETPOS wählt aus den Kandidaten eines Zeitraums (z.B. "letzter Werktag"). */
+/** BYSETPOS picks from a period's candidates (e.g. "last working day"). */
 function applySetPos(days: number[], rule: ParsedRule): number[] {
   if (!rule.bySetPos.length) return days
   const picked = rule.bySetPos
@@ -135,10 +135,10 @@ function applySetPos(days: number[], rule: ParsedRule): number[] {
 export type Occurrence = { start: Date; end: Date }
 
 /**
- * Termine einer Serie im Fenster [windowStart, windowEnd).
+ * A series' occurrences inside the window [windowStart, windowEnd).
  *
- * `exDates` sind die ausgenommenen Starttermine (EXDATE und überschriebene
- * Einzeltermine per RECURRENCE-ID).
+ * `exDates` are the excluded start times (EXDATE and single instances
+ * overridden through RECURRENCE-ID).
  */
 export function expandRecurrence(opts: {
   rrule: string
@@ -148,14 +148,14 @@ export function expandRecurrence(opts: {
   exDates?: Date[]
   windowStart: Date
   windowEnd: Date
-  /** Notbremse gegen fehlerhafte Regeln. */
+  /** Emergency brake against malformed rules. */
   maxOccurrences?: number
 }): Occurrence[] {
   const rule = parseRRule(opts.rrule)
   const max = opts.maxOccurrences ?? 800
   const out: Occurrence[] = []
 
-  // Ohne erkannte Frequenz nur die Ursprungsinstanz — besser als raten.
+  // With no recognised frequency, just the original instance — better than guessing.
   if (!rule.freq) {
     return withinWindow(
       [{ start: opts.dtstart, end: new Date(opts.dtstart.getTime() + opts.durationMs) }],
@@ -167,7 +167,7 @@ export function expandRecurrence(opts: {
   const base = wallOf(opts.dtstart, opts.timeZone)
   const hardEnd = rule.until && rule.until < opts.windowEnd ? rule.until : opts.windowEnd
 
-  let emitted = 0 // zählt ALLE Instanzen seit dtstart, für COUNT
+  let emitted = 0 // counts ALL instances since dtstart, for COUNT
   let iterations = 0
 
   const emit = (w: Wall): 'continue' | 'stop' => {
@@ -202,7 +202,7 @@ export function expandRecurrence(opts: {
       ? [...new Set(rule.byDay.map((b) => b.weekday))].sort((a, b) => a - b)
       : [weekdayOf(base.y, base.mo, base.d)]
 
-    // Montag der Startwoche als Anker
+    // The Monday of the starting week as the anchor
     const startWeekday = weekdayOf(base.y, base.mo, base.d)
     const anchor = new Date(Date.UTC(base.y, base.mo - 1, base.d))
     anchor.setUTCDate(anchor.getUTCDate() - ((startWeekday + 6) % 7))
@@ -227,7 +227,7 @@ export function expandRecurrence(opts: {
         break
     }
   } else {
-    // MONTHLY und YEARLY teilen sich die Kandidatenlogik pro Monat.
+    // MONTHLY and YEARLY share the per-month candidate logic.
     const stepMonths = rule.freq === 'MONTHLY' ? rule.interval : rule.interval * 12
     let y = base.y
     let mo = base.mo
@@ -244,9 +244,9 @@ export function expandRecurrence(opts: {
             .filter((d) => d >= 1 && d <= daysInMonth(y, month))
             .sort((a, b) => a - b)
         } else {
-          // Ohne BY-Regel: derselbe Monatstag wie der Serienstart.
-          // Der 31. existiert nicht in jedem Monat — solche Monate fallen aus,
-          // genau wie es RFC 5545 vorschreibt.
+          // Without a BY rule: the same day of the month as the series start.
+          // The 31st does not exist in every month — those months are skipped,
+          // exactly as RFC 5545 prescribes.
           candidates = base.d <= daysInMonth(y, month) ? [base.d] : []
         }
 

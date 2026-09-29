@@ -20,7 +20,7 @@ const routes: FastifyPluginAsync = async (app) => {
       .parse(req.query)
 
     if (q.q) {
-      // Volltext über den GIN-Index (siehe db.ts)
+      // Full text through the GIN index (see db.ts)
       const rows = await prisma.$queryRaw<{ id: string }[]>`
         SELECT id
         FROM "Note"

@@ -1,12 +1,12 @@
-# Ein Image für alle Node-Workspaces (api, worker, web, mcp).
-# Der jeweilige Startbefehl kommt aus docker-compose.yml.
+# One image for every Node workspace (api, worker, web, mcp).
+# The start command for each comes from docker-compose.yml.
 #
-# Stufen:
-#   base       Node + alle Workspaces + generierter Prisma-Client. Die
-#              Entwicklungs-Compose mountet den Quellcode darüber.
-#   web-build  baut das Vue-Bundle nach apps/web/dist
-#   web        nginx, liefert das Bundle aus und proxyt /api an die API
-#   runtime    schlanke Laufzeit für api/worker/mcp im Produktivbetrieb
+# Stages:
+#   base       Node + all workspaces + a generated Prisma client. The
+#              development compose mounts the source on top of it.
+#   web-build  builds the Vue bundle into apps/web/dist
+#   web        nginx, serves the bundle and proxies /api to the API
+#   runtime    a lean runtime for api/worker/mcp in production
 
 FROM node:22-bookworm-slim AS base
 
@@ -16,7 +16,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Nur die Manifeste kopieren -> npm-Layer bleibt gecached
+# Copy the manifests only -> the npm layer stays cached
 COPY package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
@@ -24,7 +24,7 @@ COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY apps/mcp/package.json apps/mcp/
 
-# Cache im selben Layer wegräumen — sonst bleiben ~900 MB Tarballs im Image
+# Clear the cache in the same layer — otherwise ~900 MB of tarballs remain
 RUN npm install && npm cache clean --force
 
 COPY . .
@@ -35,9 +35,9 @@ ENV NODE_ENV=development
 EXPOSE 3000 5173
 
 
-# --- Web-Bundle ------------------------------------------------------------
-# `build:only` statt `build`: vue-tsc braucht mehr Speicher als ein kleiner
-# Server hat, und der Typecheck läuft ohnehin in `npm run check`.
+# --- Web bundle ------------------------------------------------------------
+# `build:only` instead of `build`: vue-tsc needs more memory than a small
+# server has, and the type check runs in `npm run check` anyway.
 FROM base AS web-build
 RUN NODE_OPTIONS=--max-old-space-size=768 npm -w @soloops/web run build:only
 

@@ -37,7 +37,7 @@ const money = (cents: number, currency: string) =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(cents / 100)
 const date = (d: Date) => d.toLocaleDateString('de-DE')
 
-/** DIN-5008-nahes Layout, ohne Headless-Browser. */
+/** A layout close to DIN 5008, without a headless browser. */
 export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   const doc = new PDFDocument({ size: 'A4', margin: 50 })
   const chunks: Buffer[] = []
@@ -47,7 +47,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   const left = 50
   const right = 545
 
-  // Absender
+  // Sender
   doc.fontSize(16).font('Helvetica-Bold').text(env.COMPANY_NAME, left, 50)
   doc
     .fontSize(8)
@@ -62,10 +62,10 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     )
   doc.fillColor('#000')
 
-  // Empfänger
+  // Recipient
   const recipient = [
     invoice.client.company ?? invoice.client.name,
-    // Ansprechpartner nur, wenn er nicht identisch mit der Firma ist
+    // Contact person only when it differs from the company name
     invoice.client.company && invoice.client.company !== invoice.client.name
       ? invoice.client.name
       : null,
@@ -75,7 +75,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   ].filter(Boolean) as string[]
   doc.fontSize(11).font('Helvetica').text(recipient.join('\n'), left, 130)
 
-  // Metablock rechts
+  // Meta block on the right
   const metaTop = 130
   doc.fontSize(9).font('Helvetica')
   const meta: [string, string][] = [
@@ -91,7 +91,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     doc.fillColor('#000').text(value, 440, metaTop + i * 14, { width: 105, align: 'right' })
   })
 
-  // Titel
+  // Title
   doc.fontSize(18).font('Helvetica-Bold').text(`Rechnung ${invoice.number}`, left, 235)
   let y = 265
   if (invoice.intro) {
@@ -102,7 +102,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     y = doc.y + 12
   }
 
-  // Tabellenkopf
+  // Table head
   const cols = { pos: left, desc: left + 28, qty: 330, price: 400, sum: 470 }
   doc.fontSize(9).font('Helvetica-Bold').fillColor('#000')
   doc.text('Pos', cols.pos, y)
@@ -135,7 +135,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     y += Math.max(descHeight, 12) + 8
   }
 
-  // Summen
+  // Totals
   y += 4
   doc.moveTo(330, y).lineTo(right, y).strokeColor('#ccc').stroke()
   y += 8
@@ -169,7 +169,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     y = doc.y + 8
   }
 
-  // Fußzeile
+  // Footer
   const footer = [
     [env.COMPANY_NAME, env.COMPANY_STREET, `${env.COMPANY_ZIP} ${env.COMPANY_CITY}`.trim()]
       .filter(Boolean)

@@ -4,11 +4,11 @@ import type { MailAccount } from '@prisma/client'
 import { open } from './secretbox.js'
 
 /**
- * IMAP-Zugriff — ausschließlich lesend.
+ * IMAP access — read-only, strictly.
  *
- * Es gibt hier bewusst kein Löschen, kein Verschieben und kein Setzen von
- * Flags: soloops soll das Postfach auswerten, nicht verwalten. Wer Mails
- * sortiert, tut das im Mailclient, und der nächste Lauf sieht dasselbe.
+ * There is deliberately no delete, no move and no flag setting here: soloops
+ * is meant to read the mailbox, not manage it. You sort your mail in your
+ * mail client, and the next run sees the same thing.
  */
 
 export type FetchedMail = {
@@ -30,7 +30,7 @@ export type FolderFetch = {
   messages: FetchedMail[]
 }
 
-/** Alles, was für eine IMAP-Anmeldung nötig ist — auch ohne DB-Zeile. */
+/** Everything an IMAP login needs — including without a database row. */
 export type ImapCredentials = Pick<
   MailAccount,
   'imapHost' | 'imapPort' | 'imapSecure' | 'imapUser' | 'imapPassEnc'
@@ -42,13 +42,13 @@ function client(account: ImapCredentials): ImapFlow {
     port: account.imapPort,
     secure: account.imapSecure,
     auth: { user: account.imapUser, pass: open(account.imapPassEnc) },
-    // Der eingebaute Logger schreibt jede IMAP-Zeile nach stdout, inklusive
-    // Betreffzeilen. Im Worker-Log hat das nichts zu suchen.
+    // The built-in logger writes every IMAP line to stdout, subject lines
+    // included. That has no business being in the worker log.
     logger: false,
   })
 }
 
-/** Verbindung und Anmeldung prüfen, ohne etwas zu holen. */
+/** Check connection and login without fetching anything. */
 export async function testConnection(
   account: ImapCredentials,
 ): Promise<{ ok: true; folders: string[] } | { ok: false; error: string }> {
@@ -65,15 +65,15 @@ export async function testConnection(
 }
 
 /**
- * Holt neue Nachrichten aus allen konfigurierten Ordnern.
+ * Fetches new messages from every configured folder.
  *
- * `states` enthält je Ordner den Stand des letzten Laufs. Stimmt die
- * UIDVALIDITY nicht mehr, hat der Server die Nummerierung neu vergeben — dann
- * sind alle gemerkten UIDs wertlos und es wird ab `since` neu aufgesetzt.
+ * `states` holds the last run's position per folder. If the UIDVALIDITY no
+ * longer matches, the server reassigned the numbering — then every
+ * remembered UID is worthless and we start over from `since`.
  *
- * `since` ist die Untergrenze des Erstlaufs und jedes Neuaufsetzens. Sie kommt
- * vom Aufrufer, weil sie nicht nur am Konto hängt, sondern auch an der
- * globalen Grenze aus der Konfiguration.
+ * `since` is the floor for the first run and for every reset. It comes from
+ * the caller, because it depends not only on the account but also on the
+ * global floor from the configuration.
  */
 export async function fetchNew(
   account: MailAccount,
@@ -102,17 +102,16 @@ export async function fetchNew(
           : { uid: `${(lastUid + 1n).toString()}:*` }
 
         const messages: FetchedMail[] = []
-        // Der Zeiger darf nur so weit wandern, wie tatsächlich abgearbeitet
-        // wurde. Zieht man ihn schon beim Ansehen hoch, überspringt ein
-        // Abbruch — Limit, kaputte Nachricht, Verbindungsfehler — alles
-        // Dazwischenliegende für immer.
+        // The cursor may only move as far as we actually got. Advance it
+        // while merely looking, and any abort — a limit, a broken message, a
+        // connection error — skips everything in between for good.
         let processed = lastUid
 
         if (range) {
           for await (const msg of imap.fetch(range, { uid: true, source: true })) {
             const uid = BigInt(msg.uid)
-            // Bei `uid: "n:*"` liefert IMAP mindestens eine Nachricht zurück,
-            // auch wenn es nichts Neues gibt — die letzte bekannte. Überspringen.
+            // With `uid: "n:*"` IMAP returns at least one message even when
+            // there is nothing new — the last known one. Skip it.
             if (uid <= lastUid) continue
 
             if (msg.source) {
@@ -138,20 +137,20 @@ export async function fetchNew(
 }
 
 /**
- * Welchen Ausschnitt holt der allererste Lauf — und jeder nach einem
- * UIDVALIDITY-Wechsel?
+ * Which slice does the very first run fetch — and every run after a
+ * UIDVALIDITY change?
  *
- * Eigentlich die Datumssuche, denn genau das meint `since`. Nicht jeder
- * Server beantwortet sie aber: Strato liefert auf SINCE null Treffer, auch
- * für Zeiträume, in denen nachweislich Mail liegt. Ein leeres Ergebnis ist
- * deshalb kein Beleg dafür, dass nichts da ist — wer es als solchen nimmt,
- * fängt bei UID 1 an und arbeitet sich in 200er-Schritten durch ein
- * Jahrzehnt Archiv, bevor die erste aktuelle Mail ankommt.
+ * The date search, in principle, because that is what `since` means. Not
+ * every server answers it though: Strato returns zero hits for SINCE, even
+ * for periods that demonstrably hold mail. An empty result is therefore no
+ * proof that there is nothing — take it as one and you start at UID 1 and
+ * work through a decade of archive in steps of 200 before the first current
+ * mail arrives.
  *
- * Fällt die Suche aus, werden deshalb die letzten `maxPerRun` Nachrichten
- * über Sequenznummern geholt. Das kann jeder IMAP-Server, und für ein CRM
- * sind die neuesten die interessanten. Ältere bleiben liegen: es gibt
- * bewusst keinen Archivimport.
+ * So when the search comes up empty, the last `maxPerRun` messages are
+ * fetched by sequence number instead. Every IMAP server can do that, and for
+ * a CRM the newest ones are the interesting ones. Older mail stays where it
+ * is: there is deliberately no archive import.
  */
 async function firstWindow(
   imap: ImapFlow,
@@ -161,18 +160,18 @@ async function firstWindow(
 ): Promise<string | { uid: string } | null> {
   if (exists === 0) return null
 
-  // search() gibt `false` zurück, wenn kein Postfach offen ist — das ist ein
-  // Fehler, kein „nichts gefunden".
+  // search() returns `false` when no mailbox is open — that is an error, not
+  // a "nothing found".
   const found = await imap.search({ since }, { uid: true }).catch(() => false as const)
 
   if (Array.isArray(found) && found.length > 0) {
-    // Mehr Treffer als erlaubt: die neuesten gewinnen. Der Rest kommt nicht
-    // nach, weil der Zeiger danach darüber steht — gewollt, siehe oben.
+    // More hits than allowed: the newest win. The rest never follows,
+    // because the cursor ends up past them — intended, see above.
     const newest = found.sort((a, b) => a - b).slice(-maxPerRun)
     return { uid: newest.join(',') }
   }
 
-  // Sequenznummern, nicht UIDs: die letzten n Nachrichten im Ordner.
+  // Sequence numbers, not UIDs: the last n messages in the folder.
   return `${Math.max(1, exists - maxPerRun + 1)}:${exists}`
 }
 
@@ -189,8 +188,8 @@ async function parse(source: Buffer, uid: bigint): Promise<FetchedMail | null> {
     .map((v) => v.address)
     .filter((a): a is string => Boolean(a))
 
-  // Ohne Message-ID keine verlässliche Dublettenerkennung — dann eine aus
-  // Konto-UID und Datum bauen, damit die Mail trotzdem genau einmal landet.
+  // No Message-ID means no reliable duplicate detection — so build one from
+  // account, UID and date, and the mail still lands exactly once.
   const messageId =
     mail.messageId ?? `<soloops-${uid}-${(mail.date ?? new Date()).getTime()}@local>`
 
@@ -204,8 +203,8 @@ async function parse(source: Buffer, uid: bigint): Promise<FetchedMail | null> {
     toEmails,
     subject: mail.subject?.trim() || '(ohne Betreff)',
     sentAt: mail.date ?? new Date(),
-    // Der Text geht in die Volltextsuche und in die AI-Zuordnung. 32k Zeichen
-    // sind mehr als jeder ernst gemeinte Geschäftsbrief.
+    // The text goes into full-text search and into AI matching. 32k
+    // characters is more than any seriously meant business letter.
     bodyText: bodyText.slice(0, 32_000),
     snippet: bodyText.replace(/\s+/g, ' ').slice(0, 300),
   }

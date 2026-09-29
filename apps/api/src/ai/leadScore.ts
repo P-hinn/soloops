@@ -1,4 +1,4 @@
-// Der Anthropic-Zod-Helper erwartet Zod 4 — zod 3.25 liefert es unter /v4 mit.
+// The Anthropic Zod helper expects Zod 4 — zod 3.25 ships it under /v4.
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { prisma } from '../db.js'
@@ -6,11 +6,12 @@ import { anthropic, MODEL } from './anthropic.js'
 import { leadValueCents, stalenessDays, STAGE_LABEL } from '../services/leads.js'
 
 /**
- * Zweitmeinung zu einem Lead.
+ * A second opinion on a lead.
  *
- * Der Score ersetzt `probability` nicht, er steht daneben. Deine Einschätzung
- * trägt den Forecast; die AI darf widersprechen, und genau die Differenz ist
- * das Interessante — sie zeigt, wo du zu optimistisch oder zu vorsichtig bist.
+ * The score does not replace `probability`, it sits next to it. Your estimate
+ * carries the forecast; the AI is allowed to disagree, and the gap is exactly
+ * the interesting part — it shows where you are too optimistic or too
+ * cautious.
  */
 
 const scoreSchema = z.object({
@@ -114,7 +115,7 @@ export async function scoreLead(leadId: string) {
   })
 }
 
-/** Alle offenen Leads neu bewerten. Läuft nachts im Worker. */
+/** Re-score every open lead. Runs in the worker overnight. */
 export async function scoreOpenLeads() {
   const leads = await prisma.lead.findMany({
     where: { archived: false, stage: { notIn: ['WON', 'LOST'] } },

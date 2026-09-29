@@ -29,7 +29,7 @@ const draft = ref({
   password: '',
 })
 
-/** Spart das Nachschlagen beim häufigsten Fall. */
+/** Saves looking it up in the most common case. */
 const PRESETS: Record<string, string> = {
   'strato.de': 'imap.strato.de',
   'mailbox.org': 'imap.mailbox.org',

@@ -3,11 +3,11 @@ import { prisma } from '../db.js'
 import { expandRecurrence } from './recurrence.js'
 
 /**
- * Termine eines Zeitraums — inklusive aufgespannter Serien.
+ * The events of a period — expanded series included.
  *
- * Bewusst an einer Stelle: Kalender und Dashboard müssen dasselbe zeigen.
- * Als das Aufspannen nur in der Kalenderroute lag, meldete das Dashboard
- * einen freien Tag, an dem der Kalender zwei Termine hatte.
+ * Deliberately in one place: calendar and dashboard have to show the same
+ * thing. While the expansion lived only in the calendar route, the dashboard
+ * reported a free day on which the calendar had two events.
  */
 
 const DEFAULT_INCLUDE = {
@@ -18,7 +18,7 @@ const DEFAULT_INCLUDE = {
 } satisfies Prisma.CalendarEventInclude
 
 export type ReadEvent = Prisma.CalendarEventGetPayload<{ include: typeof DEFAULT_INCLUDE }> & {
-  /** Gesetzt, wenn dies eine erzeugte Wiederholung ist — zeigt auf die Serie. */
+  /** Set when this is a generated occurrence — points at the series. */
   occurrenceOf?: string
 }
 
@@ -35,15 +35,15 @@ export async function listEventsInRange(
       include: DEFAULT_INCLUDE,
       orderBy: { startsAt: 'asc' },
     }),
-    // Serien unabhängig vom Fenster: ihr Startdatum liegt oft Jahre zurück,
-    // die Wiederholungen aber mitten drin.
+    // Series regardless of the window: their start date is often years back
+    // while the occurrences sit right inside it.
     prisma.calendarEvent.findMany({
       where: { ...where, rrule: { not: null }, startsAt: { lt: to } },
       include: DEFAULT_INCLUDE,
     }),
   ])
 
-  // Überschriebene Einzelinstanzen verdrängen die erzeugte Wiederholung.
+  // Overridden single instances displace the generated occurrence.
   const overrides = new Set(
     single
       .filter((e) => e.sourceUid && e.recurrenceId)
@@ -64,8 +64,8 @@ export async function listEventsInRange(
       .filter((o) => !overrides.has(`${event.sourceUid}|${o.start.getTime()}`))
       .map((o) => ({
         ...event,
-        // Virtuelle Instanz: eigene Id für die Liste, erkennbar abgeleitet.
-        // Sie existiert nicht als Zeile in der Datenbank.
+        // A virtual instance: its own id for the list, recognisably derived.
+        // It does not exist as a row in the database.
         id: `${event.id}@${o.start.toISOString()}`,
         occurrenceOf: event.id,
         startsAt: o.start,

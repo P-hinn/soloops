@@ -1,15 +1,15 @@
 /**
- * Umrechnung zwischen Wanduhrzeit in einer benannten Zone und UTC.
+ * Conversion between wall-clock time in a named zone and UTC.
  *
- * Wird an zwei Stellen gebraucht: beim Lesen von DTSTART mit TZID und beim
- * Aufspannen von Serien. Serien müssen in ihrer Ursprungszone gerechnet werden —
- * "jeden Montag 10 Uhr" heißt über die Sommerzeit hinweg eben nicht "alle
- * 604800000 Millisekunden".
+ * Needed in two places: reading DTSTART with a TZID, and expanding series.
+ * Series have to be computed in their original zone — across a daylight
+ * saving change, "every Monday at 10" is emphatically not "every 604800000
+ * milliseconds".
  */
 
 export type Wall = { y: number; mo: number; d: number; h: number; mi: number; s: number }
 
-/** Wanduhr-Bestandteile eines Zeitpunkts in einer Zone. */
+/** The wall-clock parts of an instant in a given zone. */
 export function partsInZone(instant: Date, timeZone: string): Wall {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -35,15 +35,15 @@ export function partsInZone(instant: Date, timeZone: string): Wall {
   }
 }
 
-/** Versatz einer Zone zu einem Zeitpunkt, in Millisekunden. */
+/** A zone's offset at a given instant, in milliseconds. */
 export function zoneOffsetMs(instant: Date, timeZone: string): number {
   const w = partsInZone(instant, timeZone)
   return Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s) - instant.getTime()
 }
 
 /**
- * Wanduhrzeit -> UTC. Zwei Durchläufe, weil der Versatz selbst vom Ergebnis
- * abhängt: an Umstellungstagen liefert der erste Versuch den falschen Offset.
+ * Wall clock -> UTC. Two passes, because the offset itself depends on the
+ * result: on transition days the first attempt returns the wrong offset.
  */
 export function zonedToUtc(w: Wall, timeZone: string): Date {
   const naive = Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s)
@@ -54,13 +54,13 @@ export function zonedToUtc(w: Wall, timeZone: string): Date {
   return new Date(ms)
 }
 
-/** Ohne Zone: als UTC lesen. Hält die Aufrufer frei von Fallunterscheidungen. */
+/** No zone: read it as UTC. Keeps the callers free of special cases. */
 export function wallOf(instant: Date, timeZone: string | null): Wall {
   if (timeZone) {
     try {
       return partsInZone(instant, timeZone)
     } catch {
-      // Unbekannte TZID — lieber UTC als gar nichts.
+      // Unknown TZID — UTC beats nothing at all.
     }
   }
   return {
@@ -78,7 +78,7 @@ export function utcOf(w: Wall, timeZone: string | null): Date {
     try {
       return zonedToUtc(w, timeZone)
     } catch {
-      // s.o.
+      // see above
     }
   }
   return new Date(Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s))

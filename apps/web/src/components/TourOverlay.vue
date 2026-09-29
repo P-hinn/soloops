@@ -4,15 +4,15 @@ import { useRouter } from 'vue-router'
 import { useOnboarding } from '@/stores/onboarding'
 
 /**
- * Geführte Tour mit Scheinwerfer.
+ * A guided tour with a spotlight.
  *
- * Der Ausschnitt entsteht über einen riesigen box-shadow statt über eine
- * SVG-Maske — dadurch bleibt das hervorgehobene Element klickbar und der Rest
- * der Seite liegt sichtbar, aber gedämpft darunter.
+ * The cut-out comes from an enormous box-shadow rather than an SVG mask —
+ * that keeps the highlighted element clickable while the rest of the page
+ * stays visible but dimmed underneath.
  *
- * Schritte hängen an `data-tour="…"`-Attributen. Fehlt ein Ziel (weil es zum
- * Zustand nicht existiert, etwa der laufende Timer), wird der Schritt
- * übersprungen statt ins Leere zu zeigen.
+ * Steps hang off `data-tour="…"` attributes. When a target is missing
+ * (because the current state does not have it, the running timer say), the
+ * step is skipped instead of pointing at nothing.
  */
 
 type TourStep = {
@@ -75,7 +75,7 @@ const rect = ref<DOMRect | null>(null)
 const step = computed(() => STEPS[index.value] ?? null)
 const isLast = computed(() => index.value >= STEPS.length - 1)
 
-/** Zielelement suchen, sichtbar scrollen, Position merken. */
+/** Find the target element, scroll it into view, remember its position. */
 async function locate(): Promise<void> {
   const current = step.value
   if (!current) return
@@ -84,7 +84,7 @@ async function locate(): Promise<void> {
     await router.push(current.route)
   }
   await nextTick()
-  // Layout und Seitenübergang abwarten
+  // Wait for layout and the page transition
   await new Promise((r) => setTimeout(r, 180))
 
   if (!current.target) {
@@ -93,7 +93,7 @@ async function locate(): Promise<void> {
   }
   const el = document.querySelector(current.target)
   if (!el) {
-    // Ziel existiert im aktuellen Zustand nicht — Schritt überspringen.
+    // The target does not exist in the current state — skip the step.
     if (!isLast.value) {
       index.value++
       await locate()
@@ -102,14 +102,14 @@ async function locate(): Promise<void> {
     }
     return
   }
-  // Hart scrollen statt weich: bei 'smooth' wäre die Messung ein Rennen gegen
-  // die Animation, und der Scheinwerfer landet neben dem Ziel.
+  // Hard scrolling rather than smooth: with 'smooth' the measurement would
+  // race the animation and the spotlight lands next to the target.
   el.scrollIntoView({ behavior: 'auto', block: 'center' })
   await nextTick()
 
   const box = el.getBoundingClientRect()
-  // Unbrauchbare Messung (verstecktes Element, kollabiertes Layout): lieber
-  // zentriert und gleichmäßig abdunkeln als einen Scheinwerfer ins Nichts.
+  // A useless measurement (hidden element, collapsed layout): better to dim
+  // evenly and centre the card than aim a spotlight at nothing.
   const usable =
     box.width > 0 &&
     box.height > 0 &&
@@ -180,13 +180,13 @@ const spotlight = computed(() => {
 })
 
 const CARD_W = 380
-/** Geschätzte Höhe für die Platzierung; danach wird ohnehin geklemmt. */
+/** An estimated height for placement; it gets clamped afterwards anyway. */
 const CARD_H = 250
 
 /**
- * Karte unter das Ziel, sonst darüber — und in jedem Fall in den sichtbaren
- * Bereich geklemmt. Ohne die Klemmung rutscht sie bei Zielen am unteren Rand
- * aus dem Bild, und der Text ist nicht mehr lesbar.
+ * The card below the target, otherwise above it — and clamped into the
+ * viewport either way. Without the clamp it slides off screen for targets
+ * near the bottom edge, and the text becomes unreadable.
  */
 const card = computed(() => {
   if (!rect.value) {
@@ -210,16 +210,16 @@ const card = computed(() => {
 <template>
   <Teleport to="body">
     <div v-if="onboarding.tourOpen && step" class="fixed inset-0 z-[100]">
-      <!-- Scheinwerfer: Loch im abgedunkelten Rest -->
+      <!-- The spotlight: a hole in the dimmed remainder -->
       <div
         v-if="spotlight"
         class="pointer-events-none absolute border-2 border-acid transition-all duration-200"
         :style="{ ...spotlight, boxShadow: '0 0 0 9999px rgba(23,23,20,0.55)' }"
       />
-      <!-- Ohne Ziel: gleichmäßige Abdunklung -->
+      <!-- Without a target: dim evenly -->
       <div v-else class="absolute inset-0 bg-ink/55" />
 
-      <!-- Klickfänger, damit die Seite während der Tour ruhig bleibt -->
+      <!-- A click catcher, so the page stays put during the tour -->
       <div class="absolute inset-0" @click="next" />
 
       <div

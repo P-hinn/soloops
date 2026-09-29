@@ -10,25 +10,25 @@ import { syncAccount, syncAllAccounts } from '../services/calendarSync.js'
 const idParam = z.object({ id: z.string() })
 
 /**
- * Farbpalette für verbundene Kalender. Gewählt für den Papierhintergrund:
- * kräftig genug für den Balken am Termin, ruhig genug für die Füllung bei 12 %.
+ * Colour palette for connected calendars. Chosen for the paper background:
+ * strong enough for the bar on an event, quiet enough for the 12 % fill.
  */
 const CALENDAR_PALETTE = [
-  '#5c76ff', // CI-Blau
-  '#c2410c', // Rost
-  '#1f7a3d', // Tanne
-  '#7c3aed', // Violett
-  '#0e7490', // Petrol
-  '#a16207', // Ocker
-  '#be123c', // Karmin
+  '#5c76ff', // brand blue
+  '#c2410c', // rust
+  '#1f7a3d', // fir
+  '#7c3aed', // violet
+  '#0e7490', // teal
+  '#a16207', // ochre
+  '#be123c', // carmine
 ]
 
-/** Das erste verbundene Konto wird Zielkalender — sonst landet nichts. */
+/** The first connected account becomes the target — otherwise nothing lands. */
 async function shouldBeDefault(): Promise<boolean> {
   return (await prisma.calendarAccount.count({ where: { isDefault: true } })) === 0
 }
 
-/** Die nächste noch nicht vergebene Farbe. */
+/** The next colour not yet taken. */
 async function nextCalendarColor(): Promise<string> {
   const used = new Set(
     (await prisma.calendarAccount.findMany({ select: { color: true } })).map((a) => a.color),
@@ -41,8 +41,8 @@ async function nextCalendarColor(): Promise<string> {
 
 const routes: FastifyPluginAsync = async (app) => {
   // -------------------------------------------------------------------------
-  // Google-Callback: kommt als Browser-Redirect, kann keinen Header mitbringen.
-  // Abgesichert über den signierten `state`, den wir selbst ausgegeben haben.
+  // Google callback: arrives as a browser redirect and cannot carry a header.
+  // Secured through the signed `state` that we issued ourselves.
   // -------------------------------------------------------------------------
   app.get('/google/callback', async (req, reply) => {
     const q = z
@@ -94,8 +94,8 @@ const routes: FastifyPluginAsync = async (app) => {
         },
         update: {
           accessTokenEnc: seal(tokens.accessToken),
-          // Google schickt beim erneuten Verbinden nicht immer ein Refresh-Token —
-          // ein vorhandenes darf nicht mit null überschrieben werden.
+          // On reconnect Google does not always send a refresh token — an
+          // existing one must not be overwritten with null.
           ...(tokens.refreshToken ? { refreshTokenEnc: seal(tokens.refreshToken) } : {}),
           tokenExpiresAt: tokens.expiresAt,
           enabled: true,
@@ -110,7 +110,7 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   // -------------------------------------------------------------------------
-  // Alles andere braucht Authentifizierung
+  // Everything else requires authentication
   // -------------------------------------------------------------------------
   app.register(async (secured) => {
     secured.addHook('onRequest', app.authenticate)
@@ -141,7 +141,7 @@ const routes: FastifyPluginAsync = async (app) => {
           lastSyncAt: a.lastSyncAt,
           lastError: a.lastError,
           linkedEvents: a._count.links,
-          // Zugangsdaten verlassen den Server nie, auch nicht teilweise.
+          // Credentials never leave the server, not even partially.
           hasRefreshToken: !!a.refreshTokenEnc,
         })),
       }
@@ -160,9 +160,9 @@ const routes: FastifyPluginAsync = async (app) => {
     // --- Apple / CalDAV ---------------------------------------------------
 
     /**
-     * Erst nachsehen, welche Kalender es gibt — ohne etwas zu speichern.
-     * Für iCloud braucht es ein App-spezifisches Passwort
-     * (appleid.apple.com -> Anmeldung und Sicherheit -> App-Passwörter).
+     * First look at which calendars exist — without storing anything.
+     * iCloud needs an app-specific password
+     * (appleid.apple.com -> Sign-In and Security -> App-Specific Passwords).
      */
     secured.post('/apple/discover', async (req, reply) => {
       const body = z
@@ -231,7 +231,7 @@ const routes: FastifyPluginAsync = async (app) => {
       return reply.code(201).send({ id: account.id })
     })
 
-    // --- Verwaltung -------------------------------------------------------
+    // --- Administration ---------------------------------------------------
 
     secured.patch('/:id', async (req) => {
       const { id } = idParam.parse(req.params)
@@ -245,7 +245,7 @@ const routes: FastifyPluginAsync = async (app) => {
         })
         .parse(req.body)
 
-      // Genau ein Zielkalender: die Markierung wandert, statt sich zu häufen.
+      // Exactly one target calendar: the flag moves instead of piling up.
       if (body.isDefault === true) {
         await prisma.calendarAccount.updateMany({
           where: { id: { not: id } },
@@ -263,8 +263,8 @@ const routes: FastifyPluginAsync = async (app) => {
     secured.post('/sync', async () => syncAllAccounts())
 
     /**
-     * Vollabgleich erzwingen: Sync-Token verwerfen. Die Verknüpfungen bleiben,
-     * damit nichts doppelt angelegt wird.
+     * Force a full sync by dropping the sync token. The links stay, so that
+     * nothing gets created twice.
      */
     secured.post('/:id/reset-token', async (req) => {
       const { id } = idParam.parse(req.params)
@@ -276,7 +276,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
     secured.delete('/:id', async (req, reply) => {
       const { id } = idParam.parse(req.params)
-      // Verknüpfungen fallen per Cascade weg; die Termine bleiben lokal liegen.
+      // The links go by cascade; the events stay put locally.
       await prisma.syncTombstone.deleteMany({ where: { accountId: id } })
       await prisma.calendarAccount.delete({ where: { id } })
       return reply.code(204).send()

@@ -5,12 +5,12 @@ import { env } from '../env.js'
 import { anthropic, MODEL } from './anthropic.js'
 
 /**
- * Freitext-Eingabe -> strukturierter Plan -> Bestätigung -> Anlegen.
+ * Free text -> structured plan -> confirmation -> creation.
  *
- * Bewusst zweistufig. Ein Satz wie "Termin für neues Projekt" ist
- * unterspezifiziert; würde daraus ohne Rückfrage direkt ein Kunde, ein Projekt
- * und ein Kalendereintrag entstehen, räumt man mehr auf als man spart. Der
- * Plan ist ein Vorschlag, den man sieht, bevor etwas passiert.
+ * Two stages on purpose. A sentence like "meeting for a new project" is
+ * underspecified; if it turned into a client, a project and a calendar entry
+ * without asking, you would clean up more than you saved. The plan is a
+ * proposal you see before anything happens.
  */
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ const planSchema = z.object({
 export type AssistantPlan = z.infer<typeof planSchema>
 
 // ---------------------------------------------------------------------------
-// Planen
+// Planning
 // ---------------------------------------------------------------------------
 
 const SYSTEM = [
@@ -154,7 +154,7 @@ export async function planFromText(text: string): Promise<AssistantPlan> {
   return plan
 }
 
-/** Freie Zeitfenster der nächsten zwei Wochen, damit die KI real terminieren kann. */
+/** Free slots over the next two weeks, so the model can schedule for real. */
 async function nextFreeSlots(): Promise<{ start: string; end: string; minutes: number }[]> {
   const from = new Date()
   const days = 14

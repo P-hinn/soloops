@@ -80,7 +80,7 @@
     <p id="status">startet …</p>
     <div class="bar" id="bar"><i></i></div>
     <script>
-      // Wird aus Rust heraus aufgerufen, waehrend die Container hochfahren.
+      // Called from Rust while the containers are coming up.
       window.soloopsStatus = (text, bad) => {
         const el = document.getElementById('status')
         el.textContent = text

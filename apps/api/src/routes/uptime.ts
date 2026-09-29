@@ -32,7 +32,7 @@ const routes: FastifyPluginAsync = async (app) => {
     })
   })
 
-  /** Sofort synchronisieren (der Worker macht das sonst per Cron). */
+  /** Sync right now (otherwise the worker does it on a schedule). */
   app.post('/sync', async (_req, reply) => {
     if (!env.UPTIMEROBOT_API_KEY) {
       return reply.code(503).send({ error: 'UPTIMEROBOT_API_KEY nicht gesetzt' })
@@ -45,7 +45,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return { queued: true }
   })
 
-  /** Monitor einem Projekt zuordnen — verbindet Betrieb mit Projektübersicht. */
+  /** Assign a monitor to a project — connects operations to the project view. */
   app.patch('/:id', async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const body = z.object({ projectId: z.string().nullable() }).parse(req.body)

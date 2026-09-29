@@ -46,7 +46,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const invoices = await prisma.invoice.count({ where: { clientId: id } })
     if (invoices > 0) {
-      // Rechnungen sind aufbewahrungspflichtig — Kunde wird nur archiviert.
+      // Invoices have to be retained by law — the client is only archived.
       await prisma.client.update({ where: { id }, data: { archived: true } })
       return { archived: true, reason: `${invoices} Rechnung(en) vorhanden` }
     }

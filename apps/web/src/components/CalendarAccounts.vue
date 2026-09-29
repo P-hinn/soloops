@@ -51,7 +51,7 @@ async function connectGoogle() {
   error.value = ''
   try {
     const res = await api.get<{ url: string }>('/api/calendar-accounts/google/auth-url')
-    // Google verlangt einen echten Seitenwechsel, kein fetch.
+    // Google requires a real page navigation, not a fetch.
     window.location.href = res.url
   } catch (err) {
     error.value = (err as Error).message
@@ -88,7 +88,7 @@ async function addApple(calendar: Discovered) {
       calendarName: calendar.displayName,
       direction: appleForm.value.direction,
     })
-    // Passwort sofort aus dem Speicher der Seite werfen
+    // Drop the password from the page's memory right away
     appleForm.value = { username: '', password: '', direction: 'BOTH' }
     appleCalendars.value = []
     info.value = 'Apple-Kalender verbunden. Erster Abgleich läuft beim nächsten Sync.'
@@ -135,7 +135,7 @@ async function setDirection(account: Account, direction: string) {
   await load()
 }
 
-/** Zielkalender für alles, was in soloops entsteht. Genau einer. */
+/** The target calendar for everything created in soloops. Exactly one. */
 async function makeDefault(account: Account) {
   await api.patch(`/api/calendar-accounts/${account.id}`, { isDefault: true })
   info.value = `Neue Termine gehen ab jetzt nach „${account.calendar ?? account.label}".`
@@ -178,7 +178,7 @@ async function remove(account: Account) {
 }
 
 onMounted(async () => {
-  // Rückmeldung aus dem Google-OAuth-Redirect
+  // Feedback from the Google OAuth redirect
   if (route.query.calendar === 'connected') info.value = 'Google-Kalender verbunden.'
   if (route.query.calendar === 'error') error.value = `Google: ${route.query.message ?? 'Fehler'}`
   await load()
@@ -200,7 +200,7 @@ onMounted(async () => {
     <p v-if="info" class="mb-3 border-l-2 border-acid bg-acid/20 px-3 py-2 text-sm">{{ info }}</p>
     <p v-if="error" class="mb-3 border-l-2 border-bad px-3 py-2 text-sm text-bad">{{ error }}</p>
 
-    <!-- Verbundene Konten -->
+    <!-- Connected accounts -->
     <ul v-if="data?.accounts.length" class="mb-6 border-t border-line-strong">
       <li v-for="a in data.accounts" :key="a.id" class="border-b border-line py-3">
         <div class="flex flex-wrap items-center gap-2">
@@ -264,7 +264,7 @@ onMounted(async () => {
       {{ data.pendingDeletes }} Löschung(en) warten auf den nächsten Abgleich.
     </p>
 
-    <!-- Google verbinden -->
+    <!-- Connect Google -->
     <div class="mb-6 border-t border-line pt-4">
       <h3 class="eyebrow-muted mb-2">Google Kalender</h3>
       <p v-if="!data?.googleConfigured" class="text-sm text-muted">
@@ -280,7 +280,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <!-- Apple verbinden -->
+    <!-- Connect Apple -->
     <div class="border-t border-line pt-4">
       <h3 class="eyebrow-muted mb-2">Apple / iCloud</h3>
       <p class="mb-3 text-xs text-muted">

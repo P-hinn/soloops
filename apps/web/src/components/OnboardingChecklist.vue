@@ -4,12 +4,11 @@ import { RouterLink } from 'vue-router'
 import { useOnboarding } from '@/stores/onboarding'
 
 /**
- * Standardmäßig eine Zeile, nicht zwölf.
+ * One line by default, not twelve.
  *
- * Ausgeklappt war die Liste das Erste und Größte auf dem Dashboard — eine Wand
- * aus grauem Kleintext, die den eigentlichen Arbeitsbereich nach unten drückt.
- * Sichtbar bleibt deshalb nur der Fortschritt und der nächste Schritt; alles
- * andere auf Klick.
+ * Expanded, the list was the first and largest thing on the dashboard — a
+ * wall of small grey text pushing the actual work area down. So only the
+ * progress and the next step stay visible; everything else on click.
  */
 const onboarding = useOnboarding()
 const open = ref(false)
@@ -25,7 +24,7 @@ const progress = computed(() =>
 
 <template>
   <section v-if="onboarding.visible && state" data-tour="checklist" class="border border-ink">
-    <!-- Kopfzeile: immer sichtbar, eine Zeile -->
+    <!-- Header: always visible, one line -->
     <header class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-acid px-4 py-2.5">
       <span class="eyebrow-muted !text-ink">Einrichtung</span>
 
@@ -76,7 +75,7 @@ const progress = computed(() =>
       </div>
     </header>
 
-    <!-- Details erst auf Wunsch -->
+    <!-- Details only on request -->
     <div v-if="open" class="grid gap-x-8 bg-raised px-4 py-3 lg:grid-cols-2">
       <div>
         <h3 class="eyebrow-muted mb-1.5">

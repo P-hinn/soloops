@@ -9,19 +9,19 @@ import {
   STAGE_PROBABILITY,
 } from './leadMath.js'
 
-// Die reine Rechnung liegt in leadMath.ts (ohne Prisma, damit testbar) und
-// wird hier mit durchgereicht — Aufrufer sollen nur einen Ort kennen müssen.
+// The pure arithmetic lives in leadMath.ts (no Prisma, so it stays testable)
+// and is re-exported here — callers should only need to know one place.
 export { leadValueCents, stalenessDays, weightedCents, OPEN_STAGES, STAGE_LABEL, STAGE_PROBABILITY }
 
 /**
- * Vertriebslogik, die API, Worker und MCP-Server teilen.
+ * Sales logic shared by the API, the worker and the MCP server.
  */
 
 /**
- * Aktivität protokollieren und den Lead als „angefasst" markieren.
+ * Record an activity and mark the lead as touched.
  *
- * Beides gehört zusammen: ein Verlaufseintrag ohne aktualisiertes
- * `lastActivityAt` würde den Lead weiter als liegengeblieben anzeigen.
+ * The two belong together: a history entry without an updated
+ * `lastActivityAt` would keep showing the lead as gone quiet.
  */
 export async function touchLead(
   leadId: string,
@@ -39,7 +39,7 @@ export async function touchLead(
     },
   })
 
-  // Eine nachgetragene alte Mail darf den Lead nicht künstlich frisch machen.
+  // An old mail added after the fact must not make the lead look fresh.
   const lead = await prisma.lead.findUniqueOrThrow({
     where: { id: leadId },
     select: { lastActivityAt: true },
@@ -50,8 +50,8 @@ export async function touchLead(
 }
 
 /**
- * Stufe wechseln, mit Verlaufseintrag und passender Wahrscheinlichkeit.
- * Eine selbst gesetzte Wahrscheinlichkeit wird nur beim Abschluss überschrieben.
+ * Change the stage, with a history entry and a matching probability.
+ * A probability you set yourself is only overwritten when the deal closes.
  */
 export async function changeStage(leadId: string, stage: LeadStage, note?: string) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } })
@@ -81,8 +81,8 @@ export async function changeStage(leadId: string, stage: LeadStage, note?: strin
 }
 
 /**
- * Pipeline-Überblick: was liegt wo, was ist es wert, was ist gewichtet zu
- * erwarten. Basis für Kachel, Liste und MCP-Tool — damit alle dasselbe sagen.
+ * Pipeline overview: what sits where, what it is worth, what to expect after
+ * weighting. The basis for tile, list and MCP tool — so all three agree.
  */
 export async function pipelineSummary() {
   const leads = await prisma.lead.findMany({
@@ -121,8 +121,8 @@ export async function pipelineSummary() {
       .map((l) => ({ id: l.id, title: l.title, days: stalenessDays(l, now) })),
     wonThisYear: won.length,
     wonValueCents: won.reduce((sum, l) => sum + leadValueCents(l), 0),
-    // Trefferquote nur über tatsächlich Entschiedenes — offene Leads würden
-    // sie künstlich drücken.
+    // Win rate over decided deals only — open leads would drag it down for
+    // no good reason.
     winRate: closedThisYear.length ? Math.round((won.length / closedThisYear.length) * 100) : null,
   }
 }

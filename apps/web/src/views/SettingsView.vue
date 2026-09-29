@@ -43,7 +43,7 @@ const featureLabels: Record<string, string> = {
   <div>
     <PageHeader title="Einstellungen" :subtitle="auth.me?.email" />
 
-    <!-- Einrichtung -->
+    <!-- Setup -->
     <section class="card mb-4">
       <h2 class="eyebrow mb-1">Einrichtung</h2>
       <p class="mb-4 text-xs text-muted">
@@ -73,7 +73,7 @@ const featureLabels: Record<string, string> = {
       </div>
     </section>
 
-    <!-- Kalender: der Teil, der wirklich Einrichtung braucht -->
+    <!-- Calendars: the part that genuinely needs setting up -->
     <CalendarAccounts class="mb-4" />
 
     <MailAccounts class="mb-4" />

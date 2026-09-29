@@ -82,7 +82,7 @@ function inStage(stage: string) {
   return leads.value.filter((l) => l.stage === stage)
 }
 
-/** Bei mehr als zwei Wochen Funkstille wird der Lead optisch stumpf. */
+/** After more than two weeks of silence the lead goes visually dull. */
 function staleTone(days: number) {
   if (days >= 30) return 'text-bad'
   if (days >= 14) return 'text-warn'
@@ -234,7 +234,7 @@ onMounted(load)
       <button class="btn-primary" :disabled="busy">Anlegen</button>
     </form>
 
-    <!-- Pipeline: eine Spalte je Stufe. Bei wenig Platz untereinander. -->
+    <!-- Pipeline: one column per stage, stacked when space runs short. -->
     <div class="grid gap-5 lg:grid-cols-4">
       <section v-for="stage in STAGES" :key="stage" class="min-w-0">
         <header class="mb-3 flex items-baseline justify-between border-t-2 border-ink pt-2">

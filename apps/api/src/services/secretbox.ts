@@ -2,13 +2,13 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { env } from '../env.js'
 
 /**
- * Verschlüsselung für Fremd-Zugangsdaten, die die API selbst benutzen muss
- * (Google-Refresh-Tokens, CalDAV-App-Passwörter).
+ * Encryption for third-party credentials the API has to use itself
+ * (Google refresh tokens, CalDAV app passwords).
  *
- * Bewusst etwas anderes als der Passwort-Manager: dort kennt der Server den
- * Schlüssel nie. Hier *muss* er entschlüsseln können, um zu synchronisieren.
- * Der Schutz gilt also dem Datenbank-Dump, nicht dem laufenden Server —
- * der Schlüssel wird aus JWT_SECRET abgeleitet und liegt nur in der .env.
+ * Deliberately something other than a password manager: there the server
+ * never knows the key. Here it *has* to be able to decrypt in order to sync.
+ * So the protection is against a database dump, not against a running server —
+ * the key is derived from JWT_SECRET and lives only in the .env.
  */
 const key = createHash('sha256').update(`soloops:secretbox:${env.JWT_SECRET}`).digest()
 

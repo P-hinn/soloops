@@ -1,12 +1,12 @@
-# Produktivbetrieb auf einem kleinen Server (2 Kerne, ~2 GB RAM).
+# Production on a small server (2 cores, ~2 GB RAM).
 #
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Unterschiede zur Entwicklungs-Compose:
-#   - kein Quellcode-Mount, kein tsx watch, kein Vite-Devserver
-#   - genau ein offener Port (SOLOOPS_PORT), nginx liefert Web + /api aus
-#   - Postgres und Redis nur im internen Netz und auf wenig RAM getrimmt
-#   - harte Speichergrenzen, damit kein Dienst den Server mitreißt
+# Differences from the development compose:
+#   - no source mount, no tsx watch, no Vite dev server
+#   - exactly one open port (SOLOOPS_PORT); nginx serves web + /api
+#   - Postgres and Redis on the internal network only, trimmed for low RAM
+#   - hard memory limits, so that no service takes the server down with it
 name: soloops
 
 x-node: &node
@@ -36,8 +36,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       TZ: ${TZ:-Europe/Berlin}
-    # Auf 256 MB Container zugeschnitten — die Standardwerte gehen von deutlich
-    # mehr aus und lassen Postgres unter Last swappen.
+    # Tuned for a 256 MB container — the defaults assume considerably more and
+    # make Postgres swap under load.
     command:
       - postgres
       - -c
@@ -70,8 +70,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    # noeviction: BullMQ-Jobs dürfen nicht stillschweigend wegfallen. Läuft der
-    # Speicher voll, sollen Schreibzugriffe hart scheitern und im Log auftauchen.
+    # noeviction: BullMQ jobs must not vanish quietly. When memory fills up,
+    # writes should fail loudly and show up in the log.
     command:
       [
         'redis-server',
@@ -127,8 +127,8 @@ services:
       target: web
     image: soloops-web:latest
     restart: unless-stopped
-    # Der einzige Port nach außen. 3000 ist auf dem Server schon vom Portfolio
-    # belegt, darum ein eigener.
+    # The only port facing outwards. On the server 3000 is already taken by
+    # the portfolio, hence one of its own.
     ports:
       - '${SOLOOPS_PORT:-8090}:80'
     mem_limit: 64m

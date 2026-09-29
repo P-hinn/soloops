@@ -1,14 +1,14 @@
 #!/usr/bin/env -S npx tsx
 /**
- * soloops MCP-Server (stdio).
+ * soloops MCP server (stdio).
  *
- * Gibt Claude Code / Claude Desktop Zugriff auf Projekte, Zeiten, Notizen,
- * Meetings, Betrieb und Rechnungen. Authentifizierung läuft über den
- * SERVICE_TOKEN gegen die lokale REST-API.
+ * Gives Claude Code / Claude Desktop access to projects, time, notes,
+ * meetings, operations and invoices. Authentication goes through the
+ * SERVICE_TOKEN against the local REST API.
  *
- * Registrierung in Claude Code:
- *   claude mcp add soloops -- npx tsx /pfad/zu/soloops/apps/mcp/src/index.ts
- * mit SOLOOPS_URL und SOLOOPS_TOKEN in der Umgebung.
+ * Registering it in Claude Code:
+ *   claude mcp add soloops -- npx tsx /path/to/soloops/apps/mcp/src/index.ts
+ * with SOLOOPS_URL and SOLOOPS_TOKEN in the environment.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -56,7 +56,7 @@ const fail = (err: unknown) => ({
 const server = new McpServer({ name: 'soloops', version: '0.1.0' })
 
 // ---------------------------------------------------------------------------
-// Überblick & Suche
+// Overview & search
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -86,7 +86,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Projekte
+// Projects
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -129,7 +129,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Zeiterfassung
+// Time tracking
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -212,7 +212,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Kalender & Meetings
+// Calendar & meetings
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -298,7 +298,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Notizen
+// Notes
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -333,7 +333,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Betrieb
+// Operations
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -354,7 +354,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Geld
+// Money
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -418,7 +418,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Vertrieb
+// Sales
 // ---------------------------------------------------------------------------
 
 server.tool(
@@ -551,7 +551,7 @@ server.tool(
 )
 
 // ---------------------------------------------------------------------------
-// Postfach
+// Inbox
 // ---------------------------------------------------------------------------
 
 server.tool(

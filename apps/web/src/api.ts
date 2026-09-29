@@ -70,7 +70,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   del: <T>(path: string) => request<T>('DELETE', path),
 
-  /** Multipart-Upload (Meeting-Aufnahmen) — eigener Pfad ohne JSON-Header. */
+  /** Multipart upload (meeting recordings) — its own path, no JSON header. */
   async upload<T>(path: string, file: File): Promise<T> {
     const form = new FormData()
     form.append('file', file)

@@ -14,10 +14,10 @@ const onboarding = useOnboarding()
 const route = useRoute()
 
 const isPublic = computed(() => route.meta.public === true)
-/** Kalender & Co. bringen ihr eigenes Layout mit und wollen die volle Fläche. */
+/** The calendar and friends bring their own layout and want the full width. */
 const isFullBleed = computed(() => route.meta.fullBleed === true)
 
-/** Navigation in drei Blöcken: Tagesgeschäft, Geld, Betrieb & Ablage. */
+/** Navigation in three blocks: daily work, money, operations & records. */
 const navGroups = [
   {
     label: 'Arbeiten',
@@ -83,12 +83,12 @@ watch(isPublic, (value) => {
 
   <div v-else class="flex h-screen overflow-hidden bg-paper">
     <!-- ------------------------------------------------------------------ -->
-    <!-- Seitenleiste                                                        -->
+    <!-- Sidebar                                                             -->
     <!-- ------------------------------------------------------------------ -->
     <aside class="flex w-[196px] shrink-0 flex-col border-r border-line bg-shell">
       <!--
-        Die Bildmarke braucht 40px und hellen Grund: im invertierten Kasten
-        laufen die Innenräume von P und N zu (nachgemessen, siehe BrandMark).
+        The mark needs 40px and a light ground: inside the inverted box the
+        counters of the P and the N close up (measured, see BrandMark).
       -->
       <RouterLink
         to="/"
@@ -110,8 +110,8 @@ watch(isPublic, (value) => {
         <div v-for="group in navGroups" :key="group.label" class="mb-4">
           <div class="eyebrow-muted px-4 pb-1">{{ group.label }}</div>
           <!--
-            Eigener Slot statt active-class: "/" darf nur exakt aktiv sein,
-            "/projects" soll auch auf "/projects/:id" markiert bleiben.
+            A slot of our own instead of active-class: "/" may only be active
+            exactly, while "/projects" should stay marked on "/projects/:id".
           -->
           <RouterLink
             v-for="item in group.items"
@@ -131,7 +131,7 @@ watch(isPublic, (value) => {
               "
               @click="navigate"
             >
-              <!-- Aktivmarkierung: Acid-Balken links, kein Kasten -->
+              <!-- Active marker: an acid bar on the left, not a box -->
               <span
                 v-if="item.to === '/' ? isExactActive : isActive"
                 class="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 bg-acid"
@@ -142,7 +142,7 @@ watch(isPublic, (value) => {
         </div>
       </nav>
 
-      <!-- Laufender Timer -->
+      <!-- The running timer -->
       <div v-if="timer.running" data-tour="timer" class="border-t border-ink bg-acid px-4 py-3">
         <RouterLink to="/time" class="block">
           <div class="eyebrow-muted !text-ink/60">läuft</div>
@@ -172,7 +172,7 @@ watch(isPublic, (value) => {
     </aside>
 
     <!-- ------------------------------------------------------------------ -->
-    <!-- Inhalt                                                              -->
+    <!-- Content                                                             -->
     <!-- ------------------------------------------------------------------ -->
     <div class="flex min-w-0 flex-1 flex-col">
       <header

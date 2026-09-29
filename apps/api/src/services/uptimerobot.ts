@@ -19,8 +19,8 @@ type RobotMonitor = {
 }
 
 /**
- * UptimeRobot v2 ist eine form-encoded POST-API. Wir spiegeln Monitore und
- * Down-Logs, damit die Projektübersicht ohne zweiten Tab auskommt.
+ * UptimeRobot v2 is a form-encoded POST API. We mirror monitors and down logs
+ * so that the project view works without a second browser tab.
  */
 export async function syncUptimeRobot(): Promise<{ monitors: number; incidents: number }> {
   if (!env.UPTIMEROBOT_API_KEY) throw new Error('UPTIMEROBOT_API_KEY nicht gesetzt')

@@ -4,11 +4,11 @@ import { RouterLink } from 'vue-router'
 import { useTimer } from '@/stores/timer'
 
 /**
- * Die Stoppuhr.
+ * The stopwatch.
  *
- * Vorher ließ sich ein Timer nur über eine kleine Schaltfläche in der
- * Projektzeile starten — auf der Zeiten-Seite selbst gab es keinen Startknopf,
- * nur "Nachtragen". Das hier ist der Platz, an dem man ihn sucht.
+ * A timer used to be startable only from a small button in the project row —
+ * the time page itself had no start button, only "add an entry". This is the
+ * place where you go looking for it.
  */
 
 type Project = { id: string; key: string; name: string; color?: string }
@@ -28,7 +28,7 @@ const billable = ref(true)
 const busy = ref(false)
 const error = ref('')
 
-/** Beim Öffnen das zuletzt bebuchte Projekt vorwählen. */
+/** Preselect the project booked last when this opens. */
 watch(
   () => props.projects,
   (list) => {
@@ -39,7 +39,7 @@ watch(
   { immediate: true },
 )
 
-/** Wiederaufnehmen: die zuletzt gebuchten Kombinationen, ohne Dubletten. */
+/** Pick up again: the combinations booked most recently, without duplicates. */
 const resumable = computed(() => {
   const seen = new Set<string>()
   const out: RecentEntry[] = []
@@ -89,7 +89,7 @@ async function discard() {
   }
 }
 
-/** Beschreibung während des Laufens nachtragen. */
+/** Fill in the description while the clock is running. */
 const liveText = ref('')
 watch(
   () => timer.running?.id,
@@ -105,7 +105,7 @@ function onLiveInput() {
 
 <template>
   <!-- ===================================================================== -->
-  <!-- Läuft                                                                  -->
+  <!-- Running                                                                -->
   <!-- ===================================================================== -->
   <section v-if="timer.running" class="border-2 border-ink bg-acid">
     <div class="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
@@ -151,7 +151,7 @@ function onLiveInput() {
   </section>
 
   <!-- ===================================================================== -->
-  <!-- Bereit                                                                 -->
+  <!-- Idle                                                                   -->
   <!-- ===================================================================== -->
   <section v-else class="border-2 border-ink bg-raised">
     <div v-if="!projects.length" class="flex flex-wrap items-center gap-3 px-5 py-4">
@@ -189,7 +189,7 @@ function onLiveInput() {
       </button>
     </form>
 
-    <!-- Zuletzt gebucht: ein Klick, weiterlaufen -->
+    <!-- Booked recently: one click and it runs again -->
     <div
       v-if="resumable.length"
       class="flex flex-wrap items-center gap-2 border-t border-line bg-shell/50 px-5 py-2.5"

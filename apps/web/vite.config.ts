@@ -18,7 +18,7 @@ export default defineConfig({
     port: 5173,
     watch: { usePolling: true },
     proxy: {
-      // Im Container läuft die API unter http://api:3000, lokal unter localhost.
+      // In the container the API is at http://api:3000, locally at localhost.
       '/api': { target: process.env.API_PROXY ?? 'http://api:3000', changeOrigin: true },
     },
   },

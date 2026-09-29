@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { env } from '../env.js'
 
 /**
- * Google Calendar API v3 — nur die Teile, die für den 2-Wege-Sync nötig sind.
+ * Google Calendar API v3 — only the parts the two-way sync needs.
  *
- * Scope ist bewusst nur `calendar`: Lesen und Schreiben von Terminen und das
- * Auflisten der Kalender, nichts weiter. Keine Kontakte, kein Gmail.
+ * The scope is deliberately just `calendar`: reading and writing events and
+ * listing the calendars, nothing more. No contacts, no Gmail.
  */
 
 const SCOPE = 'https://www.googleapis.com/auth/calendar'
@@ -54,7 +54,7 @@ function requireConfig(): { id: string; secret: string } {
   return { id: env.GOOGLE_CLIENT_ID, secret: env.GOOGLE_CLIENT_SECRET }
 }
 
-/** Consent-URL. `state` schützt gegen CSRF im Callback. */
+/** Consent URL. `state` protects the callback against CSRF. */
 export function authUrl(state: string): string {
   const { id } = requireConfig()
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -62,7 +62,7 @@ export function authUrl(state: string): string {
   url.searchParams.set('redirect_uri', env.GOOGLE_REDIRECT_URI)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', SCOPE)
-  // offline + consent, damit wirklich ein Refresh-Token kommt
+  // offline + consent, so that a refresh token actually arrives
   url.searchParams.set('access_type', 'offline')
   url.searchParams.set('prompt', 'consent')
   url.searchParams.set('include_granted_scopes', 'true')
@@ -141,7 +141,7 @@ async function call<T>(
   })
 
   if (res.status === 410) {
-    // syncToken abgelaufen — der Aufrufer muss voll neu abgleichen.
+    // The syncToken expired — the caller has to do a full sync.
     const err = new Error('GOOGLE_SYNC_TOKEN_GONE')
     err.name = 'GoogleSyncTokenGone'
     throw err
@@ -161,11 +161,11 @@ export async function listCalendars(accessToken: string): Promise<GoogleCalendar
 }
 
 /**
- * Inkrementeller Abgleich. Ohne syncToken wird ab `timeMin` voll gelesen und
- * am Ende ein Token zurückgegeben.
+ * Incremental sync. Without a syncToken everything from `timeMin` is read and
+ * a token is returned at the end.
  *
- * `singleEvents=true` löst Serien in Einzeltermine auf. Das ist der Grund,
- * warum Google-Serien hier vollständig funktionieren, CalDAV-Serien nicht.
+ * `singleEvents=true` expands series into individual events. That is why
+ * Google series work fully here and CalDAV series do not.
  */
 export async function listChanges(
   accessToken: string,
@@ -188,7 +188,7 @@ export async function listChanges(
         showDeleted: 'true',
         singleEvents: 'true',
         pageToken,
-        // timeMin und orderBy dürfen nicht zusammen mit syncToken gesendet werden
+        // timeMin and orderBy must not be sent together with a syncToken
         ...(syncToken ? { syncToken } : { timeMin: timeMin.toISOString() }),
       },
     })
@@ -208,7 +208,7 @@ export type GoogleEventInput = {
   endsAt: Date
   allDay: boolean
   localId: string
-  /** true => Google soll einen Meet-Raum erzeugen */
+  /** true => ask Google to create a Meet room */
   withMeet: boolean
 }
 
@@ -224,7 +224,7 @@ function toGoogleBody(input: GoogleEventInput): Record<string, unknown> {
     end: input.allDay
       ? { date: dateOnly(input.endsAt) }
       : { dateTime: input.endsAt.toISOString(), timeZone: env.TZ },
-    // Damit wir eigene Termine beim Zurücklesen wiedererkennen
+    // So that we recognise our own events when reading back
     extendedProperties: { private: { soloopsEventId: input.localId } },
     ...(input.withMeet
       ? {
@@ -279,12 +279,12 @@ export async function deleteEvent(
       { method: 'DELETE' },
     )
   } catch (err) {
-    // 404/410: schon gelöscht. Alles andere weiterwerfen.
+    // 404/410: already gone. Rethrow everything else.
     if (!/HTTP 40[049]|HTTP 410|SYNC_TOKEN_GONE/.test((err as Error).message)) throw err
   }
 }
 
-/** Meet-Link aus einem Google-Event ziehen, egal in welchem Feld er steckt. */
+/** Pull the Meet link out of a Google event, whichever field it hides in. */
 export function meetLink(event: GoogleEvent): string | null {
   if (event.hangoutLink) return event.hangoutLink
   const video = event.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')

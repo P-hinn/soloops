@@ -8,7 +8,7 @@ import { renderInvoicePdf } from '../services/invoicePdf.js'
 
 const idParam = z.object({ id: z.string() })
 
-/** Fortlaufende Nummer pro Jahr: RE-2026-0001 */
+/** Sequential number per year: RE-2026-0001 */
 async function nextInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear()
   const prefix = `${env.INVOICE_NUMBER_PREFIX}-${year}-`
@@ -143,9 +143,9 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /**
-   * Der eigentliche Hebel: alle nicht abgerechneten, abrechenbaren Zeiteinträge
-   * eines Kunden im Zeitraum werden zu Positionen und dann fest verknüpft,
-   * damit sie nicht doppelt in eine Rechnung wandern.
+   * The actual lever: every unbilled, billable time entry of a client in the
+   * period becomes a line item and is then linked firmly, so that none of it
+   * can end up on a second invoice.
    */
   app.post('/from-time', async (req, reply) => {
     const data = invoiceFromTimeInput.parse(req.body)
@@ -269,7 +269,7 @@ const routes: FastifyPluginAsync = async (app) => {
       const smallBusiness = data.smallBusiness ?? current.smallBusiness
       const sums = totals(data.items, data.taxRate ?? current.taxRate, smallBusiness)
       await prisma.$transaction(async (tx) => {
-        // Verknüpfte Zeiten freigeben, bevor die Positionen ersetzt werden
+        // Release the linked time entries before the line items are replaced
         const items = await tx.invoiceItem.findMany({ where: { invoiceId: id } })
         await tx.timeEntry.updateMany({
           where: { invoiceItemId: { in: items.map((i) => i.id) } },

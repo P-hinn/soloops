@@ -88,7 +88,7 @@ const offer = ref({
   validUntil: '',
 })
 
-/** Wo AI und eigene Einschätzung auseinanderlaufen, ist das die Nachricht. */
+/** Where the AI and your own estimate diverge, that gap is the message. */
 const scoreGap = computed(() => {
   if (!lead.value || lead.value.aiScore === null) return null
   return lead.value.aiScore - lead.value.probability
@@ -186,7 +186,7 @@ onMounted(load)
 
     <p v-if="error" class="mb-6 text-sm text-bad">{{ error }}</p>
 
-    <!-- Stufenleiste: der Zustand ist das Wichtigste auf dieser Seite. -->
+    <!-- The stage bar: state is the most important thing on this page. -->
     <div class="mb-8 flex flex-wrap gap-1.5">
       <button
         v-for="s in STAGES"
@@ -201,7 +201,7 @@ onMounted(load)
 
     <div class="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div class="min-w-0 space-y-8">
-        <!-- Angebote -->
+        <!-- Offers -->
         <section>
           <div class="mb-3 flex items-baseline justify-between border-b border-line-strong pb-2">
             <h2 class="eyebrow">Angebote</h2>
@@ -286,7 +286,7 @@ onMounted(load)
           <p v-else class="text-sm text-muted">Noch nichts angeboten.</p>
         </section>
 
-        <!-- Verlauf -->
+        <!-- History -->
         <section>
           <h2 class="eyebrow mb-3 border-b border-line-strong pb-2">Verlauf</h2>
 
@@ -318,7 +318,7 @@ onMounted(load)
           </ol>
         </section>
 
-        <!-- Mails -->
+        <!-- Mail -->
         <section v-if="lead.mails.length">
           <h2 class="eyebrow mb-3 border-b border-line-strong pb-2">
             Zugeordnete Mails ({{ lead.mails.length }})
@@ -341,7 +341,7 @@ onMounted(load)
         </section>
       </div>
 
-      <!-- Seitenspalte: Zahlen und AI-Einschätzung -->
+      <!-- Side column: the numbers and the AI's take -->
       <aside class="space-y-6">
         <div class="card p-4">
           <div class="eyebrow-muted mb-3">Bewertung</div>
@@ -395,9 +395,9 @@ onMounted(load)
               {{ scoreGap > 0 ? '+' : '' }}{{ scoreGap }} ggü. dir
             </span>
           </div>
-          <!-- Bewusst Klartext statt Markdown: die Begründung entsteht aus
-               fremden Mails. Gerendertes HTML wäre ein Weg, über eine
-               präparierte Mail Skript in die Oberfläche zu bekommen. -->
+          <!-- Plain text rather than Markdown on purpose: the rationale is
+               derived from foreign mail. Rendered HTML would be a way to get
+               script into the interface through a crafted message. -->
           <p v-if="lead.aiScoreReason" class="mt-3 whitespace-pre-line text-sm">
             {{ lead.aiScoreReason }}
           </p>

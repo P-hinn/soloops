@@ -25,19 +25,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 declare module 'fastify' {
   interface FastifyRequest {
-    /** Gesetzt für jede authentifizierte Anfrage. `service` = Worker/MCP. */
+    /** Set on every authenticated request. `service` = worker/MCP. */
     principal?: { type: 'user'; userId: string } | { type: 'service' }
   }
 }
 
 /**
- * Zwei Wege hinein: JWT-Cookie/Bearer für die UI, statischer SERVICE_TOKEN
- * für Worker und MCP-Server.
+ * Two ways in: a JWT cookie/bearer for the UI, a static SERVICE_TOKEN for the
+ * worker and the MCP server.
  */
 /**
- * Erster Zugriff des MCP-Servers wird vermerkt, damit das Onboarding den
- * Schritt selbst als erledigt erkennt. Höchstens einmal pro Stunde geschrieben —
- * ein DB-Write pro Anfrage wäre Verschwendung.
+ * The MCP server's first access is recorded so that onboarding can tick that
+ * step off by itself. Written at most once an hour — a database write per
+ * request would be a waste.
  */
 let mcpSeenWrittenAt = 0
 

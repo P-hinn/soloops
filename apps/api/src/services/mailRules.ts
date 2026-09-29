@@ -1,6 +1,6 @@
 /**
- * Zuordnung per Regel — ohne Prisma und ohne AI, damit sie testbar bleibt
- * und im Normalfall nichts kostet.
+ * Matching by rule — without Prisma and without AI, so that it stays testable
+ * and costs nothing in the normal case.
  */
 
 export type MailCategoryName = 'LEAD' | 'PROJECT' | 'INVOICE' | 'ADMIN' | 'OTHER'
@@ -22,9 +22,9 @@ export type RuleContext = {
 }
 
 /**
- * Bei diesen Domains sagt die Adresse nichts über die Organisation aus. Ohne
- * die Liste würde jede GMX-Adresse dem erstbesten Kunden mit GMX-Konto
- * zugeschlagen.
+ * With these domains the address says nothing about the organisation. Without
+ * the list, every GMX address would be attributed to the first client who
+ * happens to use GMX.
  */
 export const FREEMAIL = new Set([
   'gmail.com',
@@ -58,9 +58,9 @@ export const FREEMAIL = new Set([
 ])
 
 /**
- * Absenderadresse gegen bekannte Leads und Kunden. Trifft im Alltag fast
- * immer — laufende Korrespondenz kommt von Adressen, die schon im System
- * stehen. Kostet nichts und kann sich nicht vertun.
+ * The sender address against known leads and clients. Hits almost every time
+ * in practice — ongoing correspondence comes from addresses that are already
+ * in the system. Costs nothing and cannot be wrong.
  */
 export function matchByRule(
   mail: { fromEmail: string; toEmails: string[] },
@@ -68,7 +68,7 @@ export function matchByRule(
 ): Assignment | null {
   const own = ctx.ownEmail.toLowerCase()
   const addresses = [mail.fromEmail.toLowerCase(), ...mail.toEmails.map((a) => a.toLowerCase())]
-    // Die eigene Adresse steht in jeder Mail und taugt nicht zur Zuordnung.
+    // Your own address is in every mail and is no use for matching.
     .filter((a) => a !== own)
 
   for (const lead of ctx.leads) {
@@ -99,8 +99,8 @@ export function matchByRule(
     }
   }
 
-  // Gleiche Domain wie ein bekannter Kunde — schwächeres Signal, reicht aber
-  // für die Zuordnung zum Kunden.
+  // Same domain as a known client — a weaker signal, but enough to attribute
+  // the mail to that client.
   const domain = mail.fromEmail.toLowerCase().split('@')[1]
   if (domain && !FREEMAIL.has(domain)) {
     for (const client of ctx.clients) {
@@ -120,7 +120,7 @@ export function matchByRule(
   return null
 }
 
-/** Firmenname aus der Absenderdomain raten. Bei Freemail geht das nicht. */
+/** Guess the company name from the sender domain. Freemail rules that out. */
 export function domainToCompany(email: string): string | null {
   const domain = email.toLowerCase().split('@')[1]
   if (!domain || FREEMAIL.has(domain)) return null
@@ -129,8 +129,8 @@ export function domainToCompany(email: string): string | null {
 }
 
 /**
- * Ein AI-Vorschlag darf nur auf Kennungen zeigen, die er selbst bekommen hat.
- * Alles andere ist geraten und wird verworfen.
+ * An AI suggestion may only point at identifiers it was handed itself.
+ * Anything else is guesswork and gets discarded.
  */
 export function constrainToKnown(
   ai: {
@@ -155,15 +155,15 @@ export function constrainToKnown(
 }
 
 /**
- * Ab wann ein Konto gelesen wird: das spätere aus Kontostart und der harten
- * Grenze aus der Konfiguration. Ein Konto darf nur nach vorn abweichen —
- * sonst holt ein Neuaufsetzen nach UIDVALIDITY-Wechsel doch wieder das Archiv.
+ * Where reading an account starts: the later of the account start and the
+ * hard floor from the configuration. An account may only deviate forwards —
+ * otherwise a reset after a UIDVALIDITY change pulls in the archive after all.
  */
 export function syncWindowStart(accountSince: Date, floor: Date): Date {
   return accountSince > floor ? accountSince : floor
 }
 
-/** Was die AI beim Einlesen über eine mögliche neue Anfrage notiert hat. */
+/** What the AI noted about a possible new enquiry while reading. */
 export type LeadSuggestion = {
   title?: string | null
   contactName?: string | null
@@ -172,7 +172,7 @@ export type LeadSuggestion = {
   amountEur?: number | null
 }
 
-/** Der gespeicherte Vorschlag ist JSON aus der Datenbank — also prüfen. */
+/** The stored suggestion is JSON from the database — so validate it. */
 export function readSuggestion(value: unknown): LeadSuggestion | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const v = value as Record<string, unknown>

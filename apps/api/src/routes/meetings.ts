@@ -56,14 +56,14 @@ const routes: FastifyPluginAsync = async (app) => {
     const startsAt = new Date(data.startsAt)
     const endsAt = data.endsAt ? new Date(data.endsAt) : new Date(startsAt.getTime() + 3600_000)
 
-    // Videoraum einmal erzeugen und in Termin und Meeting spiegeln
+    // Create the video room once and mirror it into event and meeting
     const room = data.withVideo
       ? createVideoRoom(data.title)
       : data.videoUrl
         ? { videoUrl: data.videoUrl, videoProvider: 'CUSTOM' as const }
         : null
 
-    // Kalendereintrag zuerst, damit Meeting und Termin dieselbe Zeit teilen.
+    // Calendar entry first, so that meeting and event share the same time.
     const event = data.createEvent
       ? await prisma.calendarEvent.create({
           data: {
@@ -117,7 +117,7 @@ const routes: FastifyPluginAsync = async (app) => {
       },
       include: { event: true },
     })
-    // Verknüpften Kalendereintrag mitziehen
+    // Carry the linked calendar entry along
     if (meeting.eventId && (data.title || data.startsAt || data.endsAt)) {
       await prisma.calendarEvent.update({
         where: { id: meeting.eventId },
@@ -135,7 +135,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const { id } = idParam.parse(req.params)
     const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id } })
     await prisma.meeting.delete({ where: { id } })
-    // Der Kalendereintrag gehört zum Meeting — mit weg, auch in den Fremdkalendern.
+    // The calendar entry belongs to the meeting — it goes too, remotely as well.
     if (meeting.eventId) {
       await tombstoneEvent(meeting.eventId)
       await prisma.calendarEvent.delete({ where: { id: meeting.eventId } }).catch(() => {})
@@ -143,7 +143,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(204).send()
   })
 
-  /** Videoraum nachträglich anlegen oder ersetzen. */
+  /** Create or replace the video room after the fact. */
   app.post('/:id/video', async (req) => {
     const { id } = idParam.parse(req.params)
     const body = z.object({ url: z.string().url().optional() }).parse(req.body ?? {})
@@ -167,7 +167,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return updated
   })
 
-  /** AI-Zusammenfassung + Action Items aus der Mitschrift. */
+  /** AI summary + action items from the transcript. */
   app.post('/:id/summarize', async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY)
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
@@ -175,7 +175,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return summarizeMeeting(id)
   })
 
-  // --- Action Items --------------------------------------------------------
+  // --- Action items --------------------------------------------------------
 
   app.post('/:id/action-items', async (req, reply) => {
     const { id } = idParam.parse(req.params)

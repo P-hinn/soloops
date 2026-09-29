@@ -4,7 +4,7 @@ x-node: &node
   build:
     context: .
     dockerfile: Dockerfile
-    # Das Dockerfile ist mehrstufig — ohne target landet man in `runtime`.
+    # The Dockerfile is multi-stage — without a target you end up in `runtime`.
     target: base
   env_file: .env
   volumes:
@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
     command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
     ports:
-      # 3000 ist oft schon von einem anderen Dev-Server belegt
+      # 3000 is often taken by some other dev server already
       - '${API_PORT:-3000}:3000'
 
   worker:
@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
     command: npm -w @soloops/web run dev
     ports:
-      # 5173 ist auf vielen Rechnern schon von einem anderen Vite belegt
+      # on many machines 5173 is taken by another Vite already
       - '${WEB_PORT:-5174}:5173'
     depends_on:
       api:

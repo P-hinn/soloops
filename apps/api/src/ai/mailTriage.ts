@@ -1,15 +1,15 @@
-// Der Anthropic-Zod-Helper erwartet Zod 4 — zod 3.25 liefert es unter /v4 mit.
+// The Anthropic Zod helper expects Zod 4 — zod 3.25 ships it under /v4.
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { anthropic, MODEL } from './anthropic.js'
 
 /**
- * Einordnung einer Mail, die keine Regel greifen konnte.
+ * Placing a mail that no rule could catch.
  *
- * Die AI bekommt bewusst nur Kurzfassungen der bekannten Leads, Kunden und
- * Projekte — Name, Firma, Adresse. Sie soll zuordnen, nicht erfinden: jede
- * Zuordnung muss auf eine der gelieferten Kennungen zeigen, sonst wird sie
- * verworfen (siehe mailSync.ts).
+ * The model deliberately only gets short summaries of the known leads,
+ * clients and projects — name, company, address. It is meant to match, not
+ * invent: every match has to point at one of the supplied identifiers, or it
+ * is discarded (see mailSync.ts).
  */
 
 const triageSchema = z.object({
@@ -19,7 +19,7 @@ const triageSchema = z.object({
   leadId: z.string().nullable().describe('Kennung aus der Liste oder null'),
   clientId: z.string().nullable(),
   projectId: z.string().nullable(),
-  /// Wenn die Mail eine neue Anfrage ist, für die es noch nichts gibt.
+  /// Set when the mail is a new enquiry with nothing on file yet.
   newLead: z
     .object({
       title: z.string().describe('Kurz, z.B. "DWH-Ablösung Beispiel GmbH"'),
@@ -28,7 +28,7 @@ const triageSchema = z.object({
       summary: z.string().describe('Worum geht es, in 1-2 Sätzen'),
     })
     .nullable(),
-  /// Genannte Summe in Euro, wenn die Mail eine nennt (Angebot, Budget).
+  /// An amount in euro where the mail names one (offer, budget).
   amountEur: z.number().nullable(),
   confidence: z.number().min(0).max(1),
   reason: z.string().describe('Ein Satz, warum diese Einordnung'),
@@ -60,7 +60,7 @@ export async function triageMail(
     max_tokens: 2000,
     system: SYSTEM,
     output_config: {
-      // Sortieren ist Routine — hier zählt Durchsatz, nicht Tiefe.
+      // Filing is routine — throughput counts here, not depth.
       effort: 'low',
       format: zodOutputFormat(triageSchema),
     },

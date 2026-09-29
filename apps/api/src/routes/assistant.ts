@@ -6,12 +6,12 @@ import { planFromText } from '../ai/assistant.js'
 import { createVideoRoom } from '../services/video.js'
 
 /**
- * Zwei Endpunkte, absichtlich getrennt:
- *   POST /plan   — deutet den Satz, legt nichts an
- *   POST /apply  — legt an, was im (ggf. korrigierten) Plan steht
+ * Two endpoints, deliberately separate:
+ *   POST /plan   — interprets the sentence, creates nothing
+ *   POST /apply  — creates what the (possibly corrected) plan says
  *
- * `apply` vertraut dem Plan nicht blind: jede Id wird gegen die Datenbank
- * geprüft, Kürzel werden auf Kollision getestet, Zeiten validiert.
+ * `apply` does not trust the plan blindly: every id is checked against the
+ * database, keys are tested for collisions, times are validated.
  */
 
 const planInput = z.object({ text: z.string().min(3).max(2000) })
@@ -56,7 +56,7 @@ const applyInput = z.object({
   timer: z.object({ start: z.boolean(), description: z.string().nullish() }),
 })
 
-/** Freies Kürzel finden: ACME-DWH, ACME-DWH-2, … */
+/** Find a free project key: ACME-DWH, ACME-DWH-2, … */
 async function freeProjectKey(wanted: string): Promise<string> {
   const base =
     wanted
@@ -98,7 +98,7 @@ const routes: FastifyPluginAsync = async (app) => {
       links: { label: string; url: string }[]
     } = { actionItemIds: [], links: [] }
 
-    // --- Kunde -------------------------------------------------------------
+    // --- Client ------------------------------------------------------------
     let clientId: string | null = null
     if (plan.client.action === 'use' && plan.client.id) {
       const found = await prisma.client.findUnique({ where: { id: plan.client.id } })
@@ -119,7 +119,7 @@ const routes: FastifyPluginAsync = async (app) => {
       created.links.push({ label: `Kunde ${client.name}`, url: '/clients' })
     }
 
-    // --- Projekt -----------------------------------------------------------
+    // --- Project -----------------------------------------------------------
     let projectId: string | null = null
     if (plan.project.action === 'use' && plan.project.id) {
       const found = await prisma.project.findUnique({ where: { id: plan.project.id } })
@@ -141,7 +141,7 @@ const routes: FastifyPluginAsync = async (app) => {
       created.links.push({ label: `Projekt ${project.key}`, url: `/projects/${project.id}` })
     }
 
-    // --- Termin ------------------------------------------------------------
+    // --- Event -------------------------------------------------------------
     let eventId: string | null = null
     let videoUrl: string | null = null
     if (plan.event.create && plan.event.startsAt) {
@@ -201,7 +201,7 @@ const routes: FastifyPluginAsync = async (app) => {
       created.links.push({ label: 'Meeting', url: `/meetings/${meeting.id}` })
     }
 
-    // --- Notiz -------------------------------------------------------------
+    // --- Note --------------------------------------------------------------
     if (plan.note.create && plan.note.title) {
       const note = await prisma.note.create({
         data: {
@@ -216,7 +216,7 @@ const routes: FastifyPluginAsync = async (app) => {
       created.links.push({ label: 'Notiz', url: '/notes' })
     }
 
-    // --- Offene Punkte -----------------------------------------------------
+    // --- Action items ------------------------------------------------------
     for (const item of plan.actionItems) {
       const action = await prisma.actionItem.create({
         data: {

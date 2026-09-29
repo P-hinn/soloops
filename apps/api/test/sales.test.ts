@@ -28,7 +28,7 @@ const offer = (status: string, amountCents: number, sentOn: string | null = null
 })
 
 // ---------------------------------------------------------------------------
-// Was ist ein Lead wert
+// What is a lead worth
 // ---------------------------------------------------------------------------
 
 check(
@@ -86,7 +86,7 @@ check(
 )
 
 // ---------------------------------------------------------------------------
-// Gewichtung
+// Weighting
 // ---------------------------------------------------------------------------
 
 check(
@@ -104,7 +104,7 @@ check(
 check('0 % ergibt 0', weightedCents({ valueCents: 5_000_000, probability: 0 }), 0)
 
 // ---------------------------------------------------------------------------
-// Liegenbleiben
+// Going quiet
 // ---------------------------------------------------------------------------
 
 const now = new Date('2026-09-28T12:00:00Z')
@@ -120,7 +120,7 @@ check(
 )
 
 // ---------------------------------------------------------------------------
-// Mail-Zuordnung per Regel
+// Matching mail by rule
 // ---------------------------------------------------------------------------
 
 const ctx = {
@@ -172,7 +172,8 @@ check(
   0.7,
 )
 
-// Der wichtigste Fall: sonst bekäme jede GMX-Adresse den Kunden mit GMX-Konto.
+// The case that matters most: otherwise every GMX address gets the client
+// who happens to use GMX.
 check(
   'Freemail-Domain darf NICHT über die Domain zugeordnet werden',
   matchByRule({ fromEmail: 'irgendwer@gmx.de', toEmails: [] }, ctx),
@@ -198,7 +199,7 @@ check(
 )
 
 // ---------------------------------------------------------------------------
-// AI-Vorschläge einschränken
+// Constraining AI suggestions
 // ---------------------------------------------------------------------------
 
 const aiSays = (over: Record<string, unknown>) => ({
@@ -237,7 +238,7 @@ check(
 )
 
 // ---------------------------------------------------------------------------
-// Firmenname aus der Domain
+// Company name from the domain
 // ---------------------------------------------------------------------------
 
 check('Firmenname aus der Domain', domainToCompany('info@beispiel-gmbh.de'), 'Beispiel-gmbh')
@@ -245,7 +246,7 @@ check('Freemail ergibt keinen Firmennamen', domainToCompany('jemand@gmail.com'),
 check('kaputte Adresse ergibt null', domainToCompany('keine-adresse'), null)
 
 // ---------------------------------------------------------------------------
-// Ab wann Mails geholt werden
+// Where mail fetching starts
 // ---------------------------------------------------------------------------
 
 const FLOOR = new Date('2026-09-01T00:00:00Z')
@@ -269,7 +270,7 @@ check(
 )
 
 // ---------------------------------------------------------------------------
-// Vorschlag aus dem Postfach lesen
+// Reading a suggestion from the inbox
 // ---------------------------------------------------------------------------
 
 check('kein Vorschlag gespeichert', readSuggestion(null), null)

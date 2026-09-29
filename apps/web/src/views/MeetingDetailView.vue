@@ -143,7 +143,7 @@ onMounted(load)
       </div>
 
       <div class="space-y-4">
-        <!-- Videoraum -->
+        <!-- Video room -->
         <section class="card" :class="meeting.videoUrl ? 'border-ink' : ''">
           <h2 class="eyebrow mb-2">Videoraum</h2>
 

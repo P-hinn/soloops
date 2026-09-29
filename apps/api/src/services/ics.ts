@@ -21,7 +21,7 @@ function escape(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
 }
 
-/** RFC 5545 verlangt Zeilen ≤ 75 Oktette. */
+/** RFC 5545 requires lines of ≤ 75 octets. */
 function fold(line: string): string {
   if (line.length <= 73) return line
   const chunks: string[] = []
@@ -60,8 +60,8 @@ export function buildIcs(events: IcsEvent[]): string {
     }
     lines.push(fold(`SUMMARY:${escape(title)}`))
 
-    // Videoraum in die Beschreibung spiegeln — Apple und Google verlinken ihn
-    // dann direkt in der Terminansicht.
+    // Mirror the video room into the description — Apple and Google then link
+    // it right in the event view.
     const description = [e.description, e.videoUrl ? `Videoraum: ${e.videoUrl}` : null]
       .filter(Boolean)
       .join('\n\n')

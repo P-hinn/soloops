@@ -27,9 +27,9 @@ async function submit() {
 
 <template>
   <div class="flex min-h-screen bg-shell">
-    <!-- Linke Hälfte: die Aussage, wie auf der Website -->
+    <!-- Left half: the statement, as on the website -->
     <div class="hidden flex-1 flex-col justify-between border-r border-line p-12 lg:flex">
-      <!-- Hier hat die Bildmarke Platz: bei 64px tragen die Innenräume. -->
+      <!-- The mark has room here: at 64px the counters hold up. -->
       <div class="flex items-center gap-4">
         <BrandMark :size="64" class="text-ink" />
         <span class="flex items-baseline gap-2">
@@ -65,7 +65,7 @@ async function submit() {
       </div>
     </div>
 
-    <!-- Rechte Hälfte: das Formular -->
+    <!-- Right half: the form -->
     <div class="flex w-full items-center justify-center bg-paper p-8 lg:w-[460px]">
       <form class="w-full max-w-sm" @submit.prevent="submit">
         <div class="eyebrow mb-2">Anmeldung</div>

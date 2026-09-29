@@ -6,9 +6,9 @@ import { useAuth } from '@/stores/auth'
 import { useTimer } from '@/stores/timer'
 
 /**
- * Ein Feld für alles. Der Satz geht an die KI, die daraus einen Plan macht;
- * angelegt wird erst nach Bestätigung — und der Plan ist vorher editierbar,
- * weil "Dienstag 10 Uhr" öfter danebenliegt als man denkt.
+ * One field for everything. The sentence goes to the model, which turns it
+ * into a plan; nothing is created until you confirm — and the plan is
+ * editable first, because "Tuesday at 10" is wrong more often than you think.
  */
 
 type EntityRef = {
@@ -59,7 +59,7 @@ const applied = ref<Applied | null>(null)
 const busy = ref(false)
 const error = ref('')
 
-/** Beispiele, die zeigen was geht — Klick füllt das Feld, sendet aber nicht. */
+/** Examples that show what is possible — a click fills the field, nothing more. */
 const examples = [
   'Termin für neues Projekt mit Beispiel GmbH nächste Woche',
   'Kickoff-Meeting mit Video Donnerstag 10 Uhr',
@@ -112,7 +112,7 @@ function discard() {
   error.value = ''
 }
 
-/** Für die Datetime-Felder im Plan: ISO <-> Wert des Inputs. */
+/** For the datetime fields in the plan: ISO <-> the input's value. */
 function toLocalInput(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -129,7 +129,7 @@ const confidenceTone: Record<string, string> = {
   low: 'badge-bad',
 }
 
-/** Was der Plan konkret anlegen wird — als Liste, damit man es überblickt. */
+/** What the plan will actually create — as a list, so you can take it in. */
 const willCreate = computed(() => {
   const p = plan.value
   if (!p) return []
@@ -149,7 +149,7 @@ const willCreate = computed(() => {
 
 <template>
   <section data-tour="quickbar" class="border-2 border-ink bg-raised shadow-[var(--shadow-raise)]">
-    <!-- Eingabe -->
+    <!-- Input -->
     <form class="flex items-stretch gap-0 border-b border-line" @submit.prevent="askPlan">
       <span class="flex items-center pl-4 pr-2 font-display text-lg text-blue">✳</span>
       <input
@@ -164,7 +164,7 @@ const willCreate = computed(() => {
       </button>
     </form>
 
-    <!-- Schnellaktionen -->
+    <!-- Quick actions -->
     <div
       data-tour="quick-actions"
       class="flex flex-wrap items-center gap-2 border-b border-line bg-shell/50 px-4 py-2.5"
@@ -198,12 +198,12 @@ const willCreate = computed(() => {
       </span>
     </div>
 
-    <!-- Fehler -->
+    <!-- Errors -->
     <p v-if="error" class="border-t border-bad/40 bg-bad/5 px-4 py-2.5 text-sm text-bad">
       {{ error }}
     </p>
 
-    <!-- Ergebnis -->
+    <!-- Result -->
     <div v-if="applied" class="border-t border-ink bg-acid px-4 py-3">
       <div class="flex flex-wrap items-center gap-3">
         <span class="eyebrow-muted !text-ink">Angelegt</span>
@@ -229,7 +229,7 @@ const willCreate = computed(() => {
       </div>
     </div>
 
-    <!-- Plan-Vorschau -->
+    <!-- Plan preview -->
     <div v-if="plan" class="border-t border-line">
       <div class="flex flex-wrap items-start gap-3 bg-paper-2 px-4 py-3">
         <span class="badge" :class="confidenceTone[plan.confidence]">
@@ -245,7 +245,7 @@ const willCreate = computed(() => {
       </div>
 
       <div class="grid gap-6 px-4 py-4 lg:grid-cols-[1fr_280px]">
-        <!-- Editierbare Felder -->
+        <!-- Editable fields -->
         <div class="space-y-4">
           <div v-if="plan.event.create" class="grid gap-3 sm:grid-cols-2">
             <div class="sm:col-span-2">
@@ -314,7 +314,7 @@ const willCreate = computed(() => {
           </p>
         </div>
 
-        <!-- Zusammenfassung + Bestätigung -->
+        <!-- Summary + confirmation -->
         <aside class="space-y-4">
           <div>
             <h3 class="eyebrow-muted mb-2">Wird angelegt</h3>

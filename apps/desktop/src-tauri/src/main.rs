@@ -1,4 +1,4 @@
-// Ohne dieses Attribut oeffnet Windows zusaetzlich ein Konsolenfenster.
+// Without this attribute Windows opens an extra console window.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {

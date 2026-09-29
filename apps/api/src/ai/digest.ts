@@ -1,4 +1,4 @@
-// Der Anthropic-Zod-Helper erwartet Zod 4 — zod 3.25 liefert es unter /v4 mit.
+// The Anthropic Zod helper expects Zod 4 — zod 3.25 ships it under /v4.
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { prisma } from '../db.js'
@@ -6,7 +6,7 @@ import { anthropic, MODEL } from './anthropic.js'
 import { formatDuration } from '@soloops/shared'
 
 // ---------------------------------------------------------------------------
-// Schemas — Structured Outputs erzwingen ein Format, das die UI direkt rendert
+// Schemas — structured outputs enforce a shape the UI can render directly
 // ---------------------------------------------------------------------------
 
 const projectDigestSchema = z.object({
@@ -48,7 +48,7 @@ const SYSTEM = [
 ].join(' ')
 
 // ---------------------------------------------------------------------------
-// Projekt-Digest
+// Project digest
 // ---------------------------------------------------------------------------
 
 export async function buildProjectDigest(projectId: string) {
@@ -169,7 +169,7 @@ export async function buildProjectDigest(projectId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Meeting-Zusammenfassung + Action Items
+// Meeting summary + action items
 // ---------------------------------------------------------------------------
 
 export async function summarizeMeeting(meetingId: string) {
@@ -227,7 +227,7 @@ export async function summarizeMeeting(meetingId: string) {
     },
   })
 
-  // Bestehende AI-Items ersetzen, manuell angelegte bleiben unangetastet.
+  // Replace existing AI items; manually created ones stay untouched.
   await prisma.actionItem.deleteMany({ where: { meetingId, source: 'AI', done: false } })
   await prisma.actionItem.createMany({
     data: parsed.actionItems.map(

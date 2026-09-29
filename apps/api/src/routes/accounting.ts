@@ -20,7 +20,7 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  /** Kunden nach lexoffice spiegeln (Contact anlegen/aktualisieren). */
+  /** Mirror a client to lexoffice (create or update the contact). */
   app.post('/clients/:id/sync', async (req, reply) => {
     if (!env.LEXOFFICE_API_KEY)
       return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
@@ -31,9 +31,9 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /**
-   * Rechnung als finalisiertes Dokument nach lexoffice übertragen.
-   * lexoffice bleibt die führende, GoBD-konforme Ablage; soloops behält die
-   * Zeit- und Projektzuordnung.
+   * Transfer an invoice to lexoffice as a finalized document.
+   * lexoffice stays the authoritative, GoBD-compliant archive; soloops keeps
+   * the mapping to time entries and projects.
    */
   app.post('/invoices/:id/sync', async (req, reply) => {
     if (!env.LEXOFFICE_API_KEY)
@@ -67,7 +67,7 @@ const routes: FastifyPluginAsync = async (app) => {
     })
   })
 
-  /** Alle noch nicht übertragenen Rechnungen in einem Rutsch. */
+  /** Every invoice not yet transferred, in one go. */
   app.post('/invoices/sync-pending', async (_req, reply) => {
     if (!env.LEXOFFICE_API_KEY)
       return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
@@ -100,7 +100,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return { synced: results.filter((r) => r.ok).length, results }
   })
 
-  /** Umsatzübersicht pro Monat — für Steuervorauszahlung und USt-Voranmeldung. */
+  /** Revenue per month — for tax prepayments and the advance VAT return. */
   app.get('/revenue', async (req) => {
     const q = z
       .object({ year: z.coerce.number().default(new Date().getFullYear()) })

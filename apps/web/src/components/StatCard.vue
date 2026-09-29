@@ -8,8 +8,8 @@ defineProps<{
 </script>
 
 <template>
-  <!-- Kein Kasten, nur eine kräftige Oberkante. Sie trägt die Farbe: eine
-       Kennzahl, die Aufmerksamkeit braucht, sagt das schon über die Linie. -->
+  <!-- No box, just a heavy top rule. The rule carries the colour: a figure
+       that needs attention says so through the line already. -->
   <div
     class="border-t-2 pt-3"
     :class="{

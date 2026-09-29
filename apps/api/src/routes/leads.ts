@@ -44,7 +44,7 @@ const offerInput = z.object({
   notes: z.string().nullish(),
 })
 
-/** Leere Strings aus Formularen sind keine Werte, sondern nicht gesetzt. */
+/** Empty strings from forms are not values, they are "not set". */
 const blankToNull = <T extends Record<string, unknown>>(data: T): T => {
   const out = { ...data }
   for (const [k, v] of Object.entries(out)) {
@@ -118,8 +118,8 @@ const routes: FastifyPluginAsync = async (app) => {
   app.patch('/:id', async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const data = blankToNull(leadInput.partial().parse(req.body))
-    // Der Stufenwechsel hat eigene Regeln (Wahrscheinlichkeit, Verlauf) und
-    // gehört deshalb nicht in das allgemeine Feld-Update.
+    // Changing the stage has rules of its own (probability, history) and
+    // therefore does not belong in the generic field update.
     const { stage: nextStage, ...rest } = data
     const updated = await prisma.lead.update({ where: { id }, data: rest })
     return nextStage && nextStage !== updated.stage ? changeStage(id, nextStage) : updated
@@ -137,7 +137,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(204).send()
   })
 
-  // --- Verlauf -------------------------------------------------------------
+  // --- History -------------------------------------------------------------
 
   app.post('/:id/activities', async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
@@ -153,7 +153,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send({ ok: true })
   })
 
-  // --- Angebote ------------------------------------------------------------
+  // --- Offers --------------------------------------------------------------
 
   app.post('/:id/offers', async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
@@ -167,8 +167,8 @@ const routes: FastifyPluginAsync = async (app) => {
       source: 'SYSTEM',
     })
 
-    // Ein verschicktes Angebot ist ein Stufenwechsel — sonst müsste man ihn
-    // jedes Mal von Hand nachziehen.
+    // Sending an offer is a stage change — otherwise you would have to make
+    // it by hand every single time.
     const lead = await prisma.lead.findUniqueOrThrow({ where: { id } })
     if (offer.status === 'SENT' && (lead.stage === 'NEW' || lead.stage === 'QUALIFIED')) {
       await changeStage(id, 'PROPOSAL', 'Angebot verschickt')
@@ -208,7 +208,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(204).send()
   })
 
-  // --- AI-Bewertung --------------------------------------------------------
+  // --- AI scoring ----------------------------------------------------------
 
   app.post('/:id/score', async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)

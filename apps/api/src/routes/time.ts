@@ -6,7 +6,7 @@ import { env } from '../env.js'
 
 const idParam = z.object({ id: z.string() })
 
-/** Stundensatz: Projekt > Kunde > globaler Default. */
+/** Hourly rate: project > client > global default. */
 async function resolveRateCents(projectId: string): Promise<number> {
   const project = await prisma.project.findUniqueOrThrow({
     where: { id: projectId },
@@ -22,7 +22,7 @@ async function resolveRateCents(projectId: string): Promise<number> {
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  /** Laufender Timer (endedAt === null). Es gibt immer höchstens einen. */
+  /** The running timer (endedAt === null). There is never more than one. */
   app.get('/running', async () => {
     return prisma.timeEntry.findFirst({
       where: { endedAt: null },
@@ -34,7 +34,7 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/start', async (req, reply) => {
     const data = timerStartInput.parse(req.body)
 
-    // Laufenden Timer automatisch stoppen — kein Doppel-Tracking.
+    // Stop a running timer automatically — no double tracking.
     const running = await prisma.timeEntry.findFirst({ where: { endedAt: null } })
     if (running) await stopEntry(running.id)
 
@@ -157,7 +157,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(204).send()
   })
 
-  /** Wochen-/Monatsauswertung, gruppiert nach Projekt. */
+  /** Weekly/monthly report, grouped by project. */
   app.get('/report', async (req) => {
     const q = z
       .object({ from: z.string(), to: z.string(), billableOnly: z.coerce.boolean().default(false) })

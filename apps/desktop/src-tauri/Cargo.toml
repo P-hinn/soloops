@@ -3,7 +3,7 @@ name = "soloops-desktop"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.77"
-description = "soloops als macOS-App"
+description = "soloops as a macOS app"
 publish = false
 
 [lib]
@@ -17,7 +17,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 
 [profile.release]
-# Eine App fuer genau einen Rechner — klein und ohne Symbole reicht.
+# An app for exactly one machine — small and stripped is enough.
 codegen-units = 1
 lto = true
 opt-level = "s"

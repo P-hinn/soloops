@@ -85,7 +85,7 @@ async function syncLexoffice() {
   }
 }
 
-/** PDF braucht den Bearer-Token — daher als Blob laden statt direkt zu verlinken. */
+/** The PDF needs the bearer token — so load it as a blob instead of linking. */
 async function openPdf() {
   const res = await fetch(`/api/invoices/${route.params.id}/pdf`, {
     headers: { Authorization: `Bearer ${getToken()}` },

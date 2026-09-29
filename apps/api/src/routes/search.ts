@@ -10,7 +10,7 @@ type Hit = {
   url: string
 }
 
-/** Globale Suche über alle Module — auch das Rückgrat des MCP-Tools `search`. */
+/** Global search across all modules — also the backbone of the `search` MCP tool. */
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
@@ -129,7 +129,7 @@ const routes: FastifyPluginAsync = async (app) => {
         snippet: [l.company, l.notes?.slice(0, 160)].filter(Boolean).join(' — '),
         url: `/leads/${l.id}`,
       })),
-      // Mails führen zum Lead, wenn es einen gibt — dort steht der Zusammenhang.
+      // Mail leads to the lead where there is one — that is where the context is.
       ...mails.map((m) => ({
         type: 'mail' as const,
         id: m.id,
