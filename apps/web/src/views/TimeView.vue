@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@/api'
+import { useLiveRefresh } from '@/lib/live'
+import { useTimer } from '@/stores/timer'
 import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
@@ -33,6 +35,7 @@ type Report = {
   }[]
 }
 
+const timer = useTimer()
 const entries = ref<Entry[]>([])
 const projects = ref<Project[]>([])
 const report = ref<Report | null>(null)
@@ -44,22 +47,37 @@ const to = ref(today.toISOString().slice(0, 10))
 const manual = ref({ projectId: '', description: '', startedAt: '', endedAt: '', billable: true })
 const showManual = ref(false)
 
+/**
+ * A running entry carries no duration yet — the server only writes it on stop.
+ * For that one row the stopwatch supplies the value, so the page ticks along.
+ */
+const durationOf = (e: Entry) =>
+  !e.endedAt && timer.running?.id === e.id ? timer.elapsedSec : e.durationSec
+
 const unbilledSec = computed(() =>
   entries.value
     .filter((e) => e.billable && !e.invoiceItemId)
-    .reduce((s, e) => s + e.durationSec, 0),
+    .reduce((s, e) => s + durationOf(e), 0),
 )
 
 async function load() {
-  entries.value = await api.get<Entry[]>('/api/time', {
+  const range = {
     from: new Date(from.value).toISOString(),
     to: new Date(`${to.value}T23:59:59`).toISOString(),
-  })
-  report.value = await api.get<Report>('/api/time/report', {
-    from: new Date(from.value).toISOString(),
-    to: new Date(`${to.value}T23:59:59`).toISOString(),
-  })
+  }
+  const [rows, summary] = await Promise.all([
+    api.get<Entry[]>('/api/time', range),
+    api.get<Report>('/api/time/report', range),
+  ])
+  entries.value = rows
+  report.value = summary
+  // A timer started in another window or in the macOS app belongs here too.
+  await timer.refresh()
 }
+
+// The page stays current on its own: the running entry grows, and what is
+// booked elsewhere shows up without a reload.
+useLiveRefresh(load)
 
 async function addManual() {
   await api.post('/api/time', {
@@ -186,7 +204,7 @@ onMounted(async () => {
                   >nicht abrechenbar</span
                 >
               </td>
-              <td class="text-right tabular-nums">{{ formatDuration(e.durationSec) }}</td>
+              <td class="text-right tabular-nums">{{ formatDuration(durationOf(e)) }}</td>
               <td class="text-right">
                 <button
                   v-if="!e.invoiceItemId"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@/api'
+import { useLiveRefresh } from '@/lib/live'
 import { formatDuration } from '@soloops/shared'
 
 /**
@@ -122,6 +123,10 @@ async function forget(run: Run) {
 
 watch(day, load)
 onMounted(load)
+
+// Samples keep coming in while the page is open. Past days are done and
+// need no polling.
+useLiveRefresh(() => (day.value === iso(new Date()) ? load() : undefined))
 </script>
 
 <template>
