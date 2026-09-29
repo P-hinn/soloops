@@ -5,6 +5,7 @@ import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import TimerControl from '@/components/TimerControl.vue'
+import ActivityBand from '@/components/ActivityBand.vue'
 
 type Entry = {
   id: string
@@ -99,7 +100,7 @@ onMounted(async () => {
       </template>
     </PageHeader>
 
-    <!-- Die Stoppuhr gehört hierher, nicht in eine Projektzeile. -->
+    <!-- The stopwatch belongs here, not in a project row. -->
     <TimerControl class="mb-6" :projects="projects" :recent="entries" @changed="load" />
 
     <form v-if="showManual" class="card mb-4 grid gap-3 md:grid-cols-5" @submit.prevent="addManual">
@@ -219,5 +220,9 @@ onMounted(async () => {
         </ul>
       </div>
     </div>
+
+    <!-- What the machine picked up along the way. No mapping to projects
+         yet — that is the next step. -->
+    <ActivityBand class="mt-10" />
   </div>
 </template>

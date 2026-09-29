@@ -1,28 +1,35 @@
-//! soloops als Fenster statt als Browsertab.
+//! soloops as a window instead of a browser tab.
 //!
-//! Die App rendert nichts Eigenes: sie zeigt dieselbe Oberflaeche, die auch
-//! unter http://localhost laeuft. Was sie hinzufuegt, ist der Rahmen —
-//! Menueleiste, Tastenkuerzel, Tray — und der Start der Container, damit man
-//! nicht erst ein Terminal aufmachen muss.
+//! The app renders nothing of its own: it shows the same interface that runs
+//! at http://localhost. What it adds is the frame — menu bar, keyboard
+//! shortcuts, tray — and starting the containers, so that nobody has to open
+//! a terminal first.
 //!
-//! Die geladene Seite bekommt bewusst keinen Zugriff auf Tauri-APIs. Alles,
-//! was die App kann, laeuft hier in Rust; zur Oberflaeche geht nur JavaScript,
-//! das genauso in der Konsole stehen koennte.
+//! The loaded page deliberately gets no access to Tauri APIs. Everything the
+//! app can do happens here in Rust; what reaches the interface is JavaScript
+//! that could just as well be typed into the console.
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{
+    AboutMetadata, CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder,
+    SubmenuBuilder,
+};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{
+    AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
+};
 
-/// Die Module in der Reihenfolge der Seitenleiste — Cmd+1 bis Cmd+9.
+mod activity;
+
+/// The modules in sidebar order — Cmd+1 through Cmd+9.
 const SECTIONS: [(&str, &str, &str); 9] = [
     ("go-dashboard", "Übersicht", "/"),
     ("go-calendar", "Kalender", "/calendar"),
@@ -35,20 +42,26 @@ const SECTIONS: [(&str, &str, &str); 9] = [
     ("go-settings", "Einstellungen", "/settings"),
 ];
 
-/// Was die Menuebefehle wissen muessen.
+/// What the menu commands need to know.
 struct Runtime {
     dir: PathBuf,
     web_port: u16,
-    /// Vor dem ersten erfolgreichen Laden zeigt das Fenster den Startbildschirm.
-    /// Navigation und Abruf waeren dort wirkungslos und werden uebersprungen.
+    /// Until the first successful load the window shows the splash screen.
+    /// Navigation and fetching would do nothing there and are skipped.
     loaded: Arc<AtomicBool>,
+    /// Is recording on? The sampler thread reads this on every tick, so that
+    /// "off" takes effect at once and not on the next start.
+    activity: Arc<AtomicBool>,
+    /// The same switch lives in the menu and in the tray. Both check marks
+    /// have to follow when either one is clicked.
+    activity_items: Mutex<Vec<CheckMenuItem<Wry>>>,
 }
 
-// --- Projekt und Ports ------------------------------------------------------
+// --- Project and ports ------------------------------------------------------
 
-/// Wo das Repository liegt. Die .app hat kein Arbeitsverzeichnis, deshalb wird
-/// der Pfad beim Bauen festgehalten; SOLOOPS_DIR sticht ihn, falls das
-/// Verzeichnis spaeter umzieht.
+/// Where the repository lives. A .app has no working directory, so the path
+/// is baked in at build time; SOLOOPS_DIR overrides it should the directory
+/// move later on.
 fn project_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("SOLOOPS_DIR") {
         return PathBuf::from(dir);
@@ -56,21 +69,33 @@ fn project_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.."))
 }
 
-fn port_from_env(dir: &Path, key: &str, fallback: u16) -> u16 {
-    let Ok(text) = std::fs::read_to_string(dir.join(".env")) else {
-        return fallback;
-    };
+/// One value from the .env. Not a full parser — line, equals sign, rest,
+/// quotes off. There is nothing more complicated in that file.
+fn env_value(dir: &Path, key: &str) -> Option<String> {
+    let text = std::fs::read_to_string(dir.join(".env")).ok()?;
     for line in text.lines() {
-        let Some(rest) = line.trim().strip_prefix(key) else {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some(rest) = line
+            .strip_prefix(key)
+            .and_then(|rest| rest.strip_prefix('='))
+        else {
             continue;
         };
-        if let Some(value) = rest.strip_prefix('=') {
-            if let Ok(port) = value.trim().parse() {
-                return port;
-            }
+        let value = rest.trim().trim_matches('"').trim_matches('\'').to_string();
+        if !value.is_empty() {
+            return Some(value);
         }
     }
-    fallback
+    None
+}
+
+fn port_from_env(dir: &Path, key: &str, fallback: u16) -> u16 {
+    env_value(dir, key)
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(fallback)
 }
 
 fn port_open(port: u16) -> bool {
@@ -78,8 +103,8 @@ fn port_open(port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(400)).is_ok()
 }
 
-/// Ein offener Port heisst noch nicht, dass die API Anfragen beantwortet —
-/// Fastify bindet frueher, als Prisma verbunden ist.
+/// An open port does not yet mean the API answers requests — Fastify binds
+/// earlier than Prisma connects.
 fn api_healthy(port: u16) -> bool {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let Ok(mut stream) = TcpStream::connect_timeout(&addr, Duration::from_millis(500)) else {
@@ -101,8 +126,8 @@ fn api_healthy(port: u16) -> bool {
 
 // --- Docker -----------------------------------------------------------------
 
-/// In einer .app ist PATH auf /usr/bin:/bin zusammengeschrumpft — Docker liegt
-/// da nie. Also an den bekannten Stellen nachsehen.
+/// Inside a .app, PATH has shrunk to /usr/bin:/bin — Docker is never there.
+/// So look in the places it is known to live.
 fn docker_bin() -> Option<PathBuf> {
     let home = std::env::var("HOME").unwrap_or_default();
     [
@@ -134,14 +159,19 @@ fn compose(docker: &Path, dir: &Path, args: &[&str]) -> Result<(), String> {
         return Ok(());
     }
     let stderr = String::from_utf8_lossy(&out.stderr);
-    Err(stderr.trim().lines().last().unwrap_or("unbekannt").to_string())
+    Err(stderr
+        .trim()
+        .lines()
+        .last()
+        .unwrap_or("unbekannt")
+        .to_string())
 }
 
 // --- Ports ------------------------------------------------------------------
 
-/// Die Portliste kommt aus `scripts/ports.sh`. Docker-Zuordnung, Filter und
-/// das Beenden stehen damit an genau einer Stelle — im Terminal und hier gilt
-/// dasselbe.
+/// The port list comes from `scripts/ports.sh`. Docker attribution, filtering
+/// and killing therefore exist in exactly one place — the same rules apply in
+/// the terminal and here.
 fn ports_script(dir: &Path, args: &[&str]) -> Result<String, String> {
     let script = dir.join("scripts/ports.sh");
     if !script.is_file() {
@@ -157,19 +187,26 @@ fn ports_script(dir: &Path, args: &[&str]) -> Result<String, String> {
         .arg(&script)
         .args(args)
         .current_dir(dir)
-        // Eine .app startet mit fast leerem PATH. Ohne diese Zeile faende das
-        // Skript weder docker noch lsof — und wuerde Container fuer gewoehnliche
-        // Prozesse halten.
+        // A .app starts with a nearly empty PATH. Without this line the
+        // script would find neither docker nor lsof — and would mistake
+        // containers for ordinary processes.
         .env(
             "PATH",
-            format!("/usr/local/bin:/opt/homebrew/bin:{home}/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin"),
+            format!(
+                "/usr/local/bin:/opt/homebrew/bin:{home}/.docker/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+            ),
         )
         .output()
         .map_err(|err| err.to_string())?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(stderr.trim().lines().last().unwrap_or("unbekannt").to_string());
+        return Err(stderr
+            .trim()
+            .lines()
+            .last()
+            .unwrap_or("unbekannt")
+            .to_string());
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
@@ -184,7 +221,7 @@ fn kill_port(port: u16, state: tauri::State<Runtime>) -> Result<String, String> 
     ports_script(&state.dir, &["kill", &port.to_string()])
 }
 
-/// Zweites Fenster, bewusst klein. Es zeigt nur, was `npm run ports` auch zeigt.
+/// A second window, deliberately small. It shows what `npm run ports` shows.
 fn open_ports_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("ports") {
         let _ = window.show();
@@ -200,9 +237,9 @@ fn open_ports_window(app: &AppHandle) {
         .build();
 }
 
-// --- Oberflaeche ansprechen -------------------------------------------------
+// --- Talking to the interface -----------------------------------------------
 
-/// JavaScript-String ohne serde. Es geht nur um Text fuer den Startbildschirm.
+/// A JavaScript string without serde. It is only text for the splash screen.
 fn js_string(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');
@@ -228,11 +265,17 @@ fn status(window: &WebviewWindow, text: &str, bad: bool) {
     ));
 }
 
-// --- Start -------------------------------------------------------------------
+// --- Startup -----------------------------------------------------------------
 
-/// Laeuft in einem eigenen Thread: Container hochfahren, warten, dann die
-/// Oberflaeche laden. Der Startbildschirm berichtet unterwegs, was passiert.
-fn boot(window: WebviewWindow, dir: PathBuf, web_port: u16, api_port: u16, loaded: Arc<AtomicBool>) {
+/// Runs in a thread of its own: bring the containers up, wait, then load the
+/// interface. The splash screen reports what is happening along the way.
+fn boot(
+    window: WebviewWindow,
+    dir: PathBuf,
+    web_port: u16,
+    api_port: u16,
+    loaded: Arc<AtomicBool>,
+) {
     if !(port_open(web_port) && api_healthy(api_port)) {
         let Some(docker) = docker_bin() else {
             status(
@@ -245,7 +288,9 @@ fn boot(window: WebviewWindow, dir: PathBuf, web_port: u16, api_port: u16, loade
 
         if !daemon_running(&docker) {
             status(&window, "Docker Desktop startet …", false);
-            let _ = Command::new("/usr/bin/open").args(["-ga", "Docker"]).status();
+            let _ = Command::new("/usr/bin/open")
+                .args(["-ga", "Docker"])
+                .status();
             let deadline = Instant::now() + Duration::from_secs(120);
             while Instant::now() < deadline && !daemon_running(&docker) {
                 thread::sleep(Duration::from_secs(2));
@@ -258,7 +303,11 @@ fn boot(window: WebviewWindow, dir: PathBuf, web_port: u16, api_port: u16, loade
 
         status(&window, "Container starten …", false);
         if let Err(err) = compose(&docker, &dir, &["up", "-d"]) {
-            status(&window, &format!("docker compose ist gescheitert:\n{err}"), true);
+            status(
+                &window,
+                &format!("docker compose ist gescheitert:\n{err}"),
+                true,
+            );
             return;
         }
     }
@@ -287,7 +336,7 @@ fn boot(window: WebviewWindow, dir: PathBuf, web_port: u16, api_port: u16, loade
     );
 }
 
-// --- Menuebefehle -------------------------------------------------------------
+// --- Menu commands ------------------------------------------------------------
 
 fn handle_menu(app: &AppHandle, id: &str) {
     if id == "ports" {
@@ -296,6 +345,20 @@ fn handle_menu(app: &AppHandle, id: &str) {
     }
 
     let state = app.state::<Runtime>();
+
+    // The switch needs no window — it should work from the tray even while
+    // the interface has not loaded yet.
+    if id == "activity-toggle" {
+        let on = !state.activity.load(Ordering::SeqCst);
+        state.activity.store(on, Ordering::SeqCst);
+        if let Ok(items) = state.activity_items.lock() {
+            for item in items.iter() {
+                let _ = item.set_checked(on);
+            }
+        }
+        return;
+    }
+
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
@@ -324,8 +387,8 @@ fn handle_menu(app: &AppHandle, id: &str) {
             }
             let _ = window.show();
             let _ = window.set_focus();
-            // Die Anmeldung steckt im localStorage der Oberflaeche — der Abruf
-            // laeuft deshalb dort und nicht hier.
+            // The login sits in the interface's localStorage — so the fetch
+            // happens over there and not here.
             let _ = window.eval(
                 r#"(async () => {
                      const token = localStorage.getItem('soloops.token')
@@ -355,8 +418,8 @@ fn handle_menu(app: &AppHandle, id: &str) {
             }
             let _ = window.show();
             let _ = window.set_focus();
-            // pushState statt location.assign: der Vue-Router hoert auf
-            // popstate, so bleibt der Wechsel ein Sprung ohne Neuladen.
+            // pushState rather than location.assign: the Vue router listens
+            // for popstate, so the switch stays a jump without a reload.
             let _ = window.eval(&format!(
                 "history.pushState({{}}, '', {}); dispatchEvent(new PopStateEvent('popstate'))",
                 js_string(path)
@@ -365,7 +428,20 @@ fn handle_menu(app: &AppHandle, id: &str) {
     }
 }
 
-// --- Aufbau -------------------------------------------------------------------
+// --- Assembly -----------------------------------------------------------------
+
+/// The "record activity" check mark. Menu and tray each get one; the shared
+/// state lives in the Runtime so that both show the same thing.
+fn activity_item(app: &AppHandle) -> tauri::Result<CheckMenuItem<Wry>> {
+    let state = app.state::<Runtime>();
+    let item = CheckMenuItemBuilder::with_id("activity-toggle", "Aktivität aufzeichnen")
+        .checked(state.activity.load(Ordering::SeqCst))
+        .build(app)?;
+    if let Ok(mut items) = state.activity_items.lock() {
+        items.push(item.clone());
+    }
+    Ok(item)
+}
 
 fn build_menu(app: &AppHandle) -> tauri::Result<()> {
     let about = AboutMetadata {
@@ -387,8 +463,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<()> {
         .quit()
         .build()?;
 
-    // Ohne diese Eintraege funktionieren Cmd+C und Cmd+V in der WebView nicht:
-    // macOS leitet die Kuerzel ueber das Menue.
+    // Without these entries Cmd+C and Cmd+V do not work in the WebView:
+    // macOS routes those shortcuts through the menu.
     let edit_menu = SubmenuBuilder::new(app, "Bearbeiten")
         .undo()
         .redo()
@@ -408,11 +484,13 @@ fn build_menu(app: &AppHandle) -> tauri::Result<()> {
     let ports = MenuItemBuilder::with_id("ports", "Offene Ports …")
         .accelerator("CmdOrCtrl+Shift+P")
         .build(app)?;
+    let track = activity_item(app)?;
     let view_menu = SubmenuBuilder::new(app, "Ansicht")
         .item(&reload)
         .item(&home)
         .separator()
         .item(&ports)
+        .item(&track)
         .separator()
         .fullscreen()
         .build()?;
@@ -447,11 +525,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let sync = MenuItemBuilder::with_id("sync-mail", "Postfach abrufen").build(app)?;
     let reload = MenuItemBuilder::with_id("reload", "Neu laden").build(app)?;
     let ports = MenuItemBuilder::with_id("ports", "Offene Ports …").build(app)?;
+    let track = activity_item(app)?;
     let stop = MenuItemBuilder::with_id("stack-stop", "Container stoppen").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "soloops beenden").build(app)?;
 
     let menu = MenuBuilder::new(app)
         .items(&[&show, &sync, &reload, &ports])
+        .separator()
+        .item(&track)
         .separator()
         .items(&[&stop, &quit])
         .build()?;
@@ -471,16 +552,33 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Start the sampler. Without a SERVICE_TOKEN there is no point — the API
+/// would accept nothing, so measuring at all would be pointless.
+fn start_sampler(dir: &Path, api_port: u16, enabled: Arc<AtomicBool>) {
+    let Some(token) = env_value(dir, "SERVICE_TOKEN") else {
+        eprintln!("[activity] kein SERVICE_TOKEN in der .env — Aufzeichnung bleibt aus");
+        return;
+    };
+    let cfg = activity::Config::from_env(
+        api_port,
+        token,
+        env_value(dir, "ACTIVITY_SAMPLE_SECONDS").and_then(|value| value.parse().ok()),
+        env_value(dir, "ACTIVITY_PRIVATE_APPS"),
+        dir.join("data/activity-pending.jsonl"),
+    );
+    activity::spawn(cfg, enabled);
+}
+
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![list_ports, kill_port])
         .on_menu_event(|app, event| handle_menu(app, event.id().as_ref()))
         .on_window_event(|window, event| {
-            // Das rote Kreuz schliesst das Fenster, beendet aber nicht den
-            // Hintergrund — so bleibt der Tray erreichbar. Beenden: Cmd+Q.
+            // The red cross closes the window but does not end the
+            // background — that keeps the tray reachable. Quit: Cmd+Q.
             if let WindowEvent::CloseRequested { api, .. } = event {
-                // Nur das Hauptfenster bleibt im Hintergrund bestehen; das
-                // Ports-Fenster darf sich schliessen wie jedes andere auch.
+                // Only the main window lives on in the background; the ports
+                // window may close like any other.
                 if window.label() != "main" {
                     return;
                 }
@@ -495,14 +593,26 @@ pub fn run() {
             let api_port = port_from_env(&dir, "API_PORT", 3000);
             let loaded = Arc::new(AtomicBool::new(false));
 
+            // Recording is a deliberate decision: off by default, and it
+            // needs the Accessibility permission before it can do anything.
+            let tracking = matches!(
+                env_value(&dir, "ACTIVITY_TRACKING").as_deref(),
+                Some("true") | Some("1")
+            );
+            let activity = Arc::new(AtomicBool::new(tracking));
+
             app.manage(Runtime {
                 dir: dir.clone(),
                 web_port,
                 loaded: loaded.clone(),
+                activity: activity.clone(),
+                activity_items: Mutex::new(Vec::new()),
             });
 
             build_menu(&handle)?;
             build_tray(&handle)?;
+
+            start_sampler(&dir, api_port, activity);
 
             if let Some(window) = app.get_webview_window("main") {
                 thread::spawn(move || boot(window, dir, web_port, api_port, loaded));

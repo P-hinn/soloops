@@ -1,8 +1,8 @@
 import { Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
 
-// Der Worker teilt sich Prisma-Client und Service-Layer mit der API —
-// ein Monorepo, eine Quelle der Wahrheit.
+// The worker shares the Prisma client and the service layer with the API —
+// one monorepo, one source of truth.
 import { env } from '../../api/src/env.js'
 import { prisma } from '../../api/src/db.js'
 import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
@@ -49,7 +49,7 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[pipelines]', err.message))
 
 // ---------------------------------------------------------------------------
-// AI-Digests
+// AI digests
 // ---------------------------------------------------------------------------
 
 new Worker(
@@ -84,7 +84,7 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[digest]', err.message))
 
 // ---------------------------------------------------------------------------
-// Kalender-Sync (Google + Apple)
+// Calendar sync (Google + Apple)
 // ---------------------------------------------------------------------------
 
 new Worker(
@@ -107,13 +107,13 @@ new Worker(
     }
     return results
   },
-  // Sequenziell: zwei parallele Läufe auf demselben Konto würden sich
-  // gegenseitig die Sync-Token unter den Füßen wegziehen.
+  // Sequential: two parallel runs on the same account would pull the sync
+  // tokens out from under each other.
   { connection, concurrency: 1 },
 ).on('failed', (_job, err) => console.error('[calendar]', err.message))
 
 // ---------------------------------------------------------------------------
-// Postfach
+// Inbox
 // ---------------------------------------------------------------------------
 
 new Worker(
@@ -126,9 +126,9 @@ new Worker(
 
     for (const r of results) {
       if (r.error) console.error(`[mail] ${r.account}: ${r.error}`)
-      // Gescheiterte AI-Aufrufe sind kein Abbruch, aber auch kein Erfolg —
-      // ohne diese Zeile sieht ein Lauf, in dem nichts zugeordnet werden
-      // konnte, genauso aus wie einer, in dem es nichts zuzuordnen gab.
+      // Failed AI calls are not an abort, but no success either — without
+      // this line, a run where nothing could be matched looks exactly like a
+      // run where there was nothing to match.
       if (r.aiFailed) console.error(`[mail] ${r.account}: ${r.aiFailed} AI-Aufruf(e) gescheitert`)
       if (r.fetched) {
         log(
@@ -139,13 +139,13 @@ new Worker(
     }
     return results
   },
-  // Ein Konto, eine Verbindung: parallele Läufe würden sich beim
-  // UID-Stand gegenseitig überholen.
+  // One account, one connection: parallel runs would overtake each other on
+  // the UID cursor.
   { connection, concurrency: 1 },
 ).on('failed', (_job, err) => console.error('[mail]', err.message))
 
 // ---------------------------------------------------------------------------
-// Lead-Bewertung
+// Lead scoring
 // ---------------------------------------------------------------------------
 
 new Worker(
@@ -160,7 +160,25 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[leads]', err.message))
 
 // ---------------------------------------------------------------------------
-// Wiederkehrende Jobs
+// Activity
+// ---------------------------------------------------------------------------
+
+new Worker(
+  'activity',
+  async () => {
+    // Raw samples are a means to an end: window titles hold client and
+    // private material. Anything past the retention window goes.
+    const before = new Date(Date.now() - env.ACTIVITY_RETENTION_DAYS * 86_400_000)
+    const { count } = await prisma.activitySample.deleteMany({ where: { at: { lt: before } } })
+    if (count)
+      log('activity', `${count} Stichproben älter als ${env.ACTIVITY_RETENTION_DAYS} Tage gelöscht`)
+    return { deleted: count }
+  },
+  { connection, concurrency: 1 },
+).on('failed', (_job, err) => console.error('[activity]', err.message))
+
+// ---------------------------------------------------------------------------
+// Repeating jobs
 // ---------------------------------------------------------------------------
 
 const uptimeQueue = new Queue('uptime', { connection })
@@ -169,14 +187,15 @@ const digestQueue = new Queue('digest', { connection })
 const calendarQueue = new Queue('calendar', { connection })
 const mailQueue = new Queue('mail', { connection })
 const leadQueue = new Queue('leads', { connection })
+const activityQueue = new Queue('activity', { connection })
 
 /**
- * Wiederkehrende Jobs.
+ * Repeating jobs.
  *
- * BullMQ 6 kennt `repeat` in den Job-Optionen nicht mehr; stattdessen gibt es
- * Job Scheduler. Der Vorteil hier: `upsertJobScheduler` ist idempotent — ein
- * Neustart des Workers legt keinen zweiten Zeitplan an, sondern aktualisiert
- * den bestehenden unter derselben Kennung.
+ * BullMQ 6 no longer knows `repeat` in the job options; it has job
+ * schedulers instead. The upside here: `upsertJobScheduler` is idempotent —
+ * restarting the worker does not create a second schedule, it updates the
+ * existing one under the same key.
  */
 async function scheduleRepeatables() {
   await calendarQueue.upsertJobScheduler(
@@ -206,7 +225,7 @@ async function scheduleRepeatables() {
     )
   }
   if (env.ANTHROPIC_API_KEY) {
-    // Werktags 7:30 Uhr: Lagebericht für alle aktiven Projekte
+    // Weekdays at 7:30: a status report for every active project
     await digestQueue.upsertJobScheduler(
       'project-digests',
       { pattern: '30 7 * * 1-5' },
@@ -219,8 +238,8 @@ async function scheduleRepeatables() {
   }
 
   if (env.ANTHROPIC_API_KEY) {
-    // Leads eine Stunde vor den Projekt-Digests — dann steht die Bewertung,
-    // wenn morgens der erste Blick auf die Pipeline fällt.
+    // Leads an hour before the project digests — then the scores are in
+    // place when the first look at the pipeline happens.
     await leadQueue.upsertJobScheduler(
       'lead-scores',
       { pattern: '30 6 * * 1-5' },
@@ -228,7 +247,14 @@ async function scheduleRepeatables() {
     )
   }
 
-  // Überfällige Rechnungen einmal täglich markieren
+  // Thin out the samples overnight — none of this is urgent.
+  await activityQueue.upsertJobScheduler(
+    'activity-prune',
+    { pattern: '15 4 * * *' },
+    { name: 'prune', opts: { removeOnComplete: 5, removeOnFail: 20 } },
+  )
+
+  // Mark overdue invoices once a day
   await digestQueue.upsertJobScheduler(
     'mark-overdue',
     { pattern: '0 6 * * *' },

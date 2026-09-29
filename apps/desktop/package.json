@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "icons": "tauri icon src-tauri/icons/icon-source.png"
+    "icons": "tauri icon src-tauri/icons/icon-source.png",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.0"

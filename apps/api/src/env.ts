@@ -35,7 +35,7 @@ const schema = z.object({
   LEXOFFICE_API_KEY: z.string().optional(),
   LEXOFFICE_BASE_URL: z.string().default('https://api.lexoffice.io'),
 
-  // --- Kalender-Sync -------------------------------------------------------
+  // --- Calendar sync -------------------------------------------------------
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z
@@ -44,21 +44,31 @@ const schema = z.object({
   CALDAV_APPLE_URL: z.string().default('https://caldav.icloud.com'),
   CALENDAR_SYNC_CRON: z.string().default('*/10 * * * *'),
 
-  // --- Postfach & Vertrieb -------------------------------------------------
+  // --- Inbox & sales -------------------------------------------------------
   MAIL_POLL_CRON: z.string().default('*/10 * * * *'),
-  /// Wie weit beim Verbinden eines Kontos zurückgelesen wird. Kein Archivimport.
+  /// How far back a freshly connected account is read. Not an archive import.
   MAIL_BACKFILL_DAYS: z.coerce.number().default(90),
-  /// Harte Untergrenze für jeden Abruf. Älteres wird nie geholt — auch nicht,
-  /// wenn MAIL_BACKFILL_DAYS weiter zurückreicht oder der Server die
-  /// UIDVALIDITY neu vergibt und ein Ordner von vorn gelesen wird.
+  /// Hard floor for every fetch. Anything older is never pulled — not even if
+  /// MAIL_BACKFILL_DAYS reaches further back, or the server reassigns
+  /// UIDVALIDITY and a folder is read from the top again.
   MAIL_SYNC_FROM: z.coerce.date().default(new Date('2026-09-01T00:00:00Z')),
-  /// Obergrenze pro Lauf, damit ein volles Postfach den Worker nicht blockiert.
+  /// Ceiling per run, so that a full mailbox cannot block the worker.
   MAIL_MAX_PER_RUN: z.coerce.number().default(200),
 
-  // --- Videokonferenz -----------------------------------------------------
+  // --- Video conferencing -------------------------------------------------
   VIDEO_PROVIDER: z.enum(['JITSI', 'GOOGLE_MEET', 'CUSTOM']).default('JITSI'),
   JITSI_BASE_URL: z.string().default('https://meet.jit.si'),
   VIDEO_CUSTOM_URL: z.string().default(''),
+
+  // --- Activity (samples from the desktop app) -----------------------------
+  /// The desktop app's sampling interval. The API needs it to stitch
+  /// consecutive samples into segments: one sample stands for exactly that
+  /// window of time.
+  ACTIVITY_SAMPLE_SECONDS: z.coerce.number().default(20),
+  /// Past this much idle time it no longer counts as work.
+  ACTIVITY_IDLE_THRESHOLD_SEC: z.coerce.number().default(300),
+  /// Raw samples are a means to an end. The worker deletes them after this.
+  ACTIVITY_RETENTION_DAYS: z.coerce.number().default(30),
 
   DATA_DIR: z.string().default('/data'),
 

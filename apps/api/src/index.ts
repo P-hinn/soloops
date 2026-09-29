@@ -17,6 +17,7 @@ import noteRoutes from './routes/notes.js'
 import uptimeRoutes from './routes/uptime.js'
 import pipelineRoutes from './routes/pipelines.js'
 import timeRoutes from './routes/time.js'
+import activityRoutes from './routes/activity.js'
 import invoiceRoutes from './routes/invoices.js'
 import accountingRoutes from './routes/accounting.js'
 import dashboardRoutes from './routes/dashboard.js'
@@ -41,9 +42,9 @@ app.setErrorHandler((error: FastifyError, _req: FastifyRequest, reply: FastifyRe
   if (error instanceof ZodError) {
     return reply.code(422).send({ error: 'Validierung fehlgeschlagen', issues: error.issues })
   }
-  // Prisma-Fehlermeldungen enthalten Query und Serverpfade — die gehören nicht
-  // ins Frontend. Die beiden Fälle, die im Alltag vorkommen, bekommen einen
-  // lesbaren Satz, alles andere bleibt im Log.
+  // Prisma error messages carry the query and server paths — none of that
+  // belongs in the frontend. The two cases that come up in practice get a
+  // readable sentence, everything else stays in the log.
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === 'P2002') {
       const fields = (error.meta?.target as string[] | undefined)?.join(', ')
@@ -75,6 +76,7 @@ await app.register(noteRoutes, { prefix: '/api/notes' })
 await app.register(uptimeRoutes, { prefix: '/api/uptime' })
 await app.register(pipelineRoutes, { prefix: '/api/pipelines' })
 await app.register(timeRoutes, { prefix: '/api/time' })
+await app.register(activityRoutes, { prefix: '/api/activity' })
 await app.register(invoiceRoutes, { prefix: '/api/invoices' })
 await app.register(accountingRoutes, { prefix: '/api/accounting' })
 await app.register(dashboardRoutes, { prefix: '/api/dashboard' })

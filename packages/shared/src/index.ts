@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
-// Gemeinsame Enums
+// Shared enums
 // ---------------------------------------------------------------------------
 
 export const ProjectStatus = z.enum(['LEAD', 'ACTIVE', 'PAUSED', 'DONE', 'ARCHIVED'])
@@ -13,6 +13,9 @@ export const TimeSource = z.enum(['TIMER', 'MANUAL', 'MCP'])
 
 const isoDate = z.string().datetime({ offset: true }).or(z.string().datetime())
 
+/** Truncates overlong strings instead of rejecting the request. */
+const cut = (max: number) => (value: string) => value.slice(0, max)
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -23,7 +26,7 @@ export const loginInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Kunden
+// Clients
 // ---------------------------------------------------------------------------
 
 export const clientInput = z.object({
@@ -44,7 +47,7 @@ export const clientInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Projekte
+// Projects
 // ---------------------------------------------------------------------------
 
 export const projectInput = z.object({
@@ -65,7 +68,7 @@ export const projectInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Kalender
+// Calendar
 // ---------------------------------------------------------------------------
 
 export const eventInput = z.object({
@@ -78,9 +81,9 @@ export const eventInput = z.object({
   kind: EventKind.default('FOCUS'),
   projectId: z.string().nullish(),
   clientId: z.string().nullish(),
-  /** true => Server erzeugt einen Videoraum; false => vorhandenen entfernen */
+  /** true => the server creates a video room; false => remove an existing one */
   withVideo: z.boolean().optional(),
-  /** Eigener Link, wenn kein Raum erzeugt werden soll */
+  /** A link of your own, when no room should be created */
   videoUrl: z.string().nullish(),
 })
 
@@ -99,13 +102,13 @@ export const meetingInput = z.object({
   projectId: z.string().nullish(),
   clientId: z.string().nullish(),
   createEvent: z.boolean().default(true),
-  /** Videoraum anlegen (Jitsi bzw. Google Meet, je nach Konfiguration) */
+  /** Create a video room (Jitsi or Google Meet, depending on the config) */
   withVideo: z.boolean().default(false),
   videoUrl: z.string().nullish(),
 })
 
 // ---------------------------------------------------------------------------
-// Notizen
+// Notes
 // ---------------------------------------------------------------------------
 
 export const noteInput = z.object({
@@ -119,7 +122,7 @@ export const noteInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Zeiterfassung
+// Time tracking
 // ---------------------------------------------------------------------------
 
 export const timerStartInput = z.object({
@@ -141,7 +144,30 @@ export const timeEntryInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Rechnungen
+// Activity
+// ---------------------------------------------------------------------------
+
+/**
+ * One sample from the desktop app. The instant arrives as milliseconds since
+ * the epoch rather than an ISO string: the app builds its JSON by hand and
+ * would otherwise have to reimplement a calendar nobody needs.
+ */
+export const activitySampleInput = z.object({
+  atMs: z.number().int().positive(),
+  bundleId: z.string().default('').transform(cut(200)),
+  appName: z.string().default('').transform(cut(200)),
+  title: z.string().default('').transform(cut(300)),
+  redacted: z.boolean().default(false),
+  /// A day of idling is the ceiling — more than that means the machine slept.
+  idleSec: z.number().int().nonnegative().max(86_400).default(0),
+})
+
+export const activitySampleBatch = z.object({
+  samples: z.array(activitySampleInput).max(1000),
+})
+
+// ---------------------------------------------------------------------------
+// Invoices
 // ---------------------------------------------------------------------------
 
 export const invoiceItemInput = z.object({
@@ -168,7 +194,7 @@ export const invoiceFromTimeInput = z.object({
   projectId: z.string().nullish(),
   from: isoDate,
   to: isoDate,
-  /** true => eine Position pro Projekt, false => eine Position pro Zeiteintrag */
+  /** true => one line item per project, false => one per time entry */
   groupByProject: z.boolean().default(true),
 })
 
@@ -185,7 +211,7 @@ export const repoInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Typen
+// Types
 // ---------------------------------------------------------------------------
 
 export type LoginInput = z.infer<typeof loginInput>
@@ -199,9 +225,10 @@ export type TimeEntryInput = z.infer<typeof timeEntryInput>
 export type InvoiceInput = z.infer<typeof invoiceInput>
 export type InvoiceFromTimeInput = z.infer<typeof invoiceFromTimeInput>
 export type RepoInput = z.infer<typeof repoInput>
+export type ActivitySampleInput = z.infer<typeof activitySampleInput>
 
 // ---------------------------------------------------------------------------
-// Helfer, die Frontend und Backend teilen
+// Helpers shared by frontend and backend
 // ---------------------------------------------------------------------------
 
 export function formatMoney(cents: number, currency = 'EUR'): string {
@@ -214,7 +241,7 @@ export function formatDuration(seconds: number): string {
   return `${h}:${String(m).padStart(2, '0')}`
 }
 
-/** Dezimalstunden auf 1/100 gerundet — Basis für die Rechnungsstellung. */
+/** Decimal hours rounded to 1/100 — the basis for invoicing. */
 export function secondsToBillableHours(seconds: number): number {
   return Math.round((seconds / 3600) * 100) / 100
 }
