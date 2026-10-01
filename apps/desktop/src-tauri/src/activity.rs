@@ -254,8 +254,13 @@ fn post(port: u16, token: &str, path: &str, body: &str) -> Result<u16, String> {
     let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
 
     let request = format!(
-        "POST {path} HTTP/1.0\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\n\
-Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "POST {path} HTTP/1.0\r\n\
+         Host: localhost\r\n\
+         Authorization: Bearer {token}\r\n\
+         X-Soloops-Client: desktop\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {}\r\n\
+         Connection: close\r\n\r\n{body}",
         body.len()
     );
     stream

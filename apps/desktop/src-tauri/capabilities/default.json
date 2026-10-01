@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Die geladene Oberflaeche bekommt bewusst keinen Zugriff auf Tauri-APIs — sie ist dieselbe Web-App wie im Browser und laeuft unter einer entfernten Adresse, die hier nicht freigegeben ist. Erlaubt sind nur die beiden mitgelieferten lokalen Seiten: Startbildschirm und Port-Uebersicht.",
+  "description": "Die geladene Oberflaeche bekommt bewusst keinen Zugriff auf Tauri-APIs — sie ist dieselbe Web-App wie im Browser und laeuft unter einer entfernten Adresse. Hier zaehlen nur die beiden mitgelieferten lokalen Seiten: Startbildschirm und Port-Uebersicht. Die Port-Befehle stehen explizit drin, weil die App ihre Befehle seit der Claude-Verdrahtung selbst in der ACL fuehrt.",
   "windows": ["main", "ports"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "allow-list-ports", "allow-kill-port"]
 }

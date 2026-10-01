@@ -28,6 +28,7 @@ use tauri::{
 };
 
 mod activity;
+mod claude;
 
 /// The modules in sidebar order — Cmd+1 through Cmd+9.
 const SECTIONS: [(&str, &str, &str); 9] = [
@@ -46,6 +47,7 @@ const SECTIONS: [(&str, &str, &str); 9] = [
 struct Runtime {
     dir: PathBuf,
     web_port: u16,
+    api_port: u16,
     /// Until the first successful load the window shows the splash screen.
     /// Navigation and fetching would do nothing there and are skipped.
     loaded: Arc<AtomicBool>,
@@ -235,6 +237,29 @@ fn open_ports_window(app: &AppHandle) {
         .inner_size(760.0, 520.0)
         .min_inner_size(560.0, 320.0)
         .build();
+}
+
+// --- Claude ------------------------------------------------------------------
+
+/// The repository path as a config may keep it: without the `../..` that
+/// `project_dir` carries around from the build.
+fn tidy_dir(dir: &Path) -> PathBuf {
+    dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf())
+}
+
+#[tauri::command]
+fn claude_status(state: tauri::State<Runtime>) -> claude::Status {
+    claude::status(&tidy_dir(&state.dir), state.api_port)
+}
+
+#[tauri::command]
+fn claude_connect(state: tauri::State<Runtime>) -> claude::Report {
+    claude::connect(&tidy_dir(&state.dir), state.api_port)
+}
+
+#[tauri::command]
+fn claude_restart_desktop() -> Result<(), String> {
+    claude::restart_desktop()
 }
 
 // --- Talking to the interface -----------------------------------------------
@@ -571,7 +596,13 @@ fn start_sampler(dir: &Path, api_port: u16, enabled: Arc<AtomicBool>) {
 
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![list_ports, kill_port])
+        .invoke_handler(tauri::generate_handler![
+            list_ports,
+            kill_port,
+            claude_status,
+            claude_connect,
+            claude_restart_desktop
+        ])
         .on_menu_event(|app, event| handle_menu(app, event.id().as_ref()))
         .on_window_event(|window, event| {
             // The red cross closes the window but does not end the
@@ -604,6 +635,7 @@ pub fn run() {
             app.manage(Runtime {
                 dir: dir.clone(),
                 web_port,
+                api_port,
                 loaded: loaded.clone(),
                 activity: activity.clone(),
                 activity_items: Mutex::new(Vec::new()),
