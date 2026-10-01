@@ -14,6 +14,8 @@ import projectRoutes from './routes/projects.js'
 import calendarRoutes from './routes/calendar.js'
 import meetingRoutes from './routes/meetings.js'
 import noteRoutes from './routes/notes.js'
+import actionItemRoutes from './routes/actionItems.js'
+import claudeRoutes from './routes/claude.js'
 import uptimeRoutes from './routes/uptime.js'
 import pipelineRoutes from './routes/pipelines.js'
 import timeRoutes from './routes/time.js'
@@ -73,6 +75,8 @@ await app.register(projectRoutes, { prefix: '/api/projects' })
 await app.register(calendarRoutes, { prefix: '/api/calendar' })
 await app.register(meetingRoutes, { prefix: '/api/meetings' })
 await app.register(noteRoutes, { prefix: '/api/notes' })
+await app.register(actionItemRoutes, { prefix: '/api/action-items' })
+await app.register(claudeRoutes, { prefix: '/api/claude' })
 await app.register(uptimeRoutes, { prefix: '/api/uptime' })
 await app.register(pipelineRoutes, { prefix: '/api/pipelines' })
 await app.register(timeRoutes, { prefix: '/api/time' })

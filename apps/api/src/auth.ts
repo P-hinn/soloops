@@ -25,36 +25,43 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 declare module 'fastify' {
   interface FastifyRequest {
-    /** Set on every authenticated request. `service` = worker/MCP. */
+    /** Set on every authenticated request. `service` = MCP server or app. */
     principal?: { type: 'user'; userId: string } | { type: 'service' }
   }
+}
+
+/**
+ * When a service client was last here. The settings page shows it for the MCP
+ * server — proof that the connector really works and not merely exists.
+ *
+ * The desktop app uses the same token, so it is kept apart by the client
+ * header; without one it stays an anonymous service. Written at most once a
+ * minute per client — a database write per request would be a waste.
+ */
+const seenWrittenAt = new Map<string, number>()
+
+/** Known clients only — a header may not invent new settings keys. */
+const SEEN_KEYS: Record<string, string> = {
+  mcp: 'mcp.lastSeenAt',
+  desktop: 'desktop.lastSeenAt',
+}
+
+async function noteServiceAccess(client: string): Promise<void> {
+  const key = SEEN_KEYS[client] ?? 'service.lastSeenAt'
+  const now = Date.now()
+  if (now - (seenWrittenAt.get(key) ?? 0) < 60_000) return
+  seenWrittenAt.set(key, now)
+  const { prisma } = await import('./db.js')
+  const value = new Date().toISOString()
+  await prisma.appSetting
+    .upsert({ where: { key }, create: { key, value }, update: { value } })
+    .catch(() => {})
 }
 
 /**
  * Two ways in: a JWT cookie/bearer for the UI, a static SERVICE_TOKEN for the
  * worker and the MCP server.
  */
-/**
- * The MCP server's first access is recorded so that onboarding can tick that
- * step off by itself. Written at most once an hour — a database write per
- * request would be a waste.
- */
-let mcpSeenWrittenAt = 0
-
-async function noteServiceAccess(): Promise<void> {
-  const now = Date.now()
-  if (now - mcpSeenWrittenAt < 3_600_000) return
-  mcpSeenWrittenAt = now
-  const { prisma } = await import('./db.js')
-  await prisma.appSetting
-    .upsert({
-      where: { key: 'mcp.lastSeenAt' },
-      create: { key: 'mcp.lastSeenAt', value: new Date().toISOString() },
-      update: { value: new Date().toISOString() },
-    })
-    .catch(() => {})
-}
-
 export function registerAuth(app: FastifyInstance): void {
   app.decorate('authenticate', async (req: FastifyRequest, reply: FastifyReply) => {
     const header = req.headers.authorization
@@ -62,7 +69,8 @@ export function registerAuth(app: FastifyInstance): void {
       const token = header.slice(7)
       if (token === env.SERVICE_TOKEN) {
         req.principal = { type: 'service' }
-        void noteServiceAccess()
+        const client = req.headers['x-soloops-client']
+        void noteServiceAccess(typeof client === 'string' ? client : 'other')
         return
       }
     }
