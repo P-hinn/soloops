@@ -4,6 +4,7 @@ import { api } from '@/api'
 import PageHeader from '@/components/PageHeader.vue'
 import CalendarAccounts from '@/components/CalendarAccounts.vue'
 import MailAccounts from '@/components/MailAccounts.vue'
+import ClaudeConnection from '@/components/ClaudeConnection.vue'
 import { useAuth } from '@/stores/auth'
 import { useOnboarding } from '@/stores/onboarding'
 
@@ -146,16 +147,7 @@ const featureLabels: Record<string, string> = {
         </form>
       </section>
 
-      <section class="card">
-        <h2 class="eyebrow mb-3">MCP-Server</h2>
-        <p class="mb-2 text-xs text-muted">
-          Claude Code bekommt Zugriff auf Projekte, Zeiten, Notizen und Rechnungen:
-        </p>
-        <pre class="overflow-x-auto bg-paper p-3 text-xs text-soft">
-SOLOOPS_URL=http://localhost:3000 \
-SOLOOPS_TOKEN=&lt;SERVICE_TOKEN&gt; \
-claude mcp add soloops -- npx tsx apps/mcp/src/index.ts</pre>
-      </section>
+      <ClaudeConnection />
     </div>
   </div>
 </template>
