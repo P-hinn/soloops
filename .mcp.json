@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "soloops": {
+      "command": "npx",
+      "args": ["tsx", "apps/mcp/src/index.ts"]
+    }
+  }
+}
