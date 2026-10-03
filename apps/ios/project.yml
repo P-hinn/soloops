@@ -1,0 +1,64 @@
+# The Xcode project, as a file that can be reviewed.
+#
+# There is no .xcodeproj in the repository on purpose: it is a generated,
+# merge-hostile blob, and this monorepo already keeps every other build
+# definition as text. XcodeGen turns this into one:
+#
+#     brew install xcodegen      # once
+#     cd apps/ios && xcodegen    # after changing this file
+#
+# The generated project is in .gitignore. Everything that decides how the app
+# behaves — the scene manifest, the entitlements, the asset catalog — is in
+# version control next to this file.
+#
+# Note there is deliberately no `info:` block below. Declaring one makes
+# XcodeGen *generate* an Info.plist at that path, overwriting the hand-written
+# one — and with it the scene manifest that the CarPlay scene depends on.
+# `INFOPLIST_FILE` points at the real file instead.
+name: Soloops
+options:
+  bundleIdPrefix: com.soloops
+  deploymentTarget:
+    iOS: '18.0'
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: true
+
+packages:
+  SoloopsKit:
+    path: SoloopsKit
+
+targets:
+  Soloops:
+    type: application
+    platform: iOS
+    sources:
+      - path: Soloops
+        excludes:
+          # Both are referenced by build settings, not compiled or copied.
+          # Left in `sources` they would end up inside the bundle as stray
+          # resources, and a second Info.plist in a bundle is a rejection.
+          - 'Resources/Info.plist'
+          - 'Soloops.entitlements'
+    dependencies:
+      - package: SoloopsKit
+        product: SoloopsKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.soloops.app
+        PRODUCT_NAME: soloops
+        INFOPLIST_FILE: Soloops/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Soloops/Soloops.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # iPhone only, portrait. Nothing on these screens benefits from
+        # landscape, and the CarPlay screen lays itself out.
+        TARGETED_DEVICE_FAMILY: '1'
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Set this to your team id, or set it once in Xcode's signing tab.
+        # Empty here so the file does not carry an account identifier.
+        DEVELOPMENT_TEAM: ''

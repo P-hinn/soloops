@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Granted by Apple per app, on request:
+	     https://developer.apple.com/contact/carplay/
+	     Until it is in the provisioning profile, the CarPlay scene is never
+	     created — not on a head unit and not in Xcode's CarPlay simulator.
+	     Switching category means changing this key and nothing else; see
+	     CarPlayConfiguration. -->
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
+
+	<!-- The store-and-forward route for when the Mac is not reachable. The
+	     container holds op batches only, never the database itself. -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.com.soloops.app</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.com.soloops.app</string>
+	</array>
+</dict>
+</plist>
