@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import CalendarAccounts from '@/components/CalendarAccounts.vue'
 import MailAccounts from '@/components/MailAccounts.vue'
 import ClaudeConnection from '@/components/ClaudeConnection.vue'
+import DeviceSync from '@/components/DeviceSync.vue'
 import { useAuth } from '@/stores/auth'
 import { useOnboarding } from '@/stores/onboarding'
 
@@ -148,6 +149,7 @@ const featureLabels: Record<string, string> = {
       </section>
 
       <ClaudeConnection />
+      <DeviceSync />
     </div>
   </div>
 </template>
