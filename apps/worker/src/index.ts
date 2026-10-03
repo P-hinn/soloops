@@ -4,7 +4,7 @@ import IORedis from 'ioredis'
 // The worker shares the Prisma client and the service layer with the API —
 // one monorepo, one source of truth.
 import { env } from '../../api/src/env.js'
-import { prisma } from '../../api/src/db.js'
+import { initSync, prisma } from '../../api/src/db.js'
 import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
 import { buildProjectDigest } from '../../api/src/ai/digest.js'
@@ -261,6 +261,11 @@ async function scheduleRepeatables() {
     { name: 'mark-overdue', data: { kind: 'overdue' }, opts: { removeOnComplete: 5 } },
   )
 }
+
+// Its own device identity, so that digests and calendar runs end up in the
+// op log without colliding with the API's sequence numbers.
+const { deviceId } = await initSync('worker')
+log('worker', `Sync-Geraet ${deviceId}`)
 
 await scheduleRepeatables()
 log('worker', 'bereit')
