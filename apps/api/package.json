@@ -10,7 +10,9 @@
     "db:studio": "prisma studio --schema prisma/schema.prisma",
     "seed": "tsx prisma/seed.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx test/recurrence.test.ts && tsx test/sales.test.ts && tsx test/activity.test.ts"
+    "test": "tsx test/recurrence.test.ts && tsx test/sales.test.ts && tsx test/activity.test.ts && tsx test/sync.test.ts",
+    "test:sync": "tsx test/sync.integration.ts",
+    "sync:registry": "tsx scripts/exportSyncRegistry.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
