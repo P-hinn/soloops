@@ -645,6 +645,16 @@ model Lead {
   /// The last activity of any kind — the basis for "gone quiet too long".
   lastActivityAt DateTime @default(now())
 
+  // --- Follow-up ----------------------------------------------------------
+  /// When to come back to this lead, and what for. Putting a lead on
+  /// follow-up is not contact with the customer, so it deliberately leaves
+  /// `lastActivityAt` alone — the staleness counter keeps running.
+  followUpOn   DateTime?
+  followUpNote String?
+  /// When the reminder for the current date went out. Keeps a due follow-up
+  /// from being announced again on every poll; a new date clears it.
+  followUpNotifiedAt DateTime?
+
   clientId  String?
   projectId String?
   archived  Boolean  @default(false)
@@ -659,6 +669,7 @@ model Lead {
 
   @@index([stage, archived])
   @@index([lastActivityAt])
+  @@index([followUpOn])
 }
 
 enum OfferStatus {
@@ -706,6 +717,7 @@ enum ActivityKind {
   MEETING
   OFFER
   STAGE_CHANGE
+  FOLLOW_UP
 }
 
 model LeadActivity {

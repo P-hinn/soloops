@@ -51,7 +51,9 @@ services:
   api:
     <<: *node
     restart: unless-stopped
-    command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
+    # Generate before pushing: node_modules lives in a named volume, so a client
+    # generated for an older schema survives restarts and crashes the API.
+    command: sh -c "npx prisma generate --schema apps/api/prisma/schema.prisma && npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
     ports:
       # 3000 is often taken by some other dev server already
       - '${API_PORT:-3000}:3000'

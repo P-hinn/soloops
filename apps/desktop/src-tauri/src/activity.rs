@@ -17,8 +17,7 @@
 //! the app is quit, the buffer is still there on the next start.
 
 use std::fs;
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -244,39 +243,6 @@ fn write_pending(cfg: &Config, lines: &[String]) {
 
 // --- Sending ------------------------------------------------------------------
 
-/// A raw HTTP request to our own API. HTTP/1.0 with `Connection: close`
-/// saves parsing chunked responses — only the status matters.
-fn post(port: u16, token: &str, path: &str, body: &str) -> Result<u16, String> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let mut stream =
-        TcpStream::connect_timeout(&addr, Duration::from_secs(2)).map_err(|err| err.to_string())?;
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(10)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
-
-    let request = format!(
-        "POST {path} HTTP/1.0\r\n\
-         Host: localhost\r\n\
-         Authorization: Bearer {token}\r\n\
-         X-Soloops-Client: desktop\r\n\
-         Content-Type: application/json\r\n\
-         Content-Length: {}\r\n\
-         Connection: close\r\n\r\n{body}",
-        body.len()
-    );
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|err| err.to_string())?;
-
-    let mut head = [0u8; 64];
-    let read = stream.read(&mut head).map_err(|err| err.to_string())?;
-    let status = String::from_utf8_lossy(&head[..read]);
-    status
-        .split_whitespace()
-        .nth(1)
-        .and_then(|code| code.parse().ok())
-        .ok_or_else(|| format!("unverstaendliche Antwort: {}", status.trim()))
-}
-
 /// Drain the buffer as far as it goes. Whatever is left stays left — the
 /// next round takes it along.
 fn flush(cfg: &Config) {
@@ -288,7 +254,15 @@ fn flush(cfg: &Config) {
         let batch = lines.len().min(MAX_BATCH);
         let body = format!("{{\"samples\":[{}]}}", lines[..batch].join(","));
 
-        match post(cfg.api_port, &cfg.token, "/api/activity/samples", &body) {
+        match crate::http::post(
+            cfg.api_port,
+            &cfg.token,
+            "desktop",
+            "/api/activity/samples",
+            &body,
+        )
+        .map(|(status, _)| status)
+        {
             Ok(code) if (200..300).contains(&code) => {
                 write_pending(cfg, &lines[batch..]);
                 if lines.len() == batch {

@@ -19,6 +19,9 @@ type Lead = {
   computedValueCents: number
   weightedCents: number
   staleDays: number
+  followUpOn: string | null
+  followUpNote: string | null
+  followUpDays: number | null
   client: { id: string; name: string } | null
 }
 
@@ -30,12 +33,23 @@ type StageSummary = {
   weightedCents: number
 }
 
+type FollowUp = {
+  id: string
+  title: string
+  company: string | null
+  followUpOn: string
+  followUpNote: string | null
+  days: number
+  due: boolean
+}
+
 type Pipeline = {
   openCount: number
   openValueCents: number
   weightedCents: number
   byStage: StageSummary[]
   stale: { id: string; title: string; days: number }[]
+  followUps: { due: FollowUp[]; next: FollowUp[] }
   wonThisYear: number
   wonValueCents: number
   winRate: number | null
@@ -80,6 +94,17 @@ const closed = computed(() => leads.value.filter((l) => l.stage === 'WON' || l.s
 
 function inStage(stage: string) {
   return leads.value.filter((l) => l.stage === stage)
+}
+
+const shortDate = (v: string) =>
+  new Date(v).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+
+/** A follow-up reads as a date plus how late it is. */
+function followUpLabel(days: number): string {
+  if (days < 0) return `${-days} T über`
+  if (days === 0) return 'heute'
+  if (days === 1) return 'morgen'
+  return `in ${days} T`
 }
 
 /** After more than two weeks of silence the lead goes visually dull. */
@@ -177,6 +202,43 @@ onMounted(load)
       />
     </div>
 
+    <div v-if="pipeline?.followUps.due.length" class="card mb-8 border-l-2 border-bad p-4">
+      <div class="eyebrow-muted mb-2">Wiedervorlage fällig</div>
+      <ul class="space-y-1 text-sm">
+        <li v-for="f in pipeline.followUps.due" :key="f.id">
+          <RouterLink :to="`/leads/${f.id}`" class="hover:text-ink">
+            <span class="font-medium">{{ f.title }}</span>
+            <span class="tabular-nums text-bad"> · {{ followUpLabel(f.days) }}</span>
+            <span v-if="f.followUpNote" class="text-muted"> · {{ f.followUpNote }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+      <p v-if="pipeline.followUps.next.length" class="mt-2 text-xs text-muted">
+        Als nächstes:
+        {{
+          pipeline.followUps.next.map((f) => `${f.title} (${shortDate(f.followUpOn)})`).join(' · ')
+        }}
+      </p>
+    </div>
+
+    <div
+      v-else-if="pipeline?.followUps.next.length"
+      class="card mb-8 border-l-2 border-line-strong p-4"
+    >
+      <div class="eyebrow-muted mb-2">Nächste Wiedervorlagen</div>
+      <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <RouterLink
+          v-for="f in pipeline.followUps.next"
+          :key="f.id"
+          :to="`/leads/${f.id}`"
+          class="hover:text-ink"
+        >
+          {{ f.title }}
+          <span class="tabular-nums text-muted">· {{ shortDate(f.followUpOn) }}</span>
+        </RouterLink>
+      </div>
+    </div>
+
     <div v-if="pipeline?.stale.length" class="card mb-8 border-l-2 border-warn p-4">
       <div class="eyebrow-muted mb-2">Liegt zu lange still</div>
       <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -271,6 +333,14 @@ onMounted(load)
               </span>
               <span class="text-xs tabular-nums" :class="staleTone(lead.staleDays)">
                 {{ lead.staleDays === 0 ? 'heute' : lead.staleDays + ' T' }}
+              </span>
+              <span
+                v-if="lead.followUpDays !== null"
+                class="badge"
+                :class="lead.followUpDays <= 0 ? 'badge-bad' : 'badge-blue'"
+                :title="lead.followUpNote ?? 'Wiedervorlage'"
+              >
+                WV {{ shortDate(lead.followUpOn!) }}
               </span>
             </div>
 

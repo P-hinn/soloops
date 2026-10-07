@@ -15,7 +15,7 @@
   <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2d3748?style=flat-square&logo=prisma&logoColor=white">
   <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-58%20tools-d8ff55?style=flat-square&labelColor=171714">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-62%20tools-d8ff55?style=flat-square&labelColor=171714">
 </p>
 
 <p align="center">
@@ -39,9 +39,11 @@
 - [Architecture](#architecture) — five apps, one monorepo
 - [Modules](#modules) — what the thing actually does
 - [Two-way calendar sync](#two-way-calendar-sync) — Google, CalDAV, conflict rules
+- [Device sync](#device-sync-iphone-and-mac) — iPhone and Mac, no server in between
+- [CarPlay](#carplay) — the day in the car, and the entitlement it needs
 - [Inbox and lead matching](#inbox-and-lead-matching) — IMAP, rules before AI
 - [Activity](#activity-what-the-mac-sees) — samples from the Mac, all local
-- [MCP server](#mcp-server) — 58 tools for Claude
+- [MCP server](#mcp-server) — 62 tools for Claude
 - [Authentication](#authentication)
 - [Operations](#operations) — logs, schema changes, backup
 - [Deploying on a small server](#deploying-on-a-small-server) — 2 cores, 2 GB RAM
@@ -155,6 +157,9 @@ The result lands in
   On first run macOS asks for **Accessibility** permission (System Settings >
   Privacy & Security); without it, nothing is recorded. Details under
   [Activity](#activity-what-the-mac-sees).
+- **Follow-up reminders.** A lead whose follow-up falls due becomes a macOS
+  notification — once per date, and only between 8 and 22. Details under
+  [Follow-ups](#follow-ups).
 - **Connecting Claude.** _Einstellungen → Claude_ writes the MCP connector into
   Claude Desktop and Claude Code with one click. Only the app can do this: the
   API runs in a container and has no home directory to write into. Details
@@ -674,6 +679,29 @@ overwritten automatically later.
   mail would be a way to get script into your own interface.
   `MarkdownBlock.vue` stays reserved for your own content.
 
+### Follow-ups
+
+A lead carries one date and one reason: _come back to this on the 8th, the
+offer needs chasing_. Set it on the lead, move it with one click (+1 day, +3
+days, +1 week), and tick it off when the call has happened.
+
+Three places show it: the lead itself, the leads view (due ones above the
+pipeline, a `WV` marker on the card) and the dashboard. On top of that the
+macOS app turns a due follow-up into a notification — once per date, between 8
+and 22, and never again until the date moves. The marking lives on the server
+(`followUpNotifiedAt`), so quitting the app does not turn a reminder into a
+nag.
+
+Two decisions worth knowing:
+
+- **Putting a lead on follow-up is not contact with the customer.** It leaves
+  `lastActivityAt` alone, so "gone quiet for 20 days" keeps counting while a
+  reminder sits in the future. Only ticking it off counts as contact — that is
+  when the history entry is written.
+- **Closed leads keep their follow-ups.** "Ask again in six months" is a
+  perfectly good reason to put a lost deal on the list, so WON and LOST are
+  not filtered out.
+
 ---
 
 ## Activity: what the Mac sees
@@ -744,8 +772,8 @@ adds no Rust dependency at all.
 
 Gives Claude the full dataset — reading and writing. Day overview, search,
 what ran on the Mac, clients, projects, calendar, meetings, to-dos, notes,
-timer and manual time entries, leads with offers and AI score, inbox,
-operational status, unbilled time, invoice drafts, revenue.
+timer and manual time entries, leads with offers, follow-ups and AI score,
+inbox, operational status, unbilled time, invoice drafts, revenue.
 
 ### Connecting
 

@@ -47,6 +47,10 @@ type Dashboard = {
     openValueCents: number
     weightedCents: number
     stale: { id: string; title: string; days: number }[]
+    followUps: {
+      due: { id: string; title: string; followUpNote: string | null; days: number }[]
+      next: { id: string; title: string; followUpOn: string }[]
+    }
   }
   ops: {
     monitorsDown: { id: string; friendlyName: string }[]
@@ -184,6 +188,40 @@ const week = computed(() => {
           {{ data.sales.stale.length }} liegen über zwei Wochen still
         </span>
       </RouterLink>
+
+      <!-- Follow-ups: the only thing on this page with a deadline you set
+           yourself — so it gets its own line, not a footnote. -->
+      <div
+        v-if="data.sales.followUps.due.length"
+        class="mt-4 border-l-2 border-bad bg-paper-2 px-4 py-3"
+      >
+        <div class="eyebrow-muted mb-2">Wiedervorlage fällig</div>
+        <ul class="space-y-1.5 text-sm">
+          <li v-for="f in data.sales.followUps.due" :key="f.id">
+            <RouterLink :to="`/leads/${f.id}`" class="hover:text-ink">
+              <span class="font-medium">{{ f.title }}</span>
+              <span class="tabular-nums text-bad">
+                · {{ f.days < 0 ? -f.days + ' T über' : 'heute' }}
+              </span>
+              <span v-if="f.followUpNote" class="text-muted"> · {{ f.followUpNote }}</span>
+            </RouterLink>
+          </li>
+        </ul>
+      </div>
+      <p
+        v-else-if="data.sales.followUps.next.length"
+        class="mt-4 border-t border-line pt-3 text-sm text-muted"
+      >
+        Nächste Wiedervorlage:
+        <RouterLink
+          :to="`/leads/${data.sales.followUps.next[0]!.id}`"
+          class="text-soft hover:text-ink"
+        >
+          {{ data.sales.followUps.next[0]!.title }}
+        </RouterLink>
+        am
+        <span class="tabular-nums">{{ day(data.sales.followUps.next[0]!.followUpOn) }}</span>
+      </p>
 
       <!-- ================================================================= -->
       <!-- The next seven days — the calendar in miniature                    -->

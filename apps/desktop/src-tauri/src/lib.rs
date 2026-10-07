@@ -29,6 +29,9 @@ use tauri::{
 
 mod activity;
 mod claude;
+mod followups;
+mod http;
+mod sync;
 
 /// The modules in sidebar order — Cmd+1 through Cmd+9.
 const SECTIONS: [(&str, &str, &str); 9] = [
@@ -645,6 +648,25 @@ pub fn run() {
             build_tray(&handle)?;
 
             start_sampler(&dir, api_port, activity);
+
+            // Reminders for due follow-ups. Needs nothing but the token —
+            // and without one the API would not answer anyway.
+            if let Some(token) = env_value(&dir, "SERVICE_TOKEN") {
+                followups::spawn(followups::Config {
+                    api_port,
+                    token: token.clone(),
+                });
+
+                // The iPhone's postbox in iCloud Drive. Does nothing until
+                // the iOS app has run once on this Apple ID.
+                if let Some(home) = std::env::var_os("HOME") {
+                    sync::spawn(sync::Config {
+                        api_port,
+                        token,
+                        home: PathBuf::from(home),
+                    });
+                }
+            }
 
             if let Some(window) = app.get_webview_window("main") {
                 thread::spawn(move || boot(window, dir, web_port, api_port, loaded));
