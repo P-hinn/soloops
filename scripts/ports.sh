@@ -137,13 +137,14 @@ cmd_json() {
 
 # This project's ports, including the ones overridden in .env.
 project_ports() {
-  local web=5174 api=3000 db=5433 prod=8090
+  local web=5174 api=3000 db=5433 prod=8090 n8n=5678
   if [ -f "$ROOT/.env" ]; then
     web="$(sed -n 's/^WEB_PORT=\([0-9]*\).*/\1/p' "$ROOT/.env" | head -1)" || true
     api="$(sed -n 's/^API_PORT=\([0-9]*\).*/\1/p' "$ROOT/.env" | head -1)" || true
     prod="$(sed -n 's/^SOLOOPS_PORT=\([0-9]*\).*/\1/p' "$ROOT/.env" | head -1)" || true
+    n8n="$(sed -n 's/^N8N_PORT=\([0-9]*\).*/\1/p' "$ROOT/.env" | head -1)" || true
   fi
-  printf '%s\n' "${web:-5174}" "${api:-3000}" "$db" "${prod:-8090}" 5173 | sort -nu
+  printf '%s\n' "${web:-5174}" "${api:-3000}" "$db" "${prod:-8090}" "${n8n:-5678}" 5173 | sort -nu
 }
 
 kill_port() {

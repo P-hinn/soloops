@@ -35,6 +35,22 @@ const schema = z.object({
   LEXOFFICE_API_KEY: z.string().optional(),
   LEXOFFICE_BASE_URL: z.string().default('https://api.lexoffice.io'),
 
+  // --- Automations (n8n) ---------------------------------------------------
+  /// Where the API reaches n8n. Inside the compose network, not through the
+  /// proxy — the API is not a browser and needs no sub-path.
+  N8N_BASE_URL: z.string().default('http://n8n:5678'),
+  /// Where the browser reaches the editor. Must stay same-origin, otherwise
+  /// the iframe in the automations view stays empty.
+  N8N_PUBLIC_PATH: z.string().default('/n8n/'),
+  /// Created in n8n under Settings -> n8n API. Without it soloops can show
+  /// the editor but cannot mirror flows, import templates or read runs.
+  /// Can also be stored from the interface, which takes precedence.
+  N8N_API_KEY: z.string().optional(),
+  AUTOMATION_POLL_CRON: z.string().default('*/2 * * * *'),
+  /// How many runs per flow are kept in the mirror. The full history stays in
+  /// n8n; this is only what the monitoring needs.
+  AUTOMATION_RUN_HISTORY: z.coerce.number().default(50),
+
   // --- Calendar sync -------------------------------------------------------
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

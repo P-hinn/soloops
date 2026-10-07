@@ -8,11 +8,13 @@
     "apps/*"
   ],
   "scripts": {
-    "up": "docker compose up --build",
+    "up": "npm run nodes:build && docker compose up --build",
     "down": "docker compose down",
     "logs": "docker compose logs -f api worker",
     "app": "npm -w @soloops/desktop run dev",
     "app:build": "npm -w @soloops/desktop run build",
+    "nodes:build": "npm -w n8n-nodes-soloops run build",
+    "nodes:dev": "npm -w n8n-nodes-soloops run dev",
     "ports": "bash scripts/ports.sh",
     "ports:kill": "bash scripts/ports.sh kill",
     "db:push": "npm -w @soloops/api run db:push",

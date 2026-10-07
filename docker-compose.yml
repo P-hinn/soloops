@@ -68,6 +68,48 @@ services:
       api:
         condition: service_started
 
+  # n8n is the drag-and-drop surface behind "Automatisierungen". It is served
+  # under /n8n/ through the web origin, not on its own host — that is what
+  # lets the editor sit in an iframe inside soloops, and it keeps webhook
+  # URLs on the one address the browser already trusts.
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Deliberately no `env_file: .env` — n8n has no business holding the
+    # database URL, the JWT secret or the Anthropic key. Everything it needs
+    # is spelled out here.
+    environment:
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      # Served under a sub-path, so every asset and REST call it emits is
+      # prefixed and survives the proxy in front of it.
+      N8N_PATH: /n8n/
+      N8N_EDITOR_BASE_URL: ${APP_URL:-http://localhost:5174}/n8n/
+      WEBHOOK_URL: ${APP_URL:-http://localhost:5174}/n8n/
+      # Development runs over plain http, where a Secure cookie never arrives.
+      N8N_SECURE_COOKIE: 'false'
+      # Without this n8n logs a deprecation warning on every boot.
+      N8N_RUNNERS_ENABLED: 'true'
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
+      GENERIC_TIMEZONE: ${TZ:-Europe/Berlin}
+      TZ: ${TZ:-Europe/Berlin}
+      # The soloops nodes. Mounted read-only from the monorepo, so a rebuild
+      # of the package plus a restart of this one container is the whole
+      # deploy of a connector change.
+      N8N_CUSTOM_EXTENSIONS: /custom-nodes/n8n-nodes-soloops
+    volumes:
+      # A named volume, not a bind mount under ./data: Docker would create
+      # that one owned by root and n8n runs as uid 1000, which leaves it
+      # unable to write its own database.
+      - n8ndata:/home/node/.n8n
+      - ./packages/n8n-nodes-soloops:/custom-nodes/n8n-nodes-soloops:ro
+    ports:
+      # Also reachable directly — handy when the editor misbehaves behind the
+      # proxy and you want to rule the proxy out.
+      - '${N8N_PORT:-5678}:5678'
+
   web:
     <<: *node
     restart: unless-stopped
@@ -78,8 +120,11 @@ services:
     depends_on:
       api:
         condition: service_started
+      n8n:
+        condition: service_started
 
 volumes:
   pgdata:
   redisdata:
+  n8ndata:
   node_modules_root:
