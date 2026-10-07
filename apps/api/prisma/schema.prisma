@@ -648,6 +648,16 @@ model Lead {
   /// The last activity of any kind — the basis for "gone quiet too long".
   lastActivityAt DateTime @default(now())
 
+  // --- Follow-up ----------------------------------------------------------
+  /// When to come back to this lead, and what for. Putting a lead on
+  /// follow-up is not contact with the customer, so it deliberately leaves
+  /// `lastActivityAt` alone — the staleness counter keeps running.
+  followUpOn   DateTime?
+  followUpNote String?
+  /// When the reminder for the current date went out. Keeps a due follow-up
+  /// from being announced again on every poll; a new date clears it.
+  followUpNotifiedAt DateTime?
+
   clientId  String?
   projectId String?
   archived  Boolean  @default(false)
@@ -662,6 +672,7 @@ model Lead {
 
   @@index([stage, archived])
   @@index([lastActivityAt])
+  @@index([followUpOn])
 }
 
 enum OfferStatus {
@@ -709,6 +720,7 @@ enum ActivityKind {
   MEETING
   OFFER
   STAGE_CHANGE
+  FOLLOW_UP
 }
 
 model LeadActivity {
@@ -859,6 +871,7 @@ enum AutomationEvent {
   LEAD_STAGE_CHANGED
   LEAD_WON
   LEAD_LOST
+  LEAD_FOLLOW_UP_DUE
   PROJECT_CREATED
   MEETING_ENDED
   TASK_COMPLETED
@@ -1007,4 +1020,70 @@ model AutomationToken {
   createdAt  DateTime  @default(now())
 
   @@index([revokedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Device sync (iPhone <-> Mac, with nothing in between)
+// ---------------------------------------------------------------------------
+
+/// A device allowed to sync. Paired once over the LAN; the token is stored
+/// hashed, the same way a password is — a copied database should not hand out
+/// access to the next pull.
+model SyncDevice {
+  id        String  @id @default(cuid())
+  name      String
+  /// ios | macos. The Mac registers itself at startup so that every op in the
+  /// log has an origin, including the ones made in the web UI.
+  platform  String
+  /// Null for this host: it does not authenticate against itself.
+  tokenHash String?
+
+  /// How far this device has read the log. Its own ops never travel back, so
+  /// this only tracks everybody else's.
+  cursor String @default("")
+
+  pairedAt   DateTime  @default(now())
+  lastSeenAt DateTime?
+  /// Set instead of deleting the row. The log keeps referring to the id, and
+  /// a revoked device must stay distinguishable from one that never existed.
+  revokedAt  DateTime?
+
+  @@index([platform])
+}
+
+/// One change to one row, as it happened on one device. Append-only, and it
+/// does double duty: it is the transport between the devices *and* the field
+/// clock the merge reads to decide who wins — see services/syncMerge.ts.
+///
+/// Deliberately not a relation to SyncDevice. Unpairing a phone must not take
+/// the history with it that the other device still needs.
+model SyncOp {
+  id String @id @default(cuid())
+
+  /// Where the change was made. Ops are never sent back to their origin.
+  deviceId String
+  /// Per-device counter. Together with deviceId it makes a push idempotent —
+  /// the same op arriving twice is a no-op, which matters because the iCloud
+  /// transport has no delivery receipt.
+  seq      Int
+  /// Hybrid logical clock, lexicographically sortable — see services/hlc.ts.
+  hlc      String
+
+  /// One of the synced models — the list lives in services/syncEntities.ts.
+  entity   String
+  entityId String
+  /// upsert | delete
+  op       String
+
+  /// The changed fields only, never the whole row. Null for a delete.
+  patch Json?
+  /// The keys of `patch`, lifted out of the JSON so the merge can ask "who
+  /// last touched this field" against an index instead of unpacking every row.
+  fields String[] @default([])
+
+  createdAt DateTime @default(now())
+
+  @@unique([deviceId, seq])
+  @@index([hlc])
+  @@index([entity, entityId, hlc])
 }

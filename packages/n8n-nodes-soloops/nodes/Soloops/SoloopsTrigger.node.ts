@@ -57,6 +57,7 @@ export class SoloopsTrigger implements INodeType {
           { name: 'Lead gewonnen', value: 'lead.won' },
           { name: 'Lead-Phase geändert', value: 'lead.stage_changed' },
           { name: 'Lead verloren', value: 'lead.lost' },
+          { name: 'Wiedervorlage fällig', value: 'lead.follow_up_due' },
           { name: 'Meeting beendet', value: 'meeting.ended' },
           { name: 'Notiz angelegt', value: 'note.created' },
           { name: 'Projekt angelegt', value: 'project.created' },

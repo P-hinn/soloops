@@ -5,7 +5,7 @@ import { ZodError } from 'zod'
 import { Prisma } from '@prisma/client'
 
 import { env } from './env.js'
-import { ensureSearchIndexes, prisma } from './db.js'
+import { ensureSearchIndexes, initSync, prisma } from './db.js'
 import { registerAuth } from './auth.js'
 
 import authRoutes from './routes/auth.js'
@@ -31,6 +31,7 @@ import assistantRoutes from './routes/assistant.js'
 import onboardingRoutes from './routes/onboarding.js'
 import automationRoutes from './routes/automations.js'
 import automationConnectorRoutes from './routes/automationConnector.js'
+import syncRoutes from './routes/sync.js'
 
 const app = Fastify({
   logger: { level: env.NODE_ENV === 'development' ? 'info' : 'warn' },
@@ -97,8 +98,13 @@ await app.register(automationRoutes, { prefix: '/api/automations' })
 // above: it is the only surface an n8n automation token opens, and that is
 // much easier to keep true when the two cannot share a hook by accident.
 await app.register(automationConnectorRoutes, { prefix: '/api/automations/connector' })
+await app.register(syncRoutes, { prefix: '/api/sync' })
 
 await ensureSearchIndexes()
+
+// The op log needs its device identity before the first write is served.
+const { deviceId } = await initSync('api')
+app.log.info(`Sync-Geraet ${deviceId}`)
 
 await app.listen({ port: env.PORT, host: '0.0.0.0' })
 app.log.info(`soloops API auf :${env.PORT}`)

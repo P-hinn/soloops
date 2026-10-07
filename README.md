@@ -15,7 +15,7 @@
   <img alt="Prisma 6" src="https://img.shields.io/badge/Prisma-6-2d3748?style=flat-square&logo=prisma&logoColor=white">
   <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ed?style=flat-square&logo=docker&logoColor=white">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-58%20tools-d8ff55?style=flat-square&labelColor=171714">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-62%20tools-d8ff55?style=flat-square&labelColor=171714">
 </p>
 
 <p align="center">
@@ -39,10 +39,12 @@
 - [Architecture](#architecture) — five apps, one monorepo
 - [Modules](#modules) — what the thing actually does
 - [Two-way calendar sync](#two-way-calendar-sync) — Google, CalDAV, conflict rules
+- [Device sync](#device-sync-iphone-and-mac) — iPhone and Mac, no server in between
+- [CarPlay](#carplay) — the day in the car, and the entitlement it needs
 - [Inbox and lead matching](#inbox-and-lead-matching) — IMAP, rules before AI
 - [Activity](#activity-what-the-mac-sees) — samples from the Mac, all local
 - [Automations with n8n](#automations-with-n8n) — the editor embedded, with connectors both ways
-- [MCP server](#mcp-server) — 70 tools for Claude
+- [MCP server](#mcp-server) — 74 tools for Claude
 - [Authentication](#authentication)
 - [Operations](#operations) — logs, schema changes, backup
 - [Deploying on a small server](#deploying-on-a-small-server) — 2 cores, 2 GB RAM
@@ -162,6 +164,9 @@ The result lands in
   On first run macOS asks for **Accessibility** permission (System Settings >
   Privacy & Security); without it, nothing is recorded. Details under
   [Activity](#activity-what-the-mac-sees).
+- **Follow-up reminders.** A lead whose follow-up falls due becomes a macOS
+  notification — once per date, and only between 8 and 22. Details under
+  [Follow-ups](#follow-ups).
 - **Connecting Claude.** _Einstellungen → Claude_ writes the MCP connector into
   Claude Desktop and Claude Code with one click. Only the app can do this: the
   API runs in a container and has no home directory to write into. Details
@@ -234,7 +239,17 @@ npm -w @soloops/desktop run test   # the Rust side of the macOS app (6 cases)
 ```
 
 The Rust tests are not part of `npm run check`: they need the toolchain, and
-only people who build the app need that.
+only people who build the app need that. The same goes for the Swift ones:
+
+```bash
+bash scripts/ios-test.sh              # the sync engine on the phone (104 cases)
+npm -w @soloops/api run test:sync     # the op log against a real Postgres
+```
+
+`scripts/ios-test.sh` exists rather than a bare `swift test` because building
+under `~/Desktop` fails at the code-signing step — files there carry extended
+attributes that `codesign` refuses, and `xattr -cr` does not stick. The script
+builds outside it.
 
 **Prettier** owns formatting (no semicolons, single quotes, 100 columns),
 **tsc** owns types. The **linter** only deals with what neither of them sees —
@@ -276,6 +291,7 @@ apps/
   web/        Vue 3 + Vite + Tailwind — the interface
   mcp/        MCP server (stdio) for Claude Code / Claude Desktop
   desktop/    Tauri — the same interface as a macOS app, with menu and tray
+  ios/        Swift — the iPhone app and the CarPlay screen, plus the sync engine
 packages/
   shared/              Zod schemas and formatters shared by API, web and MCP
   n8n-nodes-soloops/   the soloops nodes, mounted into the n8n container
@@ -288,6 +304,11 @@ workflows and runs, and the event bridge; see
 
 Worker and API share the Prisma client and the service layer through relative
 imports — one monorepo, one source of truth, no duplicated integrations.
+
+`apps/ios` is the exception: it is a Swift project and not part of the npm
+workspace, so it duplicates the one thing it cannot import — the list of
+synced fields. A generated fixture and a parity test keep the two copies
+honest, see [Device sync](#device-sync-iphone-and-mac).
 
 ---
 
@@ -454,6 +475,188 @@ default. A misclick in soloops should not remove events from all your devices.
 
 ---
 
+## Device sync (iPhone and Mac)
+
+The iPhone and the Mac keep each other up to date directly. There is no server
+in between and no account anywhere — the data lives on those two devices, which
+is the whole point and also the thing that makes it harder than it sounds.
+
+Set up under _Settings → iPhone_: the Mac shows an eight-character code, the
+phone redeems it over the local network, and from then on the phone holds a
+long random token. The code is single-use and valid for ten minutes.
+
+### An operation log, not a table diff
+
+Every change to a synced row appends an **op**: which row, which fields, and a
+timestamp. The phone keeps the same log in SQLite. Syncing is then just
+"everything since my cursor", in both directions.
+
+The log is written by a Prisma client extension (`services/syncHook.ts`), not
+by the routes. There are around thirty write sites across the API, the worker
+and the MCP server, and a sync that relies on all of them remembering to log is
+a sync that is already broken. Three things that extension has to get right,
+each of which is otherwise a silent data-loss bug:
+
+- **Narrow patches.** An op claims only the fields the write touched, and the
+  values always come from the row Prisma returns — so `{ increment: 1 }` and
+  `{ set: [...] }` record what actually landed.
+- **Bulk writes.** `updateMany` and `deleteMany` report a count, not rows, so
+  the ids are resolved before the write runs. `createMany` is refused outright,
+  because its generated ids are not recoverable afterwards.
+- **Cascades.** `onDelete: Cascade` and `SetNull` happen inside Postgres and
+  Prisma never mentions them. They are declared in `services/syncEntities.ts`
+  and expanded before the parent row disappears.
+
+### Which is newer, when both clocks are wrong
+
+Comparing `updatedAt` does not work. A Mac waking from sleep can briefly report
+a time behind the phone's, and the newer edit would then lose silently. So
+every op carries a **hybrid logical clock**: the wall clock as the coarse part,
+never allowed to go backwards, with a counter for ties, and reading a remote
+stamp pulls the local clock past it. Stamps are fixed-width strings, so sorting
+them as text sorts them in time — Postgres, SQLite and Swift all agree on the
+order without any of them parsing anything.
+
+### Last writer wins, per field
+
+Per row would be cheaper and wrong in exactly the case this exists for: you
+tick off an action item in the car while the Mac writes an AI summary onto the
+same meeting. Both edits are real, they touch different columns, and a
+row-level comparison throws one away.
+
+Per-field LWW normally means a timestamp per column — eighty-odd extra columns.
+It is not needed, because the op log already _is_ that record: "who last wrote
+`done` on this item" is a query over the ops for that row. The log does double
+duty and the nine synced models keep their shape.
+
+One rule in there is a judgement call rather than a consequence: **an edit made
+after a delete keeps the row alive.** The edit is work, the delete is the
+absence of it. Keeping the row loses nothing a second delete cannot fix;
+honouring the delete would throw away something nobody can get back.
+
+### Two routes, different failure modes
+
+- **Local network.** The phone talks to the API directly. Immediate, settles
+  ops in the same request, and the only route that can hand over a snapshot.
+  Gone the moment the phone leaves the house.
+- **iCloud Drive.** The phone writes op batches as files into its own iCloud
+  container; the macOS app watches that folder and hands them to the local API
+  (`apps/desktop/src-tauri/src/sync.rs`). Works from anywhere, takes seconds to
+  minutes, and has **no delivery receipt** — so a batch may arrive twice, and
+  ops sent this way stay pending until they come back as shared history. That
+  is the only acknowledgement this route can give; treating the file write as
+  confirmation is how an offline-first sync loses a day of work.
+
+Neither is a fallback for the other. The LAN is used when it is there because
+it is immediate; iCloud otherwise because it is the only thing left.
+
+### What syncs
+
+Clients, projects, calendar events, leads, time entries, meetings, action items
+and notes. `Project` is in there because `TimeEntry.projectId` is non-null — a
+phone that cannot see projects cannot log time against one.
+
+Host-local columns deliberately stay put: `lastPushedAt` belongs to this
+machine's CalDAV sync, `followUpNotifiedAt` to its notifications,
+`lexofficeContactId` to its accounting link. Invoices do not sync at all.
+
+### Keeping the two field lists in step
+
+The phone builds its SQLite schema before it has ever paired, so it cannot ask
+the Mac what the columns are — `SyncEntities.swift` is a hand-kept copy of
+`syncEntities.ts`. Copies drift, and this one would drift **silently**: a field
+the Mac syncs and the phone does not know is simply dropped on arrival, with no
+error anywhere.
+
+So the API writes its registry to a fixture and the Swift tests hold their copy
+against it:
+
+```bash
+npm -w @soloops/api run sync:registry   # after changing SYNC_ENTITIES
+bash scripts/ios-test.sh                # fails if the two no longer agree
+```
+
+---
+
+## CarPlay
+
+soloops has its own icon on the CarPlay home screen: a spoken briefing of the
+day, today's appointments, and the follow-ups that are due — all read from the
+phone's local database, because a car usually has no useful network.
+
+### The entitlement
+
+**A CarPlay app needs an entitlement that Apple grants per app**, and that is
+not a formality: without it the CarPlay scene is never created, on a real head
+unit or in Xcode's CarPlay simulator. There is no way around it.
+
+This app is built against `com.apple.developer.carplay-audio`, declared in
+`Soloops.entitlements` and named in `CarPlayConfiguration`. That category is
+the one with a realistic chance of being granted, and it fits: the content
+really is audio, and the lists are how you choose which part of it to hear. For
+a driver that is the right way round anyway — a list you read at 80 km/h is a
+list you should not have been reading.
+
+Request it at <https://developer.apple.com/contact/carplay/>. Until it comes
+through, everything except the CarPlay screen works: the phone app, and Siri,
+which runs in the car without any entitlement at all.
+
+`com.apple.developer.carplay-driving-task` would describe an agenda more
+literally and is granted far more narrowly, mostly to vehicle manufacturers. If
+you ever get it, change the key in the entitlements file — the templates used
+here are permitted in both categories.
+
+### What it does in the car
+
+- **Tag vorlesen** — appointments still to come and the due follow-ups, spoken,
+  with the count first so the length is known in advance. Speech ducks the
+  radio rather than interrupting it, and the steering-wheel controls work
+  through `MPNowPlayingInfoCenter`.
+- **Heute** — the day's appointments. Tapping one with an address hands it to
+  whatever app is doing navigation; one without gets read aloud.
+- **Wiedervorlage** — the due follow-ups, each with three one-tap choices:
+  call, postpone to tomorrow, done. Anything more belongs on the phone.
+
+### Travel time, recorded by itself
+
+CarPlay connecting and disconnecting is a reliable signal that a journey
+started and ended, and travel to a customer is work that usually goes unbilled
+because nobody starts a stopwatch while parking.
+
+The destination is inferred from the calendar: a drive ending shortly before an
+appointment, or starting shortly after one, was almost certainly to or from it,
+and the entry is booked against that project as "Anfahrt" or "Rückfahrt". When
+nothing lines up, **the drive waits on the _Fahrten_ screen instead of being
+booked against a guess** — time landing on the wrong customer is worse than
+time not landing at all, because nobody goes looking for an entry they did not
+expect. Drives under three minutes and over four hours are discarded; the
+latter is a phone left in a parked car with the ignition on.
+
+### Siri
+
+Works in CarPlay with no entitlement, and is the fastest way to any of this
+with both hands on the wheel: _Nächster Termin_, _Tagesbriefing_, _Fällige
+Wiedervorlagen_, _Notiz an soloops_, _Zeit starten_. All of them read and write
+the local database only — a phrase that needed the network would fail exactly
+where it is wanted most.
+
+### Building it
+
+The Xcode project is generated, not committed:
+
+```bash
+brew install xcodegen
+cd apps/ios && xcodegen
+open Soloops.xcodeproj
+```
+
+Everything that decides how the app behaves — the scene manifest, the
+entitlements, the asset catalog with its CarPlay icon slot — is in version
+control next to `project.yml`. Installing on a real iPhone needs an Apple
+Developer account; free signing expires after seven days.
+
+---
+
 ## Inbox and lead matching
 
 soloops reads an existing mailbox over IMAP and matches mail to leads, clients
@@ -494,6 +697,29 @@ overwritten automatically later.
   what the AI derives from it — both go out as plain text. Otherwise a crafted
   mail would be a way to get script into your own interface.
   `MarkdownBlock.vue` stays reserved for your own content.
+
+### Follow-ups
+
+A lead carries one date and one reason: _come back to this on the 8th, the
+offer needs chasing_. Set it on the lead, move it with one click (+1 day, +3
+days, +1 week), and tick it off when the call has happened.
+
+Three places show it: the lead itself, the leads view (due ones above the
+pipeline, a `WV` marker on the card) and the dashboard. On top of that the
+macOS app turns a due follow-up into a notification — once per date, between 8
+and 22, and never again until the date moves. The marking lives on the server
+(`followUpNotifiedAt`), so quitting the app does not turn a reminder into a
+nag.
+
+Two decisions worth knowing:
+
+- **Putting a lead on follow-up is not contact with the customer.** It leaves
+  `lastActivityAt` alone, so "gone quiet for 20 days" keeps counting while a
+  reminder sits in the future. Only ticking it off counts as contact — that is
+  when the history entry is written.
+- **Closed leads keep their follow-ups.** "Ask again in six months" is a
+  perfectly good reason to put a lost deal on the list, so WON and LOST are
+  not filtered out.
 
 ---
 
@@ -701,8 +927,9 @@ is, open it".
 
 Gives Claude the full dataset — reading and writing. Day overview, search,
 what ran on the Mac, clients, projects, calendar, meetings, to-dos, notes,
-timer and manual time entries, leads with offers and AI score, inbox,
-operational status, unbilled time, invoice drafts, revenue, automations.
+timer and manual time entries, leads with offers, follow-ups and AI score,
+inbox, operational status, unbilled time, invoice drafts, revenue,
+automations.
 
 ### Connecting
 

@@ -40,6 +40,9 @@ type Lead = {
   computedValueCents: number
   weightedCents: number
   staleDays: number
+  followUpOn: string | null
+  followUpNote: string | null
+  followUpDays: number | null
   offers: Offer[]
   activities: Activity[]
   mails: Mail[]
@@ -69,6 +72,7 @@ const KIND_LABEL: Record<string, string> = {
   MEETING: 'Meeting',
   OFFER: 'Angebot',
   STAGE_CHANGE: 'Stufe',
+  FOLLOW_UP: 'Nachfass',
 }
 
 const route = useRoute()
@@ -87,6 +91,37 @@ const offer = ref({
   sentOn: new Date().toISOString().slice(0, 10),
   validUntil: '',
 })
+
+const followUpDraft = ref({ on: '', note: '' })
+const doneNote = ref('')
+
+/** How urgent the follow-up reads: overdue, today, or still ahead. */
+const followUpTone = computed(() => {
+  const days = lead.value?.followUpDays
+  if (days === null || days === undefined) return ''
+  if (days < 0) return 'text-bad'
+  if (days === 0) return 'text-warn'
+  return 'text-muted'
+})
+
+const followUpWhen = computed(() => {
+  const days = lead.value?.followUpDays
+  if (days === null || days === undefined) return ''
+  if (days < 0) return `${-days} Tag(e) überfällig`
+  if (days === 0) return 'heute fällig'
+  if (days === 1) return 'morgen'
+  return `in ${days} Tagen`
+})
+
+/** Where a postponement starts counting: today, or a date still ahead. */
+function snoozeBase(): Date {
+  const today = new Date()
+  today.setHours(12, 0, 0, 0)
+  if (!lead.value?.followUpOn) return today
+  const current = new Date(lead.value.followUpOn)
+  current.setHours(12, 0, 0, 0)
+  return current > today ? current : today
+}
 
 /** Where the AI and your own estimate diverge, that gap is the message. */
 const scoreGap = computed(() => {
@@ -144,6 +179,39 @@ async function decideOffer(id: string, status: string) {
   await load()
 }
 
+async function putOnFollowUp() {
+  if (!followUpDraft.value.on) return
+  await api.post(`/api/leads/${route.params.id}/follow-up`, {
+    on: followUpDraft.value.on,
+    note: followUpDraft.value.note || null,
+  })
+  followUpDraft.value = { on: '', note: '' }
+  await load()
+}
+
+async function snooze(days: number) {
+  const target = snoozeBase()
+  target.setDate(target.getDate() + days)
+  await api.post(`/api/leads/${route.params.id}/follow-up`, {
+    on: target.toISOString().slice(0, 10),
+    note: lead.value?.followUpNote ?? null,
+  })
+  await load()
+}
+
+async function finishFollowUp() {
+  await api.post(`/api/leads/${route.params.id}/follow-up/done`, {
+    note: doneNote.value || undefined,
+  })
+  doneNote.value = ''
+  await load()
+}
+
+async function dropFollowUp() {
+  await api.del(`/api/leads/${route.params.id}/follow-up`)
+  await load()
+}
+
 async function score() {
   scoring.value = true
   error.value = ''
@@ -198,6 +266,54 @@ onMounted(load)
         {{ STAGE_LABEL[s] }}
       </button>
     </div>
+
+    <!-- Follow-up: the one thing that has to catch the eye on this page. -->
+    <section
+      class="card mb-8 p-4"
+      :class="lead.followUpDays !== null && lead.followUpDays <= 0 ? 'border-l-2 border-bad' : ''"
+    >
+      <div class="eyebrow-muted mb-2">Wiedervorlage</div>
+
+      <template v-if="lead.followUpOn">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span class="font-display text-base font-semibold tabular-nums">
+            {{ date(lead.followUpOn) }}
+          </span>
+          <span class="text-sm" :class="followUpTone">{{ followUpWhen }}</span>
+        </div>
+        <p v-if="lead.followUpNote" class="mt-1 text-sm">{{ lead.followUpNote }}</p>
+
+        <div class="mt-3 flex flex-wrap items-center gap-1.5">
+          <input
+            v-model="doneNote"
+            class="input w-auto flex-1 py-1 text-xs"
+            placeholder="Was kam dabei heraus? (optional)"
+            @keyup.enter="finishFollowUp()"
+          />
+          <button class="btn-xs btn-primary" @click="finishFollowUp()">Nachgefasst</button>
+          <button class="btn-xs" @click="snooze(1)">+1 Tag</button>
+          <button class="btn-xs" @click="snooze(3)">+3 Tage</button>
+          <button class="btn-xs" @click="snooze(7)">+1 Woche</button>
+          <button class="btn-xs" title="Ohne Verlaufseintrag entfernen" @click="dropFollowUp()">
+            Entfernen
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-muted">
+          „Nachgefasst" schreibt den Punkt in den Verlauf und zählt als Kontakt. Die App meldet eine
+          fällige Wiedervorlage einmal als Mitteilung.
+        </p>
+      </template>
+
+      <form v-else class="flex flex-wrap items-center gap-1.5" @submit.prevent="putOnFollowUp">
+        <input v-model="followUpDraft.on" type="date" class="input w-auto py-1 text-xs" />
+        <input
+          v-model="followUpDraft.note"
+          class="input w-auto flex-1 py-1 text-xs"
+          placeholder="Worum geht es? z.B. Angebot nachfassen"
+        />
+        <button class="btn-xs btn-primary">Auf Wiedervorlage</button>
+      </form>
+    </section>
 
     <div class="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div class="min-w-0 space-y-8">

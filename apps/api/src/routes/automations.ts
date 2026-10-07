@@ -23,6 +23,7 @@ const automationEvent = z.enum([
   'LEAD_STAGE_CHANGED',
   'LEAD_WON',
   'LEAD_LOST',
+  'LEAD_FOLLOW_UP_DUE',
   'PROJECT_CREATED',
   'MEETING_ENDED',
   'TASK_COMPLETED',

@@ -21,6 +21,8 @@ const fields = {
   clientId: z.string().optional(),
   projectId: z.string().optional(),
   notes: z.string().optional(),
+  followUpOn: z.string().optional().describe('ISO-Datum der Wiedervorlage'),
+  followUpNote: z.string().optional().describe('worum es bei der Wiedervorlage geht'),
 }
 
 const offerFields = {
@@ -92,6 +94,44 @@ export function registerLeads(server: McpServer): void {
     'Lead archivieren — verschwindet aus Listen und Pipeline, bleibt aber mit seinem Verlauf erhalten. Für Fehleinträge und Dubletten.',
     { leadId: z.string() },
     ({ leadId }) => del(`/api/leads/${leadId}`),
+  )
+
+  tool(
+    server,
+    'soloops_due_follow_ups',
+    'Wiedervorlagen: was heute oder überfällig dran ist, dazu das, was in den nächsten Tagen ansteht. Negative Tage heißen überfällig.',
+    {
+      withinDays: z.number().min(0).max(365).optional().describe('Vorschau nach vorn, Standard 14'),
+    },
+    (args) => get('/api/leads/follow-ups', args),
+  )
+
+  tool(
+    server,
+    'soloops_set_follow_up',
+    'Lead auf Wiedervorlage packen oder die Wiedervorlage verschieben. Das Datum setzt die „zuletzt angefasst"-Uhr nicht zurück — eine Erinnerung ist kein Kundenkontakt.',
+    {
+      leadId: z.string(),
+      on: z.string().describe('ISO-Datum, z.B. 2026-10-08'),
+      note: z.string().optional().describe('was zu tun ist, z.B. „Angebot nachfassen"'),
+    },
+    ({ leadId, ...body }) => post(`/api/leads/${leadId}/follow-up`, body),
+  )
+
+  tool(
+    server,
+    'soloops_complete_follow_up',
+    'Wiedervorlage abhaken: schreibt „nachgefasst" in den Verlauf, zählt als Kontakt und nimmt das Datum weg. Für einen Fehleintrag stattdessen soloops_clear_follow_up.',
+    { leadId: z.string(), note: z.string().optional().describe('was dabei herauskam') },
+    ({ leadId, ...body }) => post(`/api/leads/${leadId}/follow-up/done`, body),
+  )
+
+  tool(
+    server,
+    'soloops_clear_follow_up',
+    'Wiedervorlage entfernen, ohne etwas in den Verlauf zu schreiben — für ein falsch gesetztes Datum.',
+    { leadId: z.string() },
+    ({ leadId }) => del(`/api/leads/${leadId}/follow-up`),
   )
 
   tool(

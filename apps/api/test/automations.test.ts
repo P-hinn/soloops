@@ -40,7 +40,7 @@ function check(name: string, got: unknown, want: unknown) {
 // These travel into workflow graphs soloops cannot refactor. The round trip is
 // pinned so a rename cannot slip through quietly.
 
-check('jedes Event hat einen Drahtnamen', Object.keys(EVENT_WIRE).length, 8)
+check('jedes Event hat einen Drahtnamen', Object.keys(EVENT_WIRE).length, 9)
 
 check(
   'jeder Drahtname findet zurück zum Enum',
@@ -51,6 +51,12 @@ check(
 check('ein unbekannter Drahtname wird nicht geraten', eventFromWire('lead.exploded'), null)
 
 check('die Drahtnamen sind die dokumentierten', EVENT_WIRE.LEAD_STAGE_CHANGED, 'lead.stage_changed')
+
+check(
+  'die Wiedervorlage hat ihren eigenen Drahtnamen',
+  EVENT_WIRE.LEAD_FOLLOW_UP_DUE,
+  'lead.follow_up_due',
+)
 
 // ---------------------------------------------------------------------------
 // The envelope

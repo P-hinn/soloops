@@ -229,18 +229,27 @@ export async function summarizeMeeting(meetingId: string) {
 
   // Replace existing AI items; manually created ones stay untouched.
   await prisma.actionItem.deleteMany({ where: { meetingId, source: 'AI', done: false } })
-  await prisma.actionItem.createMany({
-    data: parsed.actionItems.map(
-      (a: { title: string; assignee: string | null; dueHint: string | null }) => ({
+  // One `create` per item rather than `createMany`: the latter reports a
+  // count and not the generated ids, so the device sync could not log which
+  // rows appeared — see services/syncHook.ts. Not wrapped in a transaction
+  // either, because the op log is appended outside it and a rollback would
+  // leave the phone creating rows this machine no longer has.
+  for (const a of parsed.actionItems as {
+    title: string
+    assignee: string | null
+    dueHint: string | null
+  }[]) {
+    await prisma.actionItem.create({
+      data: {
         title: a.title,
         assignee: a.assignee,
         dueOn: parseDueHint(a.dueHint),
         meetingId,
         projectId: meeting.projectId,
         source: 'AI',
-      }),
-    ),
-  })
+      },
+    })
+  }
 
   const actionItems = await prisma.actionItem.findMany({ where: { meetingId } })
   return { meeting: updated, actionItems, openQuestions: parsed.openQuestions }

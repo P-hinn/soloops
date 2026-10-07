@@ -59,3 +59,22 @@ export function weightedCents(lead: LeadLike): number {
 export function stalenessDays(lead: { lastActivityAt: Date }, now = new Date()): number {
   return Math.floor((now.getTime() - lead.lastActivityAt.getTime()) / 86_400_000)
 }
+
+/**
+ * Days until the follow-up: negative is overdue, 0 is today, null means the
+ * lead is not on follow-up at all.
+ *
+ * Counted in calendar days, not in hours — a follow-up for today is due all
+ * day, not from the stroke of midnight it was created at.
+ */
+export function followUpDays(lead: { followUpOn: Date | null }, now = new Date()): number | null {
+  if (!lead.followUpOn) return null
+  const midnight = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  return Math.round((midnight(lead.followUpOn) - midnight(now)) / 86_400_000)
+}
+
+/** Due means: today or overdue. */
+export function followUpDue(lead: { followUpOn: Date | null }, now = new Date()): boolean {
+  const days = followUpDays(lead, now)
+  return days !== null && days <= 0
+}

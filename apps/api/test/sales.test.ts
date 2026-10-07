@@ -1,4 +1,10 @@
-import { leadValueCents, stalenessDays, weightedCents } from '../src/services/leadMath.js'
+import {
+  followUpDays,
+  followUpDue,
+  leadValueCents,
+  stalenessDays,
+  weightedCents,
+} from '../src/services/leadMath.js'
 import {
   constrainToKnown,
   readSuggestion,
@@ -308,6 +314,52 @@ check(
 )
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Wiedervorlage
+// ---------------------------------------------------------------------------
+
+const noon = (iso: string) => new Date(`${iso}T12:00:00`)
+
+check('ohne Datum ist nichts auf Wiedervorlage', followUpDays({ followUpOn: null }), null)
+
+check(
+  'heute fällig sind null Tage',
+  followUpDays({ followUpOn: noon('2026-10-01') }, noon('2026-10-01')),
+  0,
+)
+
+check(
+  'morgen ist ein Tag hin',
+  followUpDays({ followUpOn: noon('2026-10-02') }, noon('2026-10-01')),
+  1,
+)
+
+check(
+  'gestern zählt negativ, also überfällig',
+  followUpDays({ followUpOn: noon('2026-09-30') }, noon('2026-10-01')),
+  -1,
+)
+
+check(
+  'der Tag zählt ganz: kurz vor Mitternacht ist heute noch heute',
+  followUpDays({ followUpOn: noon('2026-10-01') }, new Date('2026-10-01T23:59:00')),
+  0,
+)
+
+check(
+  'eine Wiedervorlage für heute ist fällig, nicht erst morgen',
+  followUpDue({ followUpOn: noon('2026-10-01') }, new Date('2026-10-01T00:05:00')),
+  true,
+)
+
+check(
+  'was noch kommt, ist nicht fällig',
+  followUpDue({ followUpOn: noon('2026-10-02') }, noon('2026-10-01')),
+  false,
+)
+
+check('ohne Datum nichts fällig', followUpDue({ followUpOn: null }, noon('2026-10-01')), false)
 
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen`)
 if (fail > 0) process.exit(1)

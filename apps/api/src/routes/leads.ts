@@ -3,8 +3,14 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import {
   changeStage,
+  claimDueNotifications,
+  clearFollowUp,
+  completeFollowUp,
+  dueFollowUps,
+  followUpDays,
   leadValueCents,
   pipelineSummary,
+  setFollowUp,
   stalenessDays,
   touchLead,
   weightedCents,
@@ -30,6 +36,8 @@ const leadInput = z.object({
   projectId: z.string().nullish(),
   notes: z.string().nullish(),
   lostReason: z.string().nullish(),
+  followUpOn: z.coerce.date().nullish(),
+  followUpNote: z.string().nullish(),
 })
 
 const offerInput = z.object({
@@ -85,6 +93,7 @@ const routes: FastifyPluginAsync = async (app) => {
       computedValueCents: leadValueCents(lead),
       weightedCents: weightedCents(lead),
       staleDays: stalenessDays(lead),
+      followUpDays: followUpDays(lead),
     }))
   })
 
@@ -106,6 +115,7 @@ const routes: FastifyPluginAsync = async (app) => {
       computedValueCents: leadValueCents(lead),
       weightedCents: weightedCents(lead),
       staleDays: stalenessDays(lead),
+      followUpDays: followUpDays(lead),
     }
   })
 
@@ -142,7 +152,11 @@ const routes: FastifyPluginAsync = async (app) => {
     // Changing the stage has rules of its own (probability, history) and
     // therefore does not belong in the generic field update.
     const { stage: nextStage, ...rest } = data
-    const updated = await prisma.lead.update({ where: { id }, data: rest })
+    const updated = await prisma.lead.update({
+      where: { id },
+      // A date set here is a new reminder, not one already announced.
+      data: 'followUpOn' in rest ? { ...rest, followUpNotifiedAt: null } : rest,
+    })
     return nextStage && nextStage !== updated.stage ? changeStage(id, nextStage) : updated
   })
 
@@ -156,6 +170,43 @@ const routes: FastifyPluginAsync = async (app) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     await prisma.lead.update({ where: { id }, data: { archived: true } })
     return reply.code(204).send()
+  })
+
+  // --- Follow-ups ----------------------------------------------------------
+
+  /**
+   * What is due and what is coming up. `withinDays` reaches into the future;
+   * overdue follow-ups are always included.
+   */
+  app.get('/follow-ups', async (req) => {
+    const q = z
+      .object({ withinDays: z.coerce.number().min(0).max(365).default(14) })
+      .parse(req.query)
+    return dueFollowUps(q.withinDays)
+  })
+
+  /**
+   * Hands the due reminders to the desktop app and marks them as announced.
+   * A POST rather than a GET: this reads and writes.
+   */
+  app.post('/follow-ups/claim-notifications', async () => claimDueNotifications())
+
+  app.post('/:id/follow-up', async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params)
+    const body = z.object({ on: z.coerce.date(), note: z.string().nullish() }).parse(req.body)
+    const lead = await setFollowUp(id, body.on, body.note)
+    return { ...lead, days: followUpDays(lead) }
+  })
+
+  app.post('/:id/follow-up/done', async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params)
+    const body = z.object({ note: z.string().optional() }).parse(req.body ?? {})
+    return completeFollowUp(id, body.note)
+  })
+
+  app.delete('/:id/follow-up', async (req) => {
+    const { id } = z.object({ id: z.string() }).parse(req.params)
+    return clearFollowUp(id)
   })
 
   // --- History -------------------------------------------------------------
