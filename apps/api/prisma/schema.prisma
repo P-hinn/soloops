@@ -95,6 +95,9 @@ model Project {
   leads       Lead[]
   mails       MailMessage[]
 
+  automationFlows    AutomationFlow[]
+  automationTriggers AutomationTrigger[]
+
   @@index([status])
 }
 
@@ -829,4 +832,179 @@ model MailMessage {
   @@index([category, handled])
   @@index([sentAt])
   @@index([fromEmail])
+}
+
+// ---------------------------------------------------------------------------
+// Automations (a mirror of n8n, plus what n8n cannot know)
+// ---------------------------------------------------------------------------
+
+/// n8n's own execution states, mapped onto something that survives a version
+/// bump. `UNKNOWN` is deliberate: a new state in n8n should show up as odd,
+/// not as a failure.
+enum AutomationRunStatus {
+  NEW
+  RUNNING
+  WAITING
+  SUCCESS
+  ERROR
+  CANCELED
+  UNKNOWN
+}
+
+/// What a workflow can listen to on the soloops side. Values are the wire
+/// format — they travel to n8n in the payload and are what the Soloops
+/// Trigger node matches on, so renaming one breaks existing workflows.
+enum AutomationEvent {
+  LEAD_CREATED
+  LEAD_STAGE_CHANGED
+  LEAD_WON
+  LEAD_LOST
+  PROJECT_CREATED
+  MEETING_ENDED
+  TASK_COMPLETED
+  NOTE_CREATED
+}
+
+/// A workflow as it exists in n8n. The editor stays the source of truth for
+/// the graph itself; what lives here is the handful of things soloops has an
+/// opinion about — which project it belongs to, and how it has been doing.
+model AutomationFlow {
+  id    String @id @default(cuid())
+  /// n8n's workflow id. The join between both sides.
+  n8nId String @unique
+  name  String
+  /// Whether n8n will run it on its own. Mirrored, not decided here.
+  active Boolean  @default(false)
+  tags   String[] @default([])
+
+  /// Assigning a flow to a project is soloops' addition — n8n has no idea
+  /// that projects exist.
+  projectId String?
+
+  /// Rolled up from the runs so the list does not have to aggregate on every
+  /// render. `lastRunAt` is the newest run of any outcome.
+  lastRunAt     DateTime?
+  lastStatus    AutomationRunStatus?
+  /// Consecutive failures. Reset by the first run that works — this is what
+  /// the monitoring badge reads.
+  failStreak    Int                  @default(0)
+  runCount      Int                  @default(0)
+  errorCount    Int                  @default(0)
+
+  /// Gone from n8n but kept here, so the run history of a deleted workflow
+  /// does not vanish silently.
+  missingSince DateTime?
+
+  firstSeenAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  runs     AutomationRun[]
+  triggers AutomationTrigger[]
+
+  @@index([active])
+  @@index([lastRunAt])
+}
+
+/// One execution, mirrored from n8n. Only the newest
+/// AUTOMATION_RUN_HISTORY per flow are kept — the full history stays in n8n.
+model AutomationRun {
+  id     String @id @default(cuid())
+  flowId String
+  /// n8n's execution id.
+  externalId String
+
+  status     AutomationRunStatus @default(UNKNOWN)
+  /// n8n's run mode: trigger, webhook, manual, retry, ...
+  mode       String              @default("unknown")
+  startedAt  DateTime
+  finishedAt DateTime?
+  durationMs Int?
+  /// First line of the failure. The stack trace stays in n8n.
+  error      String?
+
+  flow AutomationFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  @@unique([flowId, externalId])
+  @@index([startedAt])
+  @@index([status])
+}
+
+/// soloops -> n8n. A soloops event and the n8n webhook it is posted to.
+/// The other direction needs none of this: there n8n simply calls the API.
+model AutomationTrigger {
+  id    String          @id @default(cuid())
+  event AutomationEvent
+  /// The webhook URL copied out of the workflow. Kept verbatim rather than
+  /// assembled from a path, because test and production webhooks differ and
+  /// the editor is what knows which is which.
+  webhookUrl String
+  /// Optional: only fire for this project. Events without a project never
+  /// match a scoped trigger.
+  projectId String?
+  /// The flow this belongs to, when it could be resolved from the URL.
+  flowId  String?
+  enabled Boolean @default(true)
+
+  /// Sent along as X-Soloops-Signature so the receiving end can tell a real
+  /// call from a replayed one. Encrypted at rest, see services/secretbox.ts.
+  secretEnc String?
+
+  lastFiredAt DateTime?
+  /// Consecutive delivery failures. Past a ceiling the trigger switches
+  /// itself off rather than hammering a dead endpoint every time.
+  failStreak Int     @default(0)
+  lastError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flow       AutomationFlow?      @relation(fields: [flowId], references: [id], onDelete: SetNull)
+  project    Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  deliveries AutomationDelivery[]
+
+  @@index([event, enabled])
+}
+
+/// Every outbound attempt. Without this an automation that quietly stopped
+/// firing looks exactly like one that was never set up.
+model AutomationDelivery {
+  id        String          @id @default(cuid())
+  triggerId String
+  event     AutomationEvent
+  /// Whether the webhook accepted it. A 2xx is a success, everything else
+  /// and every network error is not.
+  ok         Boolean
+  httpStatus Int?
+  error      String?
+  durationMs Int?
+  attempt    Int      @default(1)
+  /// What was sent. Kept for replaying a failed delivery by hand.
+  payload    Json
+  at         DateTime @default(now())
+
+  trigger AutomationTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  @@index([triggerId, at])
+  @@index([at])
+}
+
+/// n8n -> soloops. A revocable bearer token for the Soloops nodes, so a
+/// workflow never needs the SERVICE_TOKEN that also opens the desktop app
+/// and the MCP server.
+model AutomationToken {
+  id    String @id @default(cuid())
+  name  String
+  /// The token is shown once and then only ever compared as a hash.
+  tokenHash String @unique
+  /// The leading characters, so the list can name a token without holding it.
+  prefix    String
+  /// Coarse scopes: read, write. An empty list reads as read-only.
+  scopes    String[] @default(["read"])
+
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([revokedAt])
 }
