@@ -1,0 +1,28 @@
+{
+  "name": "n8n-nodes-soloops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "soloops nodes for n8n: read and write leads, projects, tasks, time and notes, and react to soloops events",
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && npm run icons",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --watch",
+    "icons": "mkdir -p dist/nodes/Soloops && cp nodes/Soloops/*.svg dist/nodes/Soloops/"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/SoloopsApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Soloops/Soloops.node.js",
+      "dist/nodes/Soloops/SoloopsTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "n8n-workflow": "^1.82.0",
+    "typescript": "^5.7.3"
+  }
+}

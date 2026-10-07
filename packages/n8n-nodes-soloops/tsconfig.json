@@ -1,0 +1,23 @@
+{
+  // Deliberately not extending tsconfig.base.json. n8n loads custom nodes with
+  // require() and reads them off disk as compiled JavaScript — so this package
+  // needs CommonJS output and an outDir, which is the opposite of what every
+  // other workspace here wants.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["credentials/**/*.ts", "nodes/**/*.ts"]
+}
