@@ -893,6 +893,13 @@ real call from a replayed one.
 
 ### Monitoring
 
+The canvas can take over the window — **Vollbild** in the Builder, out again
+with the button or Shift+Esc. The application's own full screen, not the
+operating system's: it covers the sidebar, the header and the tabs while
+leaving the menu bar and the Dock alone. Plain Esc is deliberately left to
+n8n, which uses it to close an open node. Expanding restyles the frame rather
+than moving it, so nothing reloads and an unsaved canvas survives.
+
 The **Flows** tab is the monitoring. Per flow: a strip of the last twelve runs
 (newest right), the last outcome, and — when it is failing — the actual error
 message from n8n rather than the fact that there was one. Failing flows sort to
