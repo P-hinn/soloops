@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { noteInput } from '@soloops/shared'
 import { prisma } from '../db.js'
+import { emitAutomationEvent } from '../services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -70,7 +71,21 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/', async (req, reply) => {
     const data = noteInput.parse(req.body)
-    return reply.code(201).send(await prisma.note.create({ data }))
+    const created = await prisma.note.create({ data })
+    await emitAutomationEvent({
+      event: 'NOTE_CREATED',
+      projectId: created.projectId,
+      path: '/notes',
+      data: {
+        id: created.id,
+        title: created.title,
+        tags: created.tags,
+        projectId: created.projectId,
+        clientId: created.clientId,
+        meetingId: created.meetingId,
+      },
+    })
+    return reply.code(201).send(created)
   })
 
   app.patch('/:id', async (req) => {

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../db.js'
+import { emitAutomationEvent } from '../services/automationDelivery.js'
 
 /**
  * Action items on their own.
@@ -71,7 +72,30 @@ const routes: FastifyPluginAsync = async (app) => {
   app.patch('/:id', async (req) => {
     const { id } = idParam.parse(req.params)
     const data = itemInput.partial().parse(req.body)
-    return prisma.actionItem.update({ where: { id }, data })
+    // The previous state decides whether this is an event: ticking an item
+    // that was already done is a no-op, and a workflow should not see it.
+    const before = await prisma.actionItem.findUniqueOrThrow({
+      where: { id },
+      select: { done: true },
+    })
+    const updated = await prisma.actionItem.update({ where: { id }, data })
+
+    if (!before.done && updated.done) {
+      await emitAutomationEvent({
+        event: 'TASK_COMPLETED',
+        projectId: updated.projectId,
+        path: updated.projectId ? `/projects/${updated.projectId}` : null,
+        data: {
+          id: updated.id,
+          title: updated.title,
+          assignee: updated.assignee,
+          dueOn: updated.dueOn,
+          projectId: updated.projectId,
+          meetingId: updated.meetingId,
+        },
+      })
+    }
+    return updated
   })
 
   app.delete('/:id', async (req, reply) => {

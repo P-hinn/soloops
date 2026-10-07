@@ -5,6 +5,7 @@ import { prisma } from '../db.js'
 import { digestQueue } from '../queue.js'
 import { buildProjectDigest } from '../ai/digest.js'
 import { env } from '../env.js'
+import { emitAutomationEvent } from '../services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -85,6 +86,19 @@ const routes: FastifyPluginAsync = async (app) => {
         ...data,
         startsOn: data.startsOn ? new Date(data.startsOn) : null,
         dueOn: data.dueOn ? new Date(data.dueOn) : null,
+      },
+    })
+    await emitAutomationEvent({
+      event: 'PROJECT_CREATED',
+      projectId: created.id,
+      path: `/projects/${created.id}`,
+      data: {
+        id: created.id,
+        key: created.key,
+        name: created.name,
+        status: created.status,
+        clientId: created.clientId,
+        dueOn: created.dueOn,
       },
     })
     return reply.code(201).send(created)

@@ -6,6 +6,7 @@ import { env } from '../env.js'
 import { summarizeMeeting } from '../ai/digest.js'
 import { createVideoRoom } from '../services/video.js'
 import { tombstoneEvent } from '../services/calendarSync.js'
+import { emitAutomationEvent } from '../services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -102,6 +103,13 @@ const routes: FastifyPluginAsync = async (app) => {
   app.patch('/:id', async (req) => {
     const { id } = idParam.parse(req.params)
     const data = meetingInput.partial().parse(req.body)
+    // Needed before the write: "ended" is the transition into DONE, not the
+    // state. Saving a meeting that was already done changes nothing and
+    // should not fire again.
+    const before = await prisma.meeting.findUniqueOrThrow({
+      where: { id },
+      select: { status: true },
+    })
     const meeting = await prisma.meeting.update({
       where: { id },
       data: {
@@ -125,6 +133,28 @@ const routes: FastifyPluginAsync = async (app) => {
           title: data.title,
           startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
           endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
+        },
+      })
+    }
+
+    if (before.status !== 'DONE' && meeting.status === 'DONE') {
+      await emitAutomationEvent({
+        event: 'MEETING_ENDED',
+        projectId: meeting.projectId,
+        path: `/meetings/${meeting.id}`,
+        data: {
+          id: meeting.id,
+          title: meeting.title,
+          startsAt: meeting.startsAt,
+          endsAt: meeting.endsAt,
+          participants: meeting.participants,
+          projectId: meeting.projectId,
+          clientId: meeting.clientId,
+          // The summary is written by the AI step afterwards, so it is
+          // usually still empty here. Sent anyway rather than withheld —
+          // a workflow can check.
+          summary: meeting.summary,
+          minutes: meeting.minutes,
         },
       })
     }

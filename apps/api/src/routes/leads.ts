@@ -10,6 +10,7 @@ import {
   weightedCents,
 } from '../services/leads.js'
 import { scoreLead } from '../ai/leadScore.js'
+import { emitAutomationEvent } from '../services/automationDelivery.js'
 
 const stage = z.enum(['NEW', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'])
 const source = z.enum(['REFERRAL', 'WEBSITE', 'OUTBOUND', 'NETWORK', 'EVENT', 'OTHER'])
@@ -112,6 +113,26 @@ const routes: FastifyPluginAsync = async (app) => {
     const data = blankToNull(leadInput.parse(req.body))
     const created = await prisma.lead.create({ data })
     await touchLead(created.id, { kind: 'NOTE', body: 'Lead angelegt', source: 'SYSTEM' })
+    await emitAutomationEvent({
+      event: 'LEAD_CREATED',
+      projectId: created.projectId,
+      path: `/leads/${created.id}`,
+      data: {
+        id: created.id,
+        title: created.title,
+        stage: created.stage,
+        source: created.source,
+        company: created.company,
+        contactName: created.contactName,
+        contactEmail: created.contactEmail,
+        phone: created.phone,
+        valueCents: created.valueCents,
+        currency: created.currency,
+        probability: created.probability,
+        clientId: created.clientId,
+        projectId: created.projectId,
+      },
+    })
     return reply.code(201).send(created)
   })
 

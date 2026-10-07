@@ -77,6 +77,41 @@ export async function changeStage(leadId: string, stage: LeadStage, note?: strin
     source: 'SYSTEM',
   })
 
+  // Announced from here rather than from the routes, so a stage change gets
+  // the same events whichever way it arrived — interface, MCP server or an
+  // automation. The early return above means an unchanged stage announces
+  // nothing, which is the point: a save button pressed twice is not an event.
+  //
+  // Imported lazily: this module is imported by the MCP server and the
+  // worker, and the delivery path pulls in the Redis queue behind it.
+  const { emitAutomationEvent } = await import('./automationDelivery.js')
+  const payload = {
+    projectId: updated.projectId,
+    path: `/leads/${leadId}`,
+    data: {
+      id: updated.id,
+      title: updated.title,
+      stage: updated.stage,
+      previousStage: lead.stage,
+      company: updated.company,
+      contactName: updated.contactName,
+      contactEmail: updated.contactEmail,
+      valueCents: updated.valueCents,
+      currency: updated.currency,
+      probability: updated.probability,
+      clientId: updated.clientId,
+      projectId: updated.projectId,
+      lostReason: updated.lostReason,
+      note: note ?? null,
+    },
+  }
+
+  await emitAutomationEvent({ event: 'LEAD_STAGE_CHANGED', ...payload })
+  // Won and lost also get their own event. A workflow that only cares about
+  // the win should not have to filter every move through the pipeline.
+  if (stage === 'WON') await emitAutomationEvent({ event: 'LEAD_WON', ...payload })
+  if (stage === 'LOST') await emitAutomationEvent({ event: 'LEAD_LOST', ...payload })
+
   return updated
 }
 

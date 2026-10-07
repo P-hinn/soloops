@@ -273,5 +273,30 @@ export async function leadFromMail(
     source: 'SYSTEM',
   })
 
+  // A lead out of the inbox is as much a new lead as one typed in by hand,
+  // and the workflows that greet one should not have to care which it was.
+  const { emitAutomationEvent } = await import('./automationDelivery.js')
+  await emitAutomationEvent({
+    event: 'LEAD_CREATED',
+    projectId: lead.projectId,
+    path: `/leads/${lead.id}`,
+    data: {
+      id: lead.id,
+      title: lead.title,
+      stage: lead.stage,
+      source: lead.source,
+      company: lead.company,
+      contactName: lead.contactName,
+      contactEmail: lead.contactEmail,
+      valueCents: lead.valueCents,
+      currency: lead.currency,
+      probability: lead.probability,
+      clientId: lead.clientId,
+      projectId: lead.projectId,
+      /** Where it came from, so a workflow can treat inbox leads differently. */
+      fromMail: { id: mail.id, subject: mail.subject, fromEmail: mail.fromEmail },
+    },
+  })
+
   return lead
 }
