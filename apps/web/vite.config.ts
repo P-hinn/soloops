@@ -23,10 +23,17 @@ export default defineConfig({
       // n8n under our own origin. Not a convenience: the editor only renders
       // inside the soloops iframe when it is same-origin, and its push
       // channel is a websocket, hence `ws`.
+      //
+      // The prefix has to be stripped. N8N_PATH only makes n8n *emit*
+      // /n8n/... URLs — it still serves its assets and its REST API at the
+      // root and expects the proxy in front to take the prefix off again.
+      // Forwarded verbatim, every asset and every REST call lands in n8n's
+      // SPA fallback instead, and the editor renders an empty page.
       '/n8n': {
         target: process.env.N8N_PROXY ?? 'http://n8n:5678',
         changeOrigin: true,
         ws: true,
+        rewrite: (path) => path.replace(/^\/n8n/, '') || '/',
       },
     },
   },

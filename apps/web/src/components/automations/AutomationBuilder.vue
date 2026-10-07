@@ -45,13 +45,15 @@ const nonce = ref(0)
     </div>
 
     <!--
-      A fixed tall frame rather than a stretched one: the editor brings its own
-      scrolling and its own panels, and a frame that grows with the page leaves
-      the canvas scrolling inside a scrolling document.
+      An explicit tall frame rather than flex-1. The main column scrolls, so
+      flex-1 collapses to whatever is left over — around 450px, which is not
+      a canvas anyone can lay a workflow out on. The viewport height minus the
+      chrome above it is, and the floor keeps it usable on a short laptop
+      screen where the page then scrolls instead.
     -->
     <div
       v-if="props.reachable"
-      class="min-h-0 flex-1 overflow-hidden border border-line-strong bg-raised"
+      class="h-[calc(100vh-13rem)] min-h-[560px] overflow-hidden border border-line-strong bg-raised"
     >
       <iframe
         :key="nonce"
