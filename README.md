@@ -41,7 +41,8 @@
 - [Two-way calendar sync](#two-way-calendar-sync) — Google, CalDAV, conflict rules
 - [Inbox and lead matching](#inbox-and-lead-matching) — IMAP, rules before AI
 - [Activity](#activity-what-the-mac-sees) — samples from the Mac, all local
-- [MCP server](#mcp-server) — 58 tools for Claude
+- [Automations with n8n](#automations-with-n8n) — the editor embedded, with connectors both ways
+- [MCP server](#mcp-server) — 70 tools for Claude
 - [Authentication](#authentication)
 - [Operations](#operations) — logs, schema changes, backup
 - [Deploying on a small server](#deploying-on-a-small-server) — 2 cores, 2 GB RAM
@@ -112,11 +113,17 @@ docker compose exec api npm -w @soloops/api run seed
 **4. Log in** at http://localhost:5174 with `OWNER_EMAIL` and `OWNER_PASSWORD`.
 The guided tour starts on first login.
 
-| Service  | URL                   |
-| -------- | --------------------- |
-| Frontend | http://localhost:5174 |
-| API      | http://localhost:3000 |
-| Postgres | localhost:5433        |
+| Service  | URL                        |
+| -------- | -------------------------- |
+| Frontend | http://localhost:5174      |
+| API      | http://localhost:3000      |
+| n8n      | http://localhost:5174/n8n/ |
+| Postgres | localhost:5433             |
+
+n8n is reachable directly on http://localhost:5678 too, but the interface uses
+the proxied path — that is what lets the editor sit in an iframe. If you intend
+to use the soloops nodes, build them once before bringing the stack up
+(`npm run nodes:build`, or `npm run up`, which does it for you).
 
 ---
 
@@ -264,13 +271,20 @@ Prisma upgrade.
 ```
 apps/
   api/        Fastify + Prisma + Postgres — REST API, PDF rendering, AI calls
-  worker/     BullMQ — calendar and mail sync, uptime, CI/CD, digests, lead scores
+  worker/     BullMQ — calendar and mail sync, uptime, CI/CD, digests, lead
+              scores, the n8n mirror and outbound event delivery
   web/        Vue 3 + Vite + Tailwind — the interface
   mcp/        MCP server (stdio) for Claude Code / Claude Desktop
   desktop/    Tauri — the same interface as a macOS app, with menu and tray
 packages/
-  shared/     Zod schemas and formatters shared by API, web and MCP
+  shared/              Zod schemas and formatters shared by API, web and MCP
+  n8n-nodes-soloops/   the soloops nodes, mounted into the n8n container
 ```
+
+n8n itself is a container rather than an app here — it is run, not written.
+What soloops adds around it is the connector package above, a mirror of its
+workflows and runs, and the event bridge; see
+[Automations](#automations-with-n8n).
 
 Worker and API share the Prisma client and the service layer through relative
 imports — one monorepo, one source of truth, no duplicated integrations.
@@ -372,6 +386,11 @@ cancelled.
 **Accounting.** A lexoffice adapter: create contacts, transfer invoices as
 finalized documents (`finalize=true`), monthly revenue net/VAT/gross for the
 advance VAT return.
+
+**Automations.** A full n8n under _Automatisierungen_ — its drag-and-drop
+canvas embedded in soloops, soloops nodes in its palette, templates to start
+from, and the run and delivery logs that say whether any of it is still
+working. See [Automations](#automations-with-n8n).
 
 ---
 
@@ -542,12 +561,148 @@ adds no Rust dependency at all.
 
 ---
 
+## Automations with n8n
+
+_Automatisierungen_ in the sidebar is a full n8n, running as its own container
+and served under `/n8n/` through the soloops origin. The drag-and-drop canvas
+in the **Builder** tab is the real n8n editor in an iframe — not a rebuild of
+one. That only works because it is same-origin; a separately hosted n8n would
+be blocked by `X-Frame-Options`, which is why the proxy exists in both
+`vite.config.ts` and `deploy/nginx.conf`.
+
+```
+soloops                                n8n
+  Automatisierungen
+    Builder     ──iframe /n8n/────────▶ editor (same origin)
+    Flows       ◀──mirror, 2 min──────  workflows + executions
+    Vorlagen    ──POST /api/v1/────────▶ a finished workflow
+    Verbindungen
+      ├─ n8n API key ─────────────────▶ lets soloops read the two above
+      ├─ automation token ◀────────────  lets the Soloops nodes write back
+      └─ triggers ◀───registered by────  the Soloops Trigger node itself
+                   soloops ──events──▶  webhook
+```
+
+### Setup
+
+1. `npm run up` brings n8n along. First visit asks for an owner account —
+   that is n8n's own, unrelated to the soloops login.
+2. In n8n: **Settings → n8n API → Create an API key**. Paste it into
+   _Automatisierungen → Verbindungen_. It cannot be set from the outside, so
+   this step cannot be skipped; soloops checks the key against n8n before
+   storing it (encrypted, see `services/secretbox.ts`).
+   Without it the Builder still works — flows, templates and monitoring stay
+   empty.
+3. Still under _Verbindungen_: create an **automation token**. It is shown
+   once. In n8n under **Credentials → soloops API**, paste it with base URL
+   `http://api:3000`.
+
+The token is deliberately not the `SERVICE_TOKEN`: that one also opens the
+macOS app and the MCP server and cannot be revoked without taking both down.
+An automation token is revocable on its own, can be read-only, and reaches
+**only** `/api/automations/connector` — see [Authentication](#authentication).
+
+### The connector
+
+`packages/n8n-nodes-soloops` is mounted into the container read-only via
+`N8N_CUSTOM_EXTENSIONS` and adds two nodes plus a credential:
+
+| Node                | What it does                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| **Soloops**         | Leads (create, read, update, move stage, log activity), projects, tasks, time, notes |
+| **Soloops Trigger** | Starts a workflow on a soloops event                                                 |
+
+`dist/` is gitignored, so the package is built before the container reads it —
+`npm run up` does that, or `npm run nodes:build` on its own. After a connector
+change, rebuild and restart just that container.
+
+**The trigger registers itself.** Switching the workflow on in n8n is the whole
+of the setup: n8n calls `POST /api/automations/connector/triggers` with its own
+webhook URL, and soloops starts posting there. Switching it off removes the
+registration. Nothing to copy between tabs — and the consequence worth knowing
+is that a workflow which is merely _saved_ receives nothing.
+
+### Events
+
+Every delivery is one POST with a stable envelope, so an expression typed into
+a graph eight months ago still resolves:
+
+```json
+{
+  "event": "lead.won",
+  "at": "2026-10-07T09:30:00.000Z",
+  "projectId": "clx…",
+  "url": "http://localhost:5174/leads/clx…",
+  "data": {
+    "id": "clx…",
+    "title": "…",
+    "stage": "WON",
+    "previousStage": "NEGOTIATION"
+  }
+}
+```
+
+In the workflow that is `{{ $json.data.id }}`.
+
+| Event                | Fires when                                                     |
+| -------------------- | -------------------------------------------------------------- |
+| `lead.created`       | a lead is created — by hand, by MCP, or out of the inbox       |
+| `lead.stage_changed` | the stage actually moves (saving the same stage fires nothing) |
+| `lead.won`           | …and it moved to won                                           |
+| `lead.lost`          | …and it moved to lost                                          |
+| `project.created`    | a project is created                                           |
+| `meeting.ended`      | a meeting crosses into `DONE`                                  |
+| `task.completed`     | an open action item is ticked                                  |
+| `note.created`       | a note is created                                              |
+
+They are emitted from the service layer, not from one route, so a lead moved
+through the interface, through Claude and through a workflow all produce the
+same events. A trigger with no project set takes everything of its kind; one
+scoped to a project takes only that project's events — and deliberately not
+events belonging to no project at all.
+
+A delivery carries `X-Soloops-Signature`, an HMAC-SHA256 of the exact body
+under a secret handed over at registration, so the receiving end can tell a
+real call from a replayed one.
+
+### Monitoring
+
+The **Flows** tab is the monitoring. Per flow: a strip of the last twelve runs
+(newest right), the last outcome, and — when it is failing — the actual error
+message from n8n rather than the fact that there was one. Failing flows sort to
+the top and the tab carries a dot.
+
+The mirror is pulled every two minutes (`AUTOMATION_POLL_CRON`), with the
+newest `AUTOMATION_RUN_HISTORY` runs kept per flow; the full history stays in
+n8n, where it is one click away. A workflow deleted in n8n is marked rather
+than dropped, so its run history and project assignment survive.
+
+The other direction has its own log, under _Verbindungen_: every attempt to
+post an event, with status and error. Without it an automation that quietly
+stopped firing looks exactly like one that was never set up. A failed delivery
+is retried after 30 s, 2 min and 10 min — but only when a repeat could change
+anything: a network error or a 5xx/408/429, never a 404. After ten failures in
+a row a trigger switches itself off instead of calling a dead endpoint forever.
+
+### Templates
+
+Six ready-made workflows under _Vorlagen_, built on the soloops nodes — won
+lead becomes a project, new lead into a chat, stage changes logged on the lead,
+follow-up after a meeting, a lost lead resurfacing in six months, a morning
+pipeline digest. One click creates one in n8n.
+
+They land **inactive** on purpose: a template cannot know which credential to
+use — n8n credentials live in n8n — so the honest end of an import is "here it
+is, open it".
+
+---
+
 ## MCP server
 
 Gives Claude the full dataset — reading and writing. Day overview, search,
 what ran on the Mac, clients, projects, calendar, meetings, to-dos, notes,
 timer and manual time entries, leads with offers and AI score, inbox,
-operational status, unbilled time, invoice drafts, revenue.
+operational status, unbilled time, invoice drafts, revenue, automations.
 
 ### Connecting
 
@@ -578,19 +733,20 @@ counted apart.
 
 ### Tools
 
-| Area     | Tools                                                                                                                                                                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Overview | `soloops_today`, `soloops_search`, `soloops_activity_day`, `soloops_ops_status`                                                                                                                                                                              |
-| Clients  | `soloops_list_clients`, `soloops_get_client`, `soloops_create_client`, `soloops_update_client`                                                                                                                                                               |
-| Projects | `soloops_list_projects`, `soloops_get_project`, `soloops_create_project`, `soloops_update_project`, `soloops_project_digest`                                                                                                                                 |
-| Calendar | `soloops_free_slots`, `soloops_list_events`, `soloops_create_event`, `soloops_update_event`, `soloops_delete_event`                                                                                                                                          |
-| Meetings | `soloops_list_meetings`, `soloops_get_meeting`, `soloops_create_meeting`, `soloops_update_meeting`, `soloops_summarize_meeting`                                                                                                                              |
-| To-dos   | `soloops_list_tasks`, `soloops_create_task`, `soloops_update_task`, `soloops_complete_task`, `soloops_delete_task`                                                                                                                                           |
-| Notes    | `soloops_list_notes`, `soloops_get_note`, `soloops_create_note`, `soloops_update_note`                                                                                                                                                                       |
-| Time     | `soloops_timer_status`, `soloops_timer_start`, `soloops_timer_stop`, `soloops_log_time`, `soloops_update_time`, `soloops_delete_time`, `soloops_time_report`                                                                                                 |
-| Money    | `soloops_unbilled_time`, `soloops_list_invoices`, `soloops_draft_invoice_from_time`, `soloops_set_invoice_status`, `soloops_revenue`                                                                                                                         |
-| Sales    | `soloops_pipeline`, `soloops_list_leads`, `soloops_get_lead`, `soloops_create_lead`, `soloops_update_lead`, `soloops_set_lead_stage`, `soloops_archive_lead`, `soloops_log_lead_activity`, `soloops_log_offer`, `soloops_update_offer`, `soloops_score_lead` |
-| Inbox    | `soloops_inbox`, `soloops_assign_mail`, `soloops_lead_from_mail`                                                                                                                                                                                             |
+| Area        | Tools                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview    | `soloops_today`, `soloops_search`, `soloops_activity_day`, `soloops_ops_status`                                                                                                                                                                                                                                                                                                     |
+| Clients     | `soloops_list_clients`, `soloops_get_client`, `soloops_create_client`, `soloops_update_client`                                                                                                                                                                                                                                                                                      |
+| Projects    | `soloops_list_projects`, `soloops_get_project`, `soloops_create_project`, `soloops_update_project`, `soloops_project_digest`                                                                                                                                                                                                                                                        |
+| Calendar    | `soloops_free_slots`, `soloops_list_events`, `soloops_create_event`, `soloops_update_event`, `soloops_delete_event`                                                                                                                                                                                                                                                                 |
+| Meetings    | `soloops_list_meetings`, `soloops_get_meeting`, `soloops_create_meeting`, `soloops_update_meeting`, `soloops_summarize_meeting`                                                                                                                                                                                                                                                     |
+| To-dos      | `soloops_list_tasks`, `soloops_create_task`, `soloops_update_task`, `soloops_complete_task`, `soloops_delete_task`                                                                                                                                                                                                                                                                  |
+| Notes       | `soloops_list_notes`, `soloops_get_note`, `soloops_create_note`, `soloops_update_note`                                                                                                                                                                                                                                                                                              |
+| Time        | `soloops_timer_status`, `soloops_timer_start`, `soloops_timer_stop`, `soloops_log_time`, `soloops_update_time`, `soloops_delete_time`, `soloops_time_report`                                                                                                                                                                                                                        |
+| Money       | `soloops_unbilled_time`, `soloops_list_invoices`, `soloops_draft_invoice_from_time`, `soloops_set_invoice_status`, `soloops_revenue`                                                                                                                                                                                                                                                |
+| Sales       | `soloops_pipeline`, `soloops_list_leads`, `soloops_get_lead`, `soloops_create_lead`, `soloops_update_lead`, `soloops_set_lead_stage`, `soloops_archive_lead`, `soloops_log_lead_activity`, `soloops_log_offer`, `soloops_update_offer`, `soloops_score_lead`                                                                                                                        |
+| Inbox       | `soloops_inbox`, `soloops_assign_mail`, `soloops_lead_from_mail`                                                                                                                                                                                                                                                                                                                    |
+| Automations | `soloops_automations`, `soloops_automation_status`, `soloops_automation_runs`, `soloops_automation_sync`, `soloops_automation_set_active`, `soloops_automation_assign_project`, `soloops_automation_templates`, `soloops_automation_import_template`, `soloops_automation_triggers`, `soloops_automation_deliveries`, `soloops_automation_set_trigger`, `soloops_automation_delete` |
 
 The writing tools stay conservative where money or other people are involved:
 `soloops_draft_invoice_from_time` only produces a draft — sending it and
@@ -598,17 +754,35 @@ transferring it to lexoffice stay manual. Leads and projects are archived
 rather than deleted, time entries that are already invoiced refuse to go, and
 entries from connected calendars are read-only here.
 
+The automation tools read, switch and import, but never edit a graph. A second
+way to author workflows would have to agree with the editor forever, and the
+editor is both one click away and better at it. What Claude is genuinely useful
+for here is "what stopped working and why" — which is what the run and delivery
+logs answer.
+
 ---
 
 ## Authentication
 
-Two ways into the API:
+Three ways into the API:
 
 - **JWT** for the interface (`POST /api/auth/login`, valid for 30 days)
 - **`SERVICE_TOKEN`** as a bearer token for the worker, the MCP server and the
   ICS feed
+- **Automation tokens** (`slp_…`) for n8n workflows, created per connection
+  under _Automatisierungen → Verbindungen_
 
-Passwords are hashed with scrypt (no native module required).
+Passwords are hashed with scrypt (no native module required). Automation
+tokens are stored as a SHA-256 hash and shown exactly once — 192 random bits
+have nothing to brute-force, and a deliberately slow hash would be a
+self-inflicted rate limit on every call a workflow makes.
+
+The automation tokens are scoped by surface, not only by right. One does
+**not** pass the ordinary gate: it opens `/api/automations/connector` and
+nothing else — not the mailbox, not the invoices, not every route that happens
+to exist. Widening that is a deliberate edit to one route file rather than a
+side effect of minting a token. Within the connector, anything that is not a
+`GET` needs the `write` scope.
 
 ---
 
@@ -736,7 +910,19 @@ development machine and push it to a registry.
 - Mail bodies sit in Postgres in plain text. If you don't want that, don't
   connect a mailbox; there is no half-way version.
 - The IMAP password is encrypted with `JWT_SECRET`. Rotate that key and the
-  account has to be reconnected — by design.
+  account has to be reconnected — by design. The same holds for the n8n API
+  key and the trigger secrets.
+- **n8n runs arbitrary code.** A workflow can execute JavaScript and reach
+  anything on the Docker network, so `/n8n/` deserves the same protection as
+  the rest of the application and n8n's own owner account deserves a real
+  password. The production compose gives it no port of its own; it is only
+  reachable through nginx.
+- Revoke an automation token when the workflow using it is gone. It is scoped
+  to the connector surface, but that surface still writes leads, projects,
+  tasks, time and notes.
+- Event payloads land in the delivery log, including the lead data they
+  carried. That log lives in Postgres like everything else — the same backup
+  and the same caveats apply.
 
 Found a vulnerability? Please report it privately through GitHub's security
 advisories rather than opening a public issue.

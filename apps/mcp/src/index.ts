@@ -4,8 +4,9 @@
  *
  * Gives Claude Code / Claude Desktop the whole dataset — reading and writing:
  * clients, projects, calendar, meetings, to-dos, notes, time, money, sales
- * pipeline and inbox. Authentication goes through the SERVICE_TOKEN against
- * the local REST API; no tool touches the database directly.
+ * pipeline, inbox and automations. Authentication goes through the
+ * SERVICE_TOKEN against the local REST API; no tool touches the database
+ * directly.
  *
  * Registering it in Claude Code:
  *   claude mcp add soloops -- npx tsx /path/to/soloops/apps/mcp/src/index.ts
@@ -26,6 +27,7 @@ import { registerTime } from './tools/time.js'
 import { registerMoney } from './tools/money.js'
 import { registerLeads } from './tools/leads.js'
 import { registerMail } from './tools/mail.js'
+import { registerAutomations } from './tools/automations.js'
 
 if (!TOKEN) {
   console.error(
@@ -47,6 +49,7 @@ registerTime(server)
 registerMoney(server)
 registerLeads(server)
 registerMail(server)
+registerAutomations(server)
 
 await server.connect(new StdioServerTransport())
 console.error(`soloops MCP bereit (${BASE_URL})`)
