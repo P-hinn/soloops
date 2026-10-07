@@ -48,6 +48,7 @@ const navGroups = [
   {
     label: 'Betrieb',
     items: [
+      { to: '/automations', label: 'Automatisierungen' },
       { to: '/ops', label: 'Uptime & CI' },
       { to: '/settings', label: 'Einstellungen' },
     ],
