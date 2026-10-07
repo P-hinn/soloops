@@ -8,6 +8,9 @@ data/
 apps/api/prisma/generated/
 apps/web/dist/
 
+# Swift build artifacts of the iPhone app
+apps/ios/**/.build/
+
 # Tauri build artifacts of the macOS app
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
