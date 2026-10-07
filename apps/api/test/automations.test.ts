@@ -11,6 +11,7 @@ import {
   backoffMs,
   failStreakOf,
   health,
+  parseSessionCookie,
   runStatus,
   shouldRetry,
   sign,
@@ -203,6 +204,62 @@ check(
   'eine zu kurze Signatur wird nicht verglichen',
   verifySignature('s3cret', body, 'deadbeef'),
   false,
+)
+
+// ---------------------------------------------------------------------------
+// The n8n session cookie
+// ---------------------------------------------------------------------------
+//
+// This is what spares the second login: soloops signs in for you and relays
+// the cookie. Every part of reading it back out is a quiet trap.
+
+check(
+  'die Sitzung wird aus mehreren Set-Cookie-Zeilen herausgesucht',
+  parseSessionCookie(
+    ['sonstwas=egal; Path=/', 'n8n-auth=abc123; Path=/; HttpOnly; Max-Age=604800'],
+    'n8n-auth',
+  ),
+  { token: 'abc123', maxAge: 604800 },
+)
+
+check(
+  'der Wert endet am Semikolon, nicht am Zeilenende',
+  parseSessionCookie(['n8n-auth=abc123; Path=/; HttpOnly'], 'n8n-auth')?.token,
+  'abc123',
+)
+
+check(
+  'ohne Max-Age bleibt die Laufzeit offen statt geraten',
+  parseSessionCookie(['n8n-auth=abc123; Path=/'], 'n8n-auth')?.maxAge,
+  null,
+)
+
+check(
+  'Max-Age wird unabhaengig von der Schreibweise gelesen',
+  parseSessionCookie(['n8n-auth=abc; max-age=42'], 'n8n-auth')?.maxAge,
+  42,
+)
+
+check(
+  'ein geloeschtes Cookie ist keine Sitzung',
+  parseSessionCookie(['n8n-auth=; Path=/; Max-Age=0'], 'n8n-auth'),
+  null,
+)
+
+check(
+  'ein negatives Max-Age zaehlt nicht als Laufzeit',
+  parseSessionCookie(['n8n-auth=abc; Max-Age=-1'], 'n8n-auth')?.maxAge,
+  null,
+)
+
+check('fehlt das Cookie, kommt null', parseSessionCookie(['anderes=x'], 'n8n-auth'), null)
+
+check('ohne Set-Cookie-Zeilen kommt null', parseSessionCookie([], 'n8n-auth'), null)
+
+check(
+  'ein Name, der nur anfaengt wie unserer, wird nicht verwechselt',
+  parseSessionCookie(['n8n-auth-extra=fremd; Path=/'], 'n8n-auth'),
+  null,
 )
 
 // ---------------------------------------------------------------------------

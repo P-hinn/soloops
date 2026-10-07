@@ -7,12 +7,16 @@ import { EVENT_LABEL, EVENT_WIRE } from '../services/automationEvents.js'
 import { FAIL_STREAK_LIMIT } from '../services/automationDelivery.js'
 import { createToken } from '../services/automationTokens.js'
 import {
+  N8N_COOKIE,
   N8nError,
   deleteWorkflow,
   editorUrl,
   getApiKey,
+  getLogin,
+  openSession,
   probe,
   setApiKey,
+  setLogin,
   setWorkflowActive,
 } from '../services/n8n.js'
 
@@ -56,15 +60,20 @@ const routes: FastifyPluginAsync = async (app) => {
    * key accepted, and where does the iframe point.
    */
   app.get('/status', async () => {
-    const [state, apiKey, flows, failing] = await Promise.all([
+    const [state, apiKey, login, flows, failing] = await Promise.all([
       probe(),
       getApiKey(),
+      getLogin(),
       prisma.automationFlow.count(),
       prisma.automationFlow.count({ where: { failStreak: { gt: 0 } } }),
     ])
     return {
       ...state,
       hasApiKey: !!apiKey,
+      /** Whether soloops can sign you in to n8n instead of asking you to. */
+      hasLogin: !!login,
+      /** Shown so you can tell which account is being used. Never the password. */
+      loginEmail: login?.email ?? null,
       /** Same-origin on purpose — anything else and the iframe stays empty. */
       editorUrl: editorUrl(),
       flows,
@@ -98,6 +107,59 @@ const routes: FastifyPluginAsync = async (app) => {
   app.delete('/api-key', async () => {
     await setApiKey(null)
     return { ok: true }
+  })
+
+  // --- Signing in to n8n for you -------------------------------------------
+
+  /**
+   * Store the n8n account, after proving it works.
+   *
+   * Checked before it is kept for the same reason as the API key: credentials
+   * that do not work are a worse state than none, because the interface would
+   * then promise a sign-in it cannot deliver.
+   */
+  app.post('/login', async (req) => {
+    const body = z
+      .object({ email: z.string().email(), password: z.string().min(1) })
+      .parse(req.body)
+    // Throws with n8n's own wording when the password is wrong or MFA is on.
+    await openSession(body)
+    await setLogin(body)
+    return { ok: true, email: body.email }
+  })
+
+  app.delete('/login', async () => {
+    await setLogin(null)
+    return { ok: true }
+  })
+
+  /**
+   * Hand the browser an n8n session, so the embedded editor does not ask for
+   * a second login.
+   *
+   * The cookie is set on the soloops origin — which n8n is served from, under
+   * /n8n/ — so the browser sends it along to the editor by itself. Nothing is
+   * passed to the page: the value is HttpOnly and soloops never reads it
+   * either, it only relays what n8n issued.
+   */
+  app.post('/session', async (_req, reply) => {
+    const login = await getLogin()
+    // Not an error: without stored credentials the editor simply shows n8n's
+    // own login, which is where this started. The view says so.
+    if (!login) return reply.code(200).send({ ok: false, reason: 'no-login' })
+
+    const session = await openSession(login)
+    const attributes = [
+      `${N8N_COOKIE}=${session.token}`,
+      'Path=/',
+      'HttpOnly',
+      'SameSite=Lax',
+      ...(session.maxAge ? [`Max-Age=${session.maxAge}`] : []),
+      // Only when the browser reaches soloops over TLS — a Secure cookie
+      // never arrives over plain http and would silently do nothing.
+      ...(env.APP_URL.startsWith('https://') ? ['Secure'] : []),
+    ]
+    return reply.header('Set-Cookie', attributes.join('; ')).send({ ok: true })
   })
 
   // --- Flows ---------------------------------------------------------------

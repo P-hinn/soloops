@@ -146,6 +146,7 @@ const failing = computed(() => status.value?.failing ?? 0)
         v-if="tab === 'builder'"
         :src="status.editorUrl"
         :reachable="status.reachable"
+        :has-login="status.hasLogin"
       />
 
       <AutomationFlows

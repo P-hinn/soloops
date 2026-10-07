@@ -72,6 +72,37 @@ export function newSecret(): string {
 }
 
 // ---------------------------------------------------------------------------
+// n8n's session cookie
+// ---------------------------------------------------------------------------
+
+export type SessionCookie = {
+  /** The raw value. Opaque — soloops relays it and never reads inside. */
+  token: string
+  /** Seconds it is good for, when the header said so. */
+  maxAge: number | null
+}
+
+/**
+ * Pick one cookie out of a Set-Cookie header list.
+ *
+ * Worth its own function because every part of it is a quiet trap: there may
+ * be several Set-Cookie lines, the value runs to the first semicolon and not
+ * to the end, attribute names are case-insensitive, and a cookie being
+ * cleared comes back with an empty value — which is not a session.
+ */
+export function parseSessionCookie(headers: string[], name: string): SessionCookie | null {
+  const prefix = `${name}=`
+  const header = headers.find((h) => h.startsWith(prefix))
+  if (!header) return null
+
+  const token = header.slice(prefix.length).split(';')[0]?.trim() ?? ''
+  if (!token) return null
+
+  const maxAge = Number(/(?:^|;)\s*Max-Age\s*=\s*(-?\d+)/i.exec(header)?.[1])
+  return { token, maxAge: Number.isFinite(maxAge) && maxAge > 0 ? maxAge : null }
+}
+
+// ---------------------------------------------------------------------------
 // n8n's execution status onto ours
 // ---------------------------------------------------------------------------
 

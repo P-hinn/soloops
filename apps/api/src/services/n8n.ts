@@ -1,9 +1,10 @@
 import { prisma } from '../db.js'
 import { env } from '../env.js'
 import { open, seal } from './secretbox.js'
-import { runStatus } from './automationMath.js'
+import { parseSessionCookie, runStatus, type SessionCookie } from './automationMath.js'
 
-// The status mapping is pure and lives with the rest of the testable logic.
+// The status mapping and the cookie parsing are pure and live with the rest
+// of the testable logic.
 export { runStatus }
 
 /**
@@ -20,6 +21,12 @@ export { runStatus }
 
 /** Where the key lives when it was pasted in the interface rather than set in .env. */
 const API_KEY_SETTING = 'n8n.apiKeyEnc'
+
+/** Where the n8n account lives that soloops signs in with on your behalf. */
+const LOGIN_SETTING = 'n8n.loginEnc'
+
+/** n8n's own session cookie. Its name is part of n8n, not of our choosing. */
+export const N8N_COOKIE = 'n8n-auth'
 
 export type N8nWorkflow = {
   id: string
@@ -81,6 +88,87 @@ export async function setApiKey(key: string | null): Promise<void> {
     create: { key: API_KEY_SETTING, value },
     update: { value },
   })
+}
+
+export type N8nLogin = { email: string; password: string }
+
+/**
+ * The n8n account soloops signs in with.
+ *
+ * Kept for the same reason the IMAP password is kept: soloops has to be able
+ * to use it unattended, so it cannot be a secret only you know. Sealed with
+ * the same box — protection against a database dump, not against a running
+ * server. See services/secretbox.ts.
+ */
+export async function getLogin(): Promise<N8nLogin | null> {
+  const stored = await prisma.appSetting.findUnique({ where: { key: LOGIN_SETTING } })
+  if (typeof stored?.value !== 'string') return null
+  try {
+    const parsed = JSON.parse(open(stored.value)) as N8nLogin
+    return parsed.email && parsed.password ? parsed : null
+  } catch {
+    // Sealed under a different JWT_SECRET, or no longer the shape we wrote.
+    // Either way it is unusable and you have to enter it again.
+    return null
+  }
+}
+
+export async function setLogin(login: N8nLogin | null): Promise<void> {
+  if (!login) {
+    await prisma.appSetting.deleteMany({ where: { key: LOGIN_SETTING } })
+    return
+  }
+  const value = seal(JSON.stringify(login))
+  await prisma.appSetting.upsert({
+    where: { key: LOGIN_SETTING },
+    create: { key: LOGIN_SETTING, value },
+    update: { value },
+  })
+}
+
+/**
+ * Sign in to n8n and come back with its session cookie.
+ *
+ * Deliberately without a browser-id header. n8n binds a session to the
+ * browser that asked for it when one is sent, and this request is made by the
+ * API on your behalf — a token bound to the server would be refused by the
+ * browser it is meant for. Unbound, it works wherever you are, which is the
+ * point of not having to log in twice.
+ */
+export async function openSession(login: N8nLogin): Promise<SessionCookie> {
+  let res: Response
+  try {
+    res = await fetch(new URL('/rest/login', env.N8N_BASE_URL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ emailOrLdapLoginId: login.email, password: login.password }),
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch (err) {
+    throw new N8nError(502, `n8n nicht erreichbar (${(err as Error).message})`)
+  }
+
+  if (!res.ok) {
+    // n8n answers 401 for wrong credentials and for a missing MFA code alike.
+    // Its own wording is more specific than anything we could invent, so it
+    // is passed through — minus any detail that is not a sentence.
+    const body = (await res.text().catch(() => '')).slice(0, 300)
+    const message = (() => {
+      try {
+        return (JSON.parse(body) as { message?: string }).message
+      } catch {
+        return null
+      }
+    })()
+    throw new N8nError(
+      res.status === 401 ? 401 : res.status,
+      message ?? `n8n hat die Anmeldung abgelehnt (HTTP ${res.status})`,
+    )
+  }
+
+  const session = parseSessionCookie(res.headers.getSetCookie(), N8N_COOKIE)
+  if (!session) throw new N8nError(502, 'n8n hat keine Sitzung ausgestellt')
+  return session
 }
 
 export class N8nError extends Error {

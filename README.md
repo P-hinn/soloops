@@ -819,7 +819,12 @@ soloops                                n8n
    storing it (encrypted, see `services/secretbox.ts`).
    Without it the Builder still works — flows, templates and monitoring stay
    empty.
-3. Still under _Verbindungen_: create an **automation token**. It is shown
+3. Still under _Verbindungen_: store the **n8n account**, so soloops can sign
+   you in and the embedded editor stops asking for a second login. Checked
+   against n8n before it is kept, and sealed with the same box as the IMAP
+   password. Skip it and nothing breaks — the editor simply shows n8n's own
+   login the first time.
+4. Also under _Verbindungen_: create an **automation token**. It is shown
    once. In n8n under **Credentials → soloops API**, paste it with base URL
    `http://api:3000`.
 
@@ -827,6 +832,26 @@ The token is deliberately not the `SERVICE_TOKEN`: that one also opens the
 macOS app and the MCP server and cannot be revoked without taking both down.
 An automation token is revocable on its own, can be read-only, and reaches
 **only** `/api/automations/connector` — see [Authentication](#authentication).
+
+### The second login, and why it is handled this way
+
+n8n brings its own user management. In version 2 it cannot be switched off,
+and the embed login that would solve this properly sits behind an enterprise
+licence. So being signed in to soloops is made to be enough the only way left:
+soloops signs in for you. The API logs in with the stored account and relays
+n8n's own session cookie to the browser; since n8n is served from this origin
+under `/n8n/`, the browser sends it along to the editor by itself.
+
+The request deliberately carries no browser-id header. n8n binds a session to
+the browser that asked for it when one is sent, and this one is asked for by
+the API on your behalf — a token bound to the server would be refused by the
+browser it is meant for.
+
+What this costs: soloops holds an n8n password, and a soloops compromise is
+therefore an n8n compromise. Given n8n runs arbitrary code on the same host
+and soloops already holds the database, that is a short step rather than a new
+one — but it is a real one. With n8n MFA enabled it does not work at all, and
+the editor goes back to asking.
 
 ### The connector
 
@@ -1154,6 +1179,11 @@ development machine and push it to a registry.
 - Revoke an automation token when the workflow using it is gone. It is scoped
   to the connector surface, but that surface still writes leads, projects,
   tasks, time and notes.
+- If you let soloops sign you in to n8n, it holds an n8n password, encrypted
+  with `JWT_SECRET`. The session it relays carries no browser binding — n8n
+  would otherwise refuse it in your browser — so that cookie works wherever it
+  is presented. It is HttpOnly and same-origin, but treat it like the password
+  it stands in for.
 - Event payloads land in the delivery log, including the lead data they
   carried. That log lives in Postgres like everything else — the same backup
   and the same caveats apply.

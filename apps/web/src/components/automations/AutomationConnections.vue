@@ -57,6 +57,40 @@ async function clearApiKey() {
   }
 }
 
+// --- The n8n account soloops signs in with ---------------------------------
+
+const loginEmail = ref('')
+const loginPassword = ref('')
+
+async function saveLogin() {
+  busy.value = 'login'
+  error.value = ''
+  try {
+    await api.post('/api/automations/login', {
+      email: loginEmail.value.trim(),
+      password: loginPassword.value,
+    })
+    // Held no longer than the request that proved it works.
+    loginPassword.value = ''
+    loginEmail.value = ''
+    emit('changed')
+  } catch (err) {
+    error.value = (err as Error).message
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function clearLogin() {
+  busy.value = 'login'
+  try {
+    await api.del('/api/automations/login')
+    emit('changed')
+  } finally {
+    busy.value = ''
+  }
+}
+
 // --- Automation tokens -----------------------------------------------------
 
 const tokenName = ref('')
@@ -194,10 +228,71 @@ const EXPRESSION_EXAMPLE = '{{ $json.data.id }}'
     </section>
 
     <!-- ------------------------------------------------------------------ -->
-    <!-- 2. n8n writes into soloops                                          -->
+    <!-- 2. soloops signs you in to n8n                                      -->
     <!-- ------------------------------------------------------------------ -->
     <section class="card">
-      <h2 class="eyebrow mb-1">2 · n8n schreibt in soloops</h2>
+      <h2 class="eyebrow mb-1">2 · soloops meldet dich bei n8n an</h2>
+      <p class="mb-4 max-w-2xl text-sm text-muted">
+        n8n bringt eine eigene Benutzerverwaltung mit, die sich in Version 2 nicht abschalten lässt
+        — und der Embed-Login steckt hinter einer Enterprise-Lizenz. Damit du dich nicht zweimal
+        anmeldest, übernimmt soloops die Anmeldung: Die API holt eine n8n-Sitzung und reicht das
+        Cookie an deinen Browser durch. Verschlüsselt abgelegt wie die IMAP-Zugangsdaten — der
+        Schutz gilt einem Datenbank-Abzug, nicht einem laufenden Server.
+      </p>
+
+      <div class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span v-if="props.status.hasLogin" class="badge badge-good">
+          hinterlegt{{ props.status.loginEmail ? ` · ${props.status.loginEmail}` : '' }}
+        </span>
+        <span v-else class="badge bg-paper-2 text-muted">
+          nicht hinterlegt — n8n fragt selbst nach
+        </span>
+      </div>
+
+      <form class="flex flex-wrap items-end gap-2" @submit.prevent="saveLogin">
+        <label class="label min-w-56 flex-1">
+          n8n-E-Mail
+          <input
+            v-model="loginEmail"
+            type="email"
+            class="input mt-1"
+            placeholder="du@example.com"
+            autocomplete="off"
+            required
+          />
+        </label>
+        <label class="label min-w-56 flex-1">
+          n8n-Passwort
+          <input
+            v-model="loginPassword"
+            type="password"
+            class="input mt-1"
+            autocomplete="new-password"
+            required
+          />
+        </label>
+        <button class="btn-primary" :disabled="busy === 'login'">Prüfen und speichern</button>
+        <button
+          v-if="props.status.hasLogin"
+          type="button"
+          class="btn-ghost"
+          :disabled="busy === 'login'"
+          @click="clearLogin"
+        >
+          Entfernen
+        </button>
+      </form>
+      <p class="mt-2 text-xs text-muted">
+        Wird vor dem Speichern gegen n8n geprüft. Mit aktivierter n8n-MFA funktioniert das nicht —
+        dann bleibt es bei der Anmeldung im Editor.
+      </p>
+    </section>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- 3. n8n writes into soloops                                          -->
+    <!-- ------------------------------------------------------------------ -->
+    <section class="card">
+      <h2 class="eyebrow mb-1">3 · n8n schreibt in soloops</h2>
       <p class="mb-4 max-w-2xl text-sm text-muted">
         Ein Token pro Verbindung, einzeln widerrufbar. Absichtlich nicht der
         <code class="font-mono text-ink">SERVICE_TOKEN</code> — der öffnet auch die Mac-App und den
@@ -280,10 +375,10 @@ const EXPRESSION_EXAMPLE = '{{ $json.data.id }}'
     </section>
 
     <!-- ------------------------------------------------------------------ -->
-    <!-- 3. soloops pushes events                                            -->
+    <!-- 4. soloops pushes events                                            -->
     <!-- ------------------------------------------------------------------ -->
     <section class="card">
-      <h2 class="eyebrow mb-1">3 · soloops schickt Events</h2>
+      <h2 class="eyebrow mb-1">4 · soloops schickt Events</h2>
       <p class="mb-4 max-w-2xl text-sm text-muted">
         Diese Einträge legt die <strong>Soloops Trigger</strong>-Node selbst an, sobald du den
         Workflow in n8n einschaltest — nichts zu kopieren. Jede Zustellung wird protokolliert; nach

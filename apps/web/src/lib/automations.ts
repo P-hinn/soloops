@@ -101,6 +101,9 @@ export type AutomationStatus = {
   authorized: boolean
   error: string | null
   hasApiKey: boolean
+  /** Whether soloops can sign you in to n8n instead of asking you to. */
+  hasLogin: boolean
+  loginEmail: string | null
   editorUrl: string
   flows: number
   failing: number

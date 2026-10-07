@@ -12,12 +12,49 @@
  * that the cookie carries and this is simply the editor.
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { api } from '@/api'
 
 const props = defineProps<{
   /** Same-origin path to the editor, from /api/automations/status. */
   src: string
   reachable: boolean
+  /** Whether soloops holds an n8n account it can sign in with. */
+  hasLogin: boolean
 }>()
+
+/**
+ * Being signed in to soloops should be enough.
+ *
+ * n8n keeps its own user management — it cannot be turned off in 2.x, and its
+ * embed login is behind an enterprise licence — so the only way to spare you
+ * a second login is to perform it for you. The API signs in with the stored
+ * account and hands the browser n8n's own session cookie; because n8n is
+ * served from this origin under /n8n/, the browser then sends it along by
+ * itself.
+ *
+ * The frame waits for that call. Loading it first would race the cookie and
+ * show n8n's login for a moment before replacing it.
+ */
+const sessionReady = ref(false)
+const sessionError = ref('')
+
+async function openSession() {
+  if (!props.hasLogin) {
+    // Nothing stored: the frame shows n8n's own login, which is exactly the
+    // state before this existed. The hint below points at where to fix it.
+    sessionReady.value = true
+    return
+  }
+  try {
+    await api.post('/api/automations/session')
+  } catch (err) {
+    // Not fatal — n8n's own login still works, it is just the thing we were
+    // trying to avoid. Saying why beats a silent extra login screen.
+    sessionError.value = (err as Error).message
+  } finally {
+    sessionReady.value = true
+  }
+}
 
 /**
  * A key we bump to force a reload. Changing the `src` back to itself would not
@@ -92,7 +129,10 @@ watch(expanded, (on) => {
   document.body.style.overflow = on ? 'hidden' : ''
 })
 
-onMounted(() => window.addEventListener('keydown', onKey))
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  void openSession()
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
@@ -106,9 +146,19 @@ onBeforeUnmount(() => {
   <div class="flex min-h-0 flex-1 flex-col">
     <div class="mb-3 flex items-center justify-between gap-3">
       <p class="text-xs text-muted">
-        Der n8n-Editor läuft eingebettet unter
-        <code class="font-mono text-ink">{{ props.src }}</code
-        >. Gebaute Flows erscheinen nach dem nächsten Abgleich unter „Flows“.
+        <template v-if="sessionError">
+          <span class="text-bad">n8n-Anmeldung fehlgeschlagen: {{ sessionError }}</span> — der
+          Editor fragt deshalb selbst nach. Zugangsdaten prüfen unter „Verbindungen“.
+        </template>
+        <template v-else-if="!props.hasLogin">
+          n8n fragt nach einer eigenen Anmeldung. Hinterlege das Konto unter „Verbindungen“, dann
+          übernimmt soloops das.
+        </template>
+        <template v-else>
+          Der n8n-Editor läuft eingebettet unter
+          <code class="font-mono text-ink">{{ props.src }}</code
+          >. Gebaute Flows erscheinen nach dem nächsten Abgleich unter „Flows“.
+        </template>
       </p>
       <div class="flex shrink-0 items-center gap-2">
         <button v-if="props.reachable" class="btn-ghost btn-xs" @click="expanded = true">
@@ -140,6 +190,7 @@ onBeforeUnmount(() => {
       "
     >
       <iframe
+        v-if="sessionReady"
         :key="nonce"
         ref="frame"
         :src="props.src"
@@ -148,6 +199,9 @@ onBeforeUnmount(() => {
         allow="clipboard-read; clipboard-write"
         @load="bindInsideFrame"
       />
+      <div v-else class="flex h-full items-center justify-center text-sm text-muted">
+        Melde bei n8n an …
+      </div>
 
       <!--
         The way out. Bottom right because n8n puts its own header across the
