@@ -11,6 +11,8 @@ import { buildProjectDigest } from '../../api/src/ai/digest.js'
 import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
 import { syncMailAccount, syncAllMailAccounts } from '../../api/src/services/mailSync.js'
 import { scoreOpenLeads } from '../../api/src/ai/leadScore.js'
+import { syncAutomations } from '../../api/src/services/automations.js'
+import { deliver, type DeliveryJob } from '../../api/src/services/automationDelivery.js'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 const log = (scope: string, msg: string) => console.log(`[${scope}] ${msg}`)
@@ -178,6 +180,57 @@ new Worker(
 ).on('failed', (_job, err) => console.error('[activity]', err.message))
 
 // ---------------------------------------------------------------------------
+// Automations (n8n)
+// ---------------------------------------------------------------------------
+
+// Declared up here, unlike the other queues at the bottom: this worker
+// enqueues onto its own queue to schedule a retry, and a reference that only
+// happens to resolve by the time a job runs is a trap for the next reader.
+const automationQueue = new Queue('automations', { connection })
+
+new Worker(
+  'automations',
+  async (job) => {
+    if (job.name === 'dispatch') {
+      const data = job.data as DeliveryJob
+      const outcome = await deliver(data)
+
+      // The retry is a new job rather than a thrown error on this one. BullMQ
+      // would retry too, but its attempt counter is invisible to the delivery
+      // log — and that log is the whole point of recording attempts.
+      if (outcome.retryInMs !== null) {
+        await automationQueue.add(
+          'dispatch',
+          { ...data, attempt: data.attempt + 1 },
+          { delay: outcome.retryInMs, removeOnComplete: 200, removeOnFail: 200 },
+        )
+        log(
+          'automations',
+          `Zustellung ${data.payload.event} fehlgeschlagen (${outcome.error}), neuer Versuch in ${Math.round(outcome.retryInMs / 1000)}s`,
+        )
+      } else if (!outcome.ok) {
+        console.error(`[automations] ${data.payload.event} endgültig gescheitert: ${outcome.error}`)
+      }
+      return outcome
+    }
+
+    const result = await syncAutomations()
+    if (result.skipped) return result
+    if (result.flows || result.missing) {
+      log(
+        'automations',
+        `${result.flows} Flows, ${result.runs} Läufe${result.missing ? `, ${result.missing} in n8n gelöscht` : ''}`,
+      )
+    }
+    return result
+  },
+  // Deliveries and the mirror sync share this worker, so a handful at a time:
+  // enough that one slow webhook does not hold up the next event, few enough
+  // that a burst of events cannot bury n8n.
+  { connection, concurrency: 4 },
+).on('failed', (_job, err) => console.error('[automations]', err.message))
+
+// ---------------------------------------------------------------------------
 // Repeating jobs
 // ---------------------------------------------------------------------------
 
@@ -246,6 +299,15 @@ async function scheduleRepeatables() {
       { name: 'score-open', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
+
+  // The n8n mirror. Runs unconditionally: whether there is an API key is
+  // decided inside the sync, and a key pasted into the interface should take
+  // effect without a worker restart.
+  await automationQueue.upsertJobScheduler(
+    'automation-sync',
+    { pattern: env.AUTOMATION_POLL_CRON },
+    { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
+  )
 
   // Thin out the samples overnight — none of this is urgent.
   await activityQueue.upsertJobScheduler(

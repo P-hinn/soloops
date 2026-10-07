@@ -29,6 +29,8 @@ import mailRoutes from './routes/mail.js'
 import calendarAccountRoutes from './routes/calendarAccounts.js'
 import assistantRoutes from './routes/assistant.js'
 import onboardingRoutes from './routes/onboarding.js'
+import automationRoutes from './routes/automations.js'
+import automationConnectorRoutes from './routes/automationConnector.js'
 
 const app = Fastify({
   logger: { level: env.NODE_ENV === 'development' ? 'info' : 'warn' },
@@ -90,6 +92,11 @@ await app.register(mailRoutes, { prefix: '/api/mail' })
 await app.register(calendarAccountRoutes, { prefix: '/api/calendar-accounts' })
 await app.register(assistantRoutes, { prefix: '/api/assistant' })
 await app.register(onboardingRoutes, { prefix: '/api/onboarding' })
+await app.register(automationRoutes, { prefix: '/api/automations' })
+// The connector is its own registration rather than a branch inside the one
+// above: it is the only surface an n8n automation token opens, and that is
+// much easier to keep true when the two cannot share a hook by accident.
+await app.register(automationConnectorRoutes, { prefix: '/api/automations/connector' })
 
 await ensureSearchIndexes()
 
