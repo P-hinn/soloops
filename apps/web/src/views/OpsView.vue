@@ -176,6 +176,7 @@ onMounted(async () => {
             <td>
               <select
                 class="input py-1 text-xs"
+                :aria-label="`Projekt für ${m.friendlyName}`"
                 :value="m.projectId ?? ''"
                 @change="assignMonitor(m, ($event.target as HTMLSelectElement).value)"
               >
@@ -195,17 +196,18 @@ onMounted(async () => {
       <h2 class="eyebrow mb-3">CI/CD</h2>
 
       <form class="mb-4 grid gap-3 md:grid-cols-5" @submit.prevent="addRepo">
-        <select v-model="newRepo.provider" class="input">
+        <select v-model="newRepo.provider" class="input" aria-label="Anbieter">
           <option value="GITHUB">GitHub</option>
           <option value="GITLAB">GitLab</option>
         </select>
         <input
           v-model="newRepo.slug"
           class="input md:col-span-2"
+          aria-label="Repository"
           placeholder="owner/repo"
           required
         />
-        <select v-model="newRepo.projectId" class="input">
+        <select v-model="newRepo.projectId" class="input" aria-label="Projekt">
           <option value="">Projekt —</option>
           <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.key }}</option>
         </select>

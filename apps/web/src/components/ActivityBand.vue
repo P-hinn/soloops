@@ -139,7 +139,7 @@ useLiveRefresh(() => (day.value === iso(new Date()) ? load() : undefined))
           {{ data?.retentionDays ?? 30 }} Tage liegen und verlassen diesen Rechner nicht.
         </p>
       </div>
-      <input v-model="day" type="date" class="input w-auto" />
+      <input v-model="day" type="date" class="input w-auto" aria-label="Tag" />
     </div>
 
     <p v-if="stale && !loading" class="mb-3 border-l-2 border-warn pl-3 text-xs text-warn">
