@@ -43,10 +43,13 @@ final class CarPlayTravel {
             return
         }
         UserDefaults.standard.removeObject(forKey: connectedKey)
-        finish(TravelTimer.Drive(startedAt: startedAt, endedAt: date))
+        // Detached from the disconnect callback: booking the drive reads and
+        // writes the database, which now lives on its own actor.
+        let drive = TravelTimer.Drive(startedAt: startedAt, endedAt: date)
+        Task { await finish(drive) }
     }
 
-    private func finish(_ drive: TravelTimer.Drive) {
+    private func finish(_ drive: TravelTimer.Drive) async {
         guard let environment = Optional(AppEnvironment.shared),
             let engine = environment.engine,
             let agenda = environment.agenda
@@ -54,9 +57,9 @@ final class CarPlayTravel {
 
         // Look at both days: a drive home at 23:40 belongs to appointments
         // that are still on yesterday's page.
-        var events = (try? agenda.events(on: drive.startedAt)) ?? []
+        var events = (try? await agenda.events(on: drive.startedAt)) ?? []
         if !Calendar.current.isDate(drive.startedAt, inSameDayAs: drive.endedAt) {
-            events += (try? agenda.events(on: drive.endedAt)) ?? []
+            events += (try? await agenda.events(on: drive.endedAt)) ?? []
         }
 
         switch timer.outcome(for: drive, around: events) {
@@ -75,9 +78,10 @@ final class CarPlayTravel {
 
             let patch = timer.patch(
                 for: drive, projectId: projectId, clientId: clientId, description: description)
-            _ = try? engine.recordLocal(entity: "TimeEntry", id: UUID().uuidString, patch: patch)
+            _ = try? await engine.recordLocal(
+                entity: "TimeEntry", id: UUID().uuidString, patch: patch)
 
-            Task { await environment.sync() }
+            await environment.sync()
         }
     }
 
@@ -105,7 +109,7 @@ final class CarPlayTravel {
     }
 
     /// Book a held drive against a project the user picked.
-    func accept(_ suggestion: Suggestion, projectId: String, clientId: String?) {
+    func accept(_ suggestion: Suggestion, projectId: String, clientId: String?) async {
         guard let engine = AppEnvironment.shared.engine else { return }
 
         let drive = TravelTimer.Drive(
@@ -113,9 +117,10 @@ final class CarPlayTravel {
         let patch = timer.patch(
             for: drive, projectId: projectId, clientId: clientId,
             description: suggestion.description)
-        _ = try? engine.recordLocal(entity: "TimeEntry", id: UUID().uuidString, patch: patch)
+        _ = try? await engine.recordLocal(
+            entity: "TimeEntry", id: UUID().uuidString, patch: patch)
 
         discard(suggestion)
-        Task { await AppEnvironment.shared.sync() }
+        await AppEnvironment.shared.sync()
     }
 }

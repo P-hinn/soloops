@@ -38,6 +38,8 @@ struct RootView: View {
 
     var body: some View {
         switch environment.state {
+        case .opening:
+            ProgressView()
         case .needsPairing:
             PairingView()
         case .broken(let message):

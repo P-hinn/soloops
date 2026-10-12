@@ -75,10 +75,15 @@ struct TodayView: View {
     @Environment(AppEnvironment.self) private var environment
     private let briefing = Briefing()
 
+    // Loaded rather than read in `body`: the database is on its own actor now,
+    // and a body cannot await. It was the wrong place anyway — a read in there
+    // runs again on every redraw.
+    @State private var events: [AgendaEvent] = []
+    @State private var tasks: [AgendaTask] = []
+
     var body: some View {
         NavigationStack {
             List {
-                let events = (try? environment.agenda?.events(on: Date())) ?? []
                 if events.isEmpty {
                     ContentUnavailableView("Keine Termine heute", systemImage: "calendar")
                 } else {
@@ -95,12 +100,11 @@ struct TodayView: View {
                     }
                 }
 
-                let tasks = (try? environment.agenda?.openTasks(limit: 10)) ?? []
                 if !tasks.isEmpty {
                     Section("Offene Punkte") {
                         ForEach(tasks) { task in
                             Button {
-                                tick(task)
+                                Task { await tick(task) }
                             } label: {
                                 HStack {
                                     Image(systemName: "circle")
@@ -112,15 +116,30 @@ struct TodayView: View {
                 }
             }
             .navigationTitle("Heute")
-            .refreshable { await environment.sync() }
+            .task { await load() }
+            .refreshable {
+                await environment.sync()
+                await load()
+            }
         }
     }
 
-    private func tick(_ task: AgendaTask) {
+    private func load() async {
+        guard let agenda = environment.agenda else {
+            events = []
+            tasks = []
+            return
+        }
+        events = (try? await agenda.events(on: Date())) ?? []
+        tasks = (try? await agenda.openTasks(limit: 10)) ?? []
+    }
+
+    private func tick(_ task: AgendaTask) async {
         guard let engine = environment.engine else { return }
-        _ = try? engine.recordLocal(
+        _ = try? await engine.recordLocal(
             entity: "ActionItem", id: task.id, patch: ["done": .bool(true)], isCreate: false)
-        Task { await environment.sync() }
+        await environment.sync()
+        await load()
     }
 }
 
@@ -128,10 +147,11 @@ struct FollowUpView: View {
     @Environment(AppEnvironment.self) private var environment
     private let briefing = Briefing()
 
+    @State private var due: [AgendaFollowUp] = []
+
     var body: some View {
         NavigationStack {
             List {
-                let due = (try? environment.agenda?.dueFollowUps(at: Date())) ?? []
                 if due.isEmpty {
                     ContentUnavailableView("Nichts offen", systemImage: "checkmark.circle")
                 } else {
@@ -143,32 +163,46 @@ struct FollowUpView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .swipeActions {
-                            Button("Erledigt") { clear(followUp) }.tint(.green)
-                            Button("Morgen") { postpone(followUp) }.tint(.orange)
+                            Button("Erledigt") { Task { await clear(followUp) } }.tint(.green)
+                            Button("Morgen") { Task { await postpone(followUp) } }.tint(.orange)
                         }
                     }
                 }
             }
             .navigationTitle("Wiedervorlage")
-            .refreshable { await environment.sync() }
+            .task { await load() }
+            .refreshable {
+                await environment.sync()
+                await load()
+            }
         }
     }
 
-    private func clear(_ followUp: AgendaFollowUp) {
-        guard let engine = environment.engine else { return }
-        _ = try? engine.recordLocal(
-            entity: "Lead", id: followUp.id,
-            patch: ["followUpOn": .null, "followUpNote": .null], isCreate: false)
-        Task { await environment.sync() }
+    private func load() async {
+        guard let agenda = environment.agenda else {
+            due = []
+            return
+        }
+        due = (try? await agenda.dueFollowUps(at: Date())) ?? []
     }
 
-    private func postpone(_ followUp: AgendaFollowUp) {
+    private func clear(_ followUp: AgendaFollowUp) async {
+        guard let engine = environment.engine else { return }
+        _ = try? await engine.recordLocal(
+            entity: "Lead", id: followUp.id,
+            patch: ["followUpOn": .null, "followUpNote": .null], isCreate: false)
+        await environment.sync()
+        await load()
+    }
+
+    private func postpone(_ followUp: AgendaFollowUp) async {
         guard let engine = environment.engine else { return }
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        _ = try? engine.recordLocal(
+        _ = try? await engine.recordLocal(
             entity: "Lead", id: followUp.id,
             patch: ["followUpOn": .isoDate(SyncCodec.isoString(tomorrow))], isCreate: false)
-        Task { await environment.sync() }
+        await environment.sync()
+        await load()
     }
 }
 
@@ -225,16 +259,19 @@ struct AssignDriveView: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
 
+    @State private var projects: [(id: String, name: String, clientId: String?)] = []
+
     var body: some View {
         List {
-            let projects = (try? environment.agenda?.activeProjects()) ?? []
             Section("Auf welches Projekt?") {
                 ForEach(projects, id: \.id) { project in
                     Button(project.name) {
-                        CarPlayTravel.shared.accept(
-                            suggestion, projectId: project.id, clientId: project.clientId)
-                        onDone()
-                        dismiss()
+                        Task {
+                            await CarPlayTravel.shared.accept(
+                                suggestion, projectId: project.id, clientId: project.clientId)
+                            onDone()
+                            dismiss()
+                        }
                     }
                 }
             }
@@ -247,6 +284,9 @@ struct AssignDriveView: View {
             }
         }
         .navigationTitle(suggestion.description)
+        .task {
+            projects = (try? await environment.agenda?.activeProjects()) ?? []
+        }
     }
 }
 

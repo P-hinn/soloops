@@ -16,17 +16,22 @@ public final class AppEnvironment {
     public static let shared = AppEnvironment()
 
     public enum State: Equatable {
+        /// The database is being opened. Its own state because opening now
+        /// hops to `SyncActor`, and without it the first frame after launch
+        /// would show the pairing screen to an already-paired phone.
+        case opening
         case needsPairing
         case ready
         case broken(String)
     }
 
-    public private(set) var state: State = .needsPairing
+    public private(set) var state: State = .opening
     public private(set) var status = SyncCoordinator.Status()
 
     public private(set) var store: Store?
     public private(set) var engine: SyncEngine?
     public private(set) var coordinator: SyncCoordinator?
+    public private(set) var agenda: Agenda?
 
     /// Where the identity lives between launches.
     ///
@@ -37,34 +42,62 @@ public final class AppEnvironment {
     let credentials = Credentials()
 
     private init() {
-        restore()
+        Task { await restore() }
     }
 
     // --- Lifecycle ---------------------------------------------------------
 
-    func restore() {
+    func restore() async {
         guard let identity = credentials.identity else {
             state = .needsPairing
             return
         }
         do {
-            try open(identity: identity, endpoint: credentials.endpoint)
+            adopt(try await Self.open(identity: identity, endpoint: credentials.endpoint))
             state = .ready
         } catch {
             state = .broken("Lokale Datenbank nicht lesbar: \(error)")
         }
     }
 
-    private func open(identity: SyncEngine.Identity, endpoint: LanTransport.Endpoint?) throws {
-        let store = try Store(path: Self.databasePath())
+    /// The data layer, as one value.
+    ///
+    /// All four belong to `SyncActor`, so they are built in a single crossing
+    /// and handed back together rather than assigned one await at a time.
+    /// Global-actor-isolated types are Sendable, which is what makes that
+    /// legal — the main actor may hold them, it just may not call into them
+    /// without awaiting.
+    struct Services: Sendable {
+        let store: Store
+        let engine: SyncEngine
+        let coordinator: SyncCoordinator
+        let agenda: Agenda
+    }
+
+    @SyncActor
+    private static func open(
+        identity: SyncEngine.Identity,
+        endpoint: LanTransport.Endpoint?
+    ) throws -> Services {
+        let store = try Store(path: databasePath())
         let engine = try SyncEngine(store: store, identity: identity)
-        self.store = store
-        self.engine = engine
-        self.coordinator = SyncCoordinator(
+        return Services(
+            store: store,
             engine: engine,
-            lan: endpoint,
-            iCloudRoot: ICloudTransport.containerRoot()
+            coordinator: SyncCoordinator(
+                engine: engine,
+                lan: endpoint,
+                iCloudRoot: ICloudTransport.containerRoot()
+            ),
+            agenda: Agenda(store: store)
         )
+    }
+
+    private func adopt(_ services: Services) {
+        store = services.store
+        engine = services.engine
+        coordinator = services.coordinator
+        agenda = services.agenda
     }
 
     /// Application Support, not Documents.
@@ -73,7 +106,7 @@ public final class AppEnvironment {
     /// — it is a cache of the Mac's state that happens to be writable. It is
     /// excluded from iCloud backup for the same reason: the op log would be
     /// restored onto a device whose identity no longer matches it.
-    static func databasePath() -> String {
+    nonisolated static func databasePath() -> String {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let folder = base.appendingPathComponent("soloops", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -105,7 +138,7 @@ public final class AppEnvironment {
             credentials.save(identity: identity, endpoint: endpoint, host: claim.host)
 
             do {
-                try open(identity: identity, endpoint: endpoint)
+                adopt(try await Self.open(identity: identity, endpoint: endpoint))
             } catch {
                 return "Lokale Datenbank konnte nicht angelegt werden: \(error)"
             }
@@ -116,7 +149,8 @@ public final class AppEnvironment {
             do {
                 let transport = LanTransport(endpoint: endpoint, identity: identity)
                 let snapshot = try await transport.snapshot()
-                _ = try SnapshotImport(engine: engine).apply(
+                let importer = await SnapshotImport(engine: engine)
+                _ = try await importer.apply(
                     cursor: snapshot.cursor, entities: snapshot.entities)
             } catch {
                 // Pairing worked; the first fill did not. The next sync will
@@ -136,6 +170,7 @@ public final class AppEnvironment {
         store = nil
         engine = nil
         coordinator = nil
+        agenda = nil
         // The local database stays. Re-pairing the same device would
         // otherwise re-download everything, and deleting data because a token
         // was removed is not a trade anybody asked for.
@@ -147,10 +182,6 @@ public final class AppEnvironment {
     public func sync() async {
         guard let coordinator else { return }
         status = await coordinator.syncNow()
-    }
-
-    public var agenda: Agenda? {
-        store.map { Agenda(store: $0) }
     }
 }
 

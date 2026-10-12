@@ -23,8 +23,8 @@ struct NextAppointmentIntent: AppIntent {
             return .result(dialog: "soloops ist noch nicht gekoppelt.")
         }
         let now = Date()
-        let next = try agenda.current(at: now)
-        let clientName = try agenda.clientName(next?.clientId)
+        let next = try await agenda.current(at: now)
+        let clientName = try await agenda.clientName(next?.clientId)
         let text = Briefing().greeting(next: next, clientName: clientName, at: now)
         return .result(dialog: IntentDialog(stringLiteral: text))
     }
@@ -42,12 +42,12 @@ struct DailyBriefingIntent: AppIntent {
             return .result(dialog: "soloops ist noch nicht gekoppelt.")
         }
         let now = Date()
-        let events = try agenda.events(on: now)
-        let followUps = try agenda.dueFollowUps(at: now)
+        let events = try await agenda.events(on: now)
+        let followUps = try await agenda.dueFollowUps(at: now)
 
         var names: [String: String] = [:]
         for event in events {
-            if let id = event.clientId, let name = try agenda.clientName(id) { names[id] = name }
+            if let id = event.clientId, let name = try await agenda.clientName(id) { names[id] = name }
         }
 
         let text = Briefing().spoken(
@@ -67,7 +67,7 @@ struct DueFollowUpsIntent: AppIntent {
             return .result(dialog: "soloops ist noch nicht gekoppelt.")
         }
         let now = Date()
-        let due = try agenda.dueFollowUps(at: now)
+        let due = try await agenda.dueFollowUps(at: now)
         guard !due.isEmpty else { return .result(dialog: "Keine offenen Wiedervorlagen.") }
 
         let briefing = Briefing()
@@ -105,7 +105,7 @@ struct CaptureNoteIntent: AppIntent {
         // required-field check on the Mac.
         let title = String(trimmed.prefix(60))
 
-        try engine.recordLocal(
+        try await engine.recordLocal(
             entity: "Note",
             id: UUID().uuidString,
             patch: [
@@ -139,7 +139,7 @@ struct StartTimerIntent: AppIntent {
         }
 
         let wanted = project.lowercased()
-        let projects = try agenda.activeProjects()
+        let projects = try await agenda.activeProjects()
         // Prefix before contains, so "App" picks the project called App and
         // not the one called "Relaunch App-Store-Auftritt".
         let match =
@@ -151,7 +151,7 @@ struct StartTimerIntent: AppIntent {
             return .result(dialog: "Kein Projekt gefunden, das zu \(project) passt.")
         }
 
-        try engine.recordLocal(
+        try await engine.recordLocal(
             entity: "TimeEntry",
             id: UUID().uuidString,
             patch: [

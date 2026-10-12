@@ -50,6 +50,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         BriefingPlayer.shared.stop()
         CarPlayTravel.shared.didDisconnect(at: Date())
+        self.interface?.stop()
         self.interface = nil
         self.interfaceController = nil
     }

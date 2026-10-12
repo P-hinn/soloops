@@ -27,8 +27,16 @@ final class CarPlayInterface {
         self.player = player
     }
 
-    deinit {
+    /// Teardown on scene disconnect, not in `deinit`.
+    ///
+    /// A `deinit` is nonisolated, so under strict concurrency it cannot touch
+    /// the timer at all — `Timer` is not Sendable. It is the better place
+    /// anyway: the run loop holds the timer, so stopping it is a decision
+    /// about the scene's lifetime rather than about when this object happens
+    /// to be freed.
+    func stop() {
         refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 
     private let todayTab = CPListTemplate(title: "Heute", sections: [])
@@ -46,34 +54,50 @@ final class CarPlayInterface {
         let tabs = CPTabBarTemplate(templates: [briefingTab, todayTab, followUpTab])
         controller.setRootTemplate(tabs, animated: false, completion: nil)
 
-        refresh()
+        Task { await refresh() }
 
         // A minute is enough: the agenda only changes when a sync brings
         // something in or an appointment ends, and a timer that fires more
         // often in a parked car is battery for nothing.
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor in await self?.refresh() }
         }
     }
 
-    func refresh() {
+    func refresh() async {
         let now = Date()
-        briefingTab.updateSections(briefingSections(at: now))
-        todayTab.updateSections(todaySections(at: now))
-        followUpTab.updateSections(followUpSections(at: now))
+        briefingTab.updateSections(await briefingSections(at: now))
+        todayTab.updateSections(await todaySections(at: now))
+        followUpTab.updateSections(await followUpSections(at: now))
+    }
+
+    /// The client names for a set of events, looked up once.
+    ///
+    /// CarPlay row handlers are synchronous, so nothing inside one may await.
+    /// Everything they need is resolved here and captured.
+    private func clientNames(for events: [AgendaEvent], from agenda: Agenda) async
+        -> [String: String]
+    {
+        var names: [String: String] = [:]
+        for event in events {
+            guard let id = event.clientId, names[id] == nil else { continue }
+            if let name = try? await agenda.clientName(id) { names[id] = name }
+        }
+        return names
     }
 
     // --- Briefing ----------------------------------------------------------
 
-    private func briefingSections(at now: Date) -> [CPListSection] {
+    private func briefingSections(at now: Date) async -> [CPListSection] {
         guard let agenda = environment.agenda else {
             return [CPListSection(items: [notPairedRow()])]
         }
 
-        let events = (try? agenda.events(on: now)) ?? []
-        let followUps = (try? agenda.dueFollowUps(at: now)) ?? []
-        let next = (try? agenda.current(at: now))
-        let clientName = (try? agenda.clientName(next?.clientId)) ?? nil
+        let events = (try? await agenda.events(on: now)) ?? []
+        let followUps = (try? await agenda.dueFollowUps(at: now)) ?? []
+        let next = (try? await agenda.current(at: now))
+        let clientName = (try? await agenda.clientName(next?.clientId)) ?? nil
+        let names = await clientNames(for: events, from: agenda)
 
         let headline = briefing.greeting(next: next, clientName: clientName, at: now)
 
@@ -85,12 +109,6 @@ final class CarPlayInterface {
             guard let self else {
                 completion()
                 return
-            }
-            var names: [String: String] = [:]
-            for event in events {
-                if let id = event.clientId, let name = try? agenda.clientName(id) {
-                    names[id] = name
-                }
             }
             let text = briefing.spoken(
                 events: events, followUps: followUps, clientNames: names, at: now)
@@ -109,7 +127,7 @@ final class CarPlayInterface {
         sync.handler = { [weak self] _, completion in
             Task { @MainActor in
                 await self?.environment.sync()
-                self?.refresh()
+                await self?.refresh()
                 completion()
             }
         }
@@ -140,18 +158,20 @@ final class CarPlayInterface {
 
     // --- Today -------------------------------------------------------------
 
-    private func todaySections(at now: Date) -> [CPListSection] {
+    private func todaySections(at now: Date) async -> [CPListSection] {
         guard let agenda = environment.agenda else {
             return [CPListSection(items: [notPairedRow()])]
         }
 
-        let events = (try? agenda.events(on: now)) ?? []
+        let events = (try? await agenda.events(on: now)) ?? []
         guard !events.isEmpty else {
             return [CPListSection(items: [CPListItem(text: "Keine Termine heute", detailText: nil)])]
         }
 
+        let names = await clientNames(for: events, from: agenda)
+
         let items = events.map { event -> CPListItem in
-            let name = (try? agenda.clientName(event.clientId)) ?? nil
+            let name = event.clientId.flatMap { names[$0] }
             let item = CPListItem(
                 text: event.allDay ? event.title : "\(briefing.time(event.startsAt)) \(event.title)",
                 detailText: [name, event.location].compactMap { $0 }.joined(separator: " · ")
@@ -189,12 +209,12 @@ final class CarPlayInterface {
 
     // --- Follow-ups --------------------------------------------------------
 
-    private func followUpSections(at now: Date) -> [CPListSection] {
+    private func followUpSections(at now: Date) async -> [CPListSection] {
         guard let agenda = environment.agenda, let engine = environment.engine else {
             return [CPListSection(items: [notPairedRow()])]
         }
 
-        let due = (try? agenda.dueFollowUps(at: now)) ?? []
+        let due = (try? await agenda.dueFollowUps(at: now)) ?? []
         guard !due.isEmpty else {
             return [
                 CPListSection(items: [CPListItem(text: "Nichts offen", detailText: nil)])
@@ -236,26 +256,30 @@ final class CarPlayInterface {
         actions.append(
             CPAlertAction(title: "Morgen wieder", style: .default) { [weak self] _ in
                 let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
-                _ = try? engine.recordLocal(
-                    entity: "Lead",
-                    id: followUp.id,
-                    patch: ["followUpOn": .isoDate(SyncCodec.isoString(tomorrow))],
-                    isCreate: false
-                )
-                self?.afterChange()
+                Task { @MainActor in
+                    _ = try? await engine.recordLocal(
+                        entity: "Lead",
+                        id: followUp.id,
+                        patch: ["followUpOn": .isoDate(SyncCodec.isoString(tomorrow))],
+                        isCreate: false
+                    )
+                    await self?.afterChange()
+                }
             })
 
         actions.append(
             CPAlertAction(title: "Erledigt", style: .default) { [weak self] _ in
                 // Clearing the date is what "done" means for a follow-up; the
                 // lead itself stays where it is in the pipeline.
-                _ = try? engine.recordLocal(
-                    entity: "Lead",
-                    id: followUp.id,
-                    patch: ["followUpOn": .null, "followUpNote": .null],
-                    isCreate: false
-                )
-                self?.afterChange()
+                Task { @MainActor in
+                    _ = try? await engine.recordLocal(
+                        entity: "Lead",
+                        id: followUp.id,
+                        patch: ["followUpOn": .null, "followUpNote": .null],
+                        isCreate: false
+                    )
+                    await self?.afterChange()
+                }
             })
 
         actions.append(CPAlertAction(title: "Abbrechen", style: .cancel) { _ in })
@@ -268,15 +292,13 @@ final class CarPlayInterface {
         controller.presentTemplate(sheet, animated: true, completion: nil)
     }
 
-    private func afterChange() {
+    private func afterChange() async {
         controller.dismissTemplate(animated: true, completion: nil)
-        refresh()
+        await refresh()
         // The change is already in the local log, so this is only about
         // getting it across sooner. If it fails, nothing is lost.
-        Task { @MainActor in
-            await environment.sync()
-            refresh()
-        }
+        await environment.sync()
+        await refresh()
     }
 
     // --- Shared ------------------------------------------------------------
