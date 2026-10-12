@@ -7,9 +7,15 @@
 	     Until it is in the provisioning profile, the CarPlay scene is never
 	     created — not on a head unit and not in Xcode's CarPlay simulator.
 	     Switching category means changing this key and nothing else; see
-	     CarPlayConfiguration. -->
+	     CarPlayConfiguration.
+
+	     It ships commented out, because an entitlement that is not in the
+	     profile does not merely disable the feature — it fails the signing
+	     step, so the app cannot be installed on a phone at all. Uncomment
+	     the two lines once the grant is through; nothing else changes.
 	<key>com.apple.developer.carplay-audio</key>
 	<true/>
+	-->
 
 	<!-- The store-and-forward route for when the Mac is not reachable. The
 	     container holds op batches only, never the database itself. -->

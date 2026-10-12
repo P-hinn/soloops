@@ -693,6 +693,11 @@ Request it at <https://developer.apple.com/contact/carplay/>. Until it comes
 through, everything except the CarPlay screen works: the phone app, and Siri,
 which runs in the car without any entitlement at all.
 
+The key therefore **ships commented out** in `Soloops.entitlements`. An
+entitlement that is missing from the provisioning profile does not just disable
+its feature — it fails code signing, and the app cannot be installed on a phone
+at all. Uncomment the two lines when the grant arrives.
+
 `com.apple.developer.carplay-driving-task` would describe an agenda more
 literally and is granted far more narrowly, mostly to vehicle manufacturers. If
 you ever get it, change the key in the entitlements file — the templates used

@@ -2,6 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- The five keys Xcode injects only when it *generates* an Info.plist.
+	     This one is hand-written (see project.yml: generating it would
+	     overwrite the scene manifest the CarPlay scene depends on), so they
+	     have to be here. Without CFBundleIdentifier and CFBundleExecutable the
+	     bundle does not install and does not launch; the App Intents training
+	     step refuses to parse it at build time, which is where this shows up
+	     first. The values are build settings, expanded on copy. -->
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>de</string>
+
 	<key>CFBundleDisplayName</key>
 	<string>soloops</string>
 	<key>CFBundleShortVersionString</key>
