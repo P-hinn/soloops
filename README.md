@@ -44,7 +44,7 @@
 - [Inbox and lead matching](#inbox-and-lead-matching) — IMAP, rules before AI
 - [Activity](#activity-what-the-mac-sees) — samples from the Mac, all local
 - [Automations with n8n](#automations-with-n8n) — the editor embedded, with connectors both ways
-- [MCP server](#mcp-server) — 74 tools for Claude
+- [MCP server](#mcp-server) — 77 tools for Claude
 - [Authentication](#authentication)
 - [Operations](#operations) — logs, schema changes, backup
 - [Deploying on a small server](#deploying-on-a-small-server) — 2 cores, 2 GB RAM
@@ -234,7 +234,8 @@ Reusable classes: `.card`, `.btn-primary` / `.btn-ghost` / `.btn-acid` /
 npm run check      # format, lint, types and tests in one run
 npm run format     # Prettier over everything
 npm run lint:fix   # ESLint with autofix
-npm run test       # RRULE expander, sales logic and activity (60 cases)
+npm run test       # RRULE, sales logic, activity, the op log, automations,
+                   # the task board, follow-up tickets, repository links and contracts (350 cases)
 npm -w @soloops/desktop run test   # the Rust side of the macOS app (6 cases)
 ```
 
@@ -352,11 +353,56 @@ and both remote calendars.
 it), type up notes, then optionally an AI summary with decisions and action
 items.
 
+**Tasks.** The same open points as a **list** and as a **board**, switchable in
+the header. The deadline is optional; what has one is sorted by it and reads as
+"heute", "2 T über", "in 5 T" rather than a date you have to count from. Tasks
+belong to a project and a customer — the customer comes from the project unless
+you say otherwise — and **that is what makes them billable**: the stopwatch can
+be started on a ticket, takes the project from it, and the hours land on the
+card and on the invoice through the same time entry as always. A task without a
+project is a note with a date; time needs a project, because that is where the
+hourly rate hangs.
+
+Four columns: Backlog, in Arbeit, blockiert, erledigt. Drag and drop sorts
+within a column and moves between them; two arrows on every card do the same
+without a mouse. Only three of the columns are a status — the last one is the
+`done` flag the to-dos always had. That is deliberate: a second field meaning
+"finished" would drift away from the first the moment the phone ticks something
+off, since the sync merges field by field. The pleasant side effect is that
+dragging a card back out of _erledigt_ returns it to the column it came from.
+
+**Tasks and leads.** A follow-up on a lead carries its own ticket: put a lead
+on follow-up and the card appears in the backlog with that date, moving the
+date moves the card, and ticking the card off counts as having chased the lead
+up — it writes "Nachgefasst" into the lead's history and takes the date off,
+exactly as the button on the lead does. That also means a follow-up can be
+time-tracked like anything else, which it could not before.
+
+Only the ticket the follow-up made for itself behaves that way (`source =
+"LEAD"`). A task you write yourself and hang on a lead keeps the reference,
+shows up under that lead, and is yours — chasing the lead up does not tick it
+off. Removing a follow-up as a wrong date removes its card too, unless time
+has been booked on it, in which case it is closed rather than deleted: booked
+hours are history and do not disappear.
+
+**Tasks and the repository.** A ticket can carry the commits, pull requests and
+issues that belong to it: paste the URL out of the browser (or the short
+`owner/repo#12` / `owner/repo@abc123` form), and the task shows a chip with
+title and state — _offen_, _Entwurf_, _gemerged_, _geschlossen_. GitHub and
+GitLab, read through `GITHUB_TOKEN` / `GITLAB_TOKEN`; without a token for that
+host the link is still stored, just without the title. Reading only — a to-do
+list that can close other people's pull requests is a to-do list nobody should
+hand a token to. "Aktualisieren" re-reads the state, which is how a card
+answers "is it merged by now".
+
 **Sales.** Leads in four open stages (new, qualified, offer, negotiation) plus
 won and lost. Every lead records **what you offered for what**: title, amount,
 scope, sent on, valid until. Once an offer is out, its amount counts as the
 value of the lead — a number on paper is more reliable than a guess from the
 first call. Sending an offer advances the stage on its own.
+
+Follow-ups are the other half: a date, a reason, and from there a ticket on
+the task board — see [Tasks](#modules) above.
 
 The forecast is amount times **your** probability. Next to it sits an AI score
 from 0 to 100 with a rationale and a next step, refreshed at 6:30 on weekdays.
@@ -386,7 +432,9 @@ ends up in the report. "Continue with" picks up recent combinations by click.
 The running timer is visible in the sidebar and the header; starting one on a
 project stops a running one automatically. Plus manual entries and
 weekly/monthly reports with the value in euro. Hourly rate resolves project >
-client > global default.
+client > global default. A timer started on a task books on the task **and** on
+its project, so the ticket shows what it has cost and the invoice is unaffected
+by any of it.
 
 There is deliberately no password manager — that is what 1Password is for.
 soloops only stores the credentials it needs for its own syncing (calendar
@@ -407,6 +455,17 @@ cancelled.
 **Accounting.** A lexoffice adapter: create contacts, transfer invoices as
 finalized documents (`finalize=true`), monthly revenue net/VAT/gross for the
 advance VAT return.
+
+**Contracts.** NDA, Werkvertrag, Dienstvertrag and freie Mitarbeit, sent for
+signature from the customer list: pick the type, fill in what differs per
+contract, and n8n renders the template, turns it into a PDF through Gotenberg
+and hands it to Zoho Sign for both signatures. What comes back lands in
+soloops — the "Signatur ausstehend" task ticks itself off, a note records it,
+and the signed PDF shows up under _Verträge_ with everything else that is out
+and everything that came back. There is no contracts table: a contract is two
+notes and a task, which means it syncs to the phone and shows up in search
+without anything new being built for it. See
+[vertragsautomatisierung/README.md](vertragsautomatisierung/README.md).
 
 **Automations.** A full n8n under _Automatisierungen_ — its drag-and-drop
 canvas embedded in soloops, soloops nodes in its palette, templates to start
@@ -553,12 +612,15 @@ it is immediate; iCloud otherwise because it is the only thing left.
 ### What syncs
 
 Clients, projects, calendar events, leads, time entries, meetings, action items
-and notes. `Project` is in there because `TimeEntry.projectId` is non-null — a
+(including which lead's follow-up one belongs to) and notes. `Project` is in there because `TimeEntry.projectId` is non-null — a
 phone that cannot see projects cannot log time against one.
 
 Host-local columns deliberately stay put: `lastPushedAt` belongs to this
 machine's CalDAV sync, `followUpNotifiedAt` to its notifications,
-`lexofficeContactId` to its accounting link. Invoices do not sync at all.
+`lexofficeContactId` to its accounting link. Invoices do not sync at all, and
+neither do the commits and pull requests on a task: reading a diff is not
+something that happens in the car, and every synced field is one the Swift
+registry has to mirror forever.
 
 ### Keeping the two field lists in step
 
@@ -903,7 +965,7 @@ In the workflow that is `{{ $json.data.id }}`.
 | `lead.lost`          | …and it moved to lost                                          |
 | `project.created`    | a project is created                                           |
 | `meeting.ended`      | a meeting crosses into `DONE`                                  |
-| `task.completed`     | an open action item is ticked                                  |
+| `task.completed`     | an open task is ticked, or dropped into _erledigt_             |
 | `note.created`       | a note is created                                              |
 
 They are emitted from the service layer, not from one route, so a lead moved
@@ -999,7 +1061,7 @@ counted apart.
 | Projects    | `soloops_list_projects`, `soloops_get_project`, `soloops_create_project`, `soloops_update_project`, `soloops_project_digest`                                                                                                                                                                                                                                                        |
 | Calendar    | `soloops_free_slots`, `soloops_list_events`, `soloops_create_event`, `soloops_update_event`, `soloops_delete_event`                                                                                                                                                                                                                                                                 |
 | Meetings    | `soloops_list_meetings`, `soloops_get_meeting`, `soloops_create_meeting`, `soloops_update_meeting`, `soloops_summarize_meeting`                                                                                                                                                                                                                                                     |
-| To-dos      | `soloops_list_tasks`, `soloops_create_task`, `soloops_update_task`, `soloops_complete_task`, `soloops_delete_task`                                                                                                                                                                                                                                                                  |
+| Aufgaben    | `soloops_list_tasks`, `soloops_get_task`, `soloops_create_task`, `soloops_update_task`, `soloops_complete_task`, `soloops_link_task_commit`, `soloops_refresh_task_links`, `soloops_delete_task`                                                                                                                                                                                    |
 | Notes       | `soloops_list_notes`, `soloops_get_note`, `soloops_create_note`, `soloops_update_note`                                                                                                                                                                                                                                                                                              |
 | Time        | `soloops_timer_status`, `soloops_timer_start`, `soloops_timer_stop`, `soloops_log_time`, `soloops_update_time`, `soloops_delete_time`, `soloops_time_report`                                                                                                                                                                                                                        |
 | Money       | `soloops_unbilled_time`, `soloops_list_invoices`, `soloops_draft_invoice_from_time`, `soloops_set_invoice_status`, `soloops_revenue`                                                                                                                                                                                                                                                |
@@ -1009,7 +1071,8 @@ counted apart.
 
 The writing tools stay conservative where money or other people are involved:
 `soloops_draft_invoice_from_time` only produces a draft — sending it and
-transferring it to lexoffice stay manual. Leads and projects are archived
+transferring it to lexoffice stay manual. The task tools link commits and pull
+requests but never touch them: nothing here can merge, close or comment. Leads and projects are archived
 rather than deleted, time entries that are already invoiced refuse to go, and
 entries from connected calendars are read-only here.
 
