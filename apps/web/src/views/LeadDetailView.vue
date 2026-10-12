@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api } from '@/api'
 import { formatMoney } from '@soloops/shared'
+import { hours, type Task } from '@/lib/tasks'
 import PageHeader from '@/components/PageHeader.vue'
 
 type Offer = {
@@ -78,6 +79,8 @@ const KIND_LABEL: Record<string, string> = {
 const route = useRoute()
 const router = useRouter()
 const lead = ref<Lead | null>(null)
+/** The ticket the follow-up carries, so the block can point at the board. */
+const followUpTask = ref<Task | null>(null)
 const error = ref('')
 const scoring = ref(false)
 const showOffer = ref(false)
@@ -133,6 +136,11 @@ const date = (v: string | null) => (v ? new Date(v).toLocaleDateString('de-DE') 
 
 async function load() {
   lead.value = await api.get<Lead>(`/api/leads/${route.params.id}`)
+  const tasks = await api.get<Task[]>('/api/action-items', {
+    leadId: String(route.params.id),
+    open: true,
+  })
+  followUpTask.value = tasks.find((task) => task.source === 'LEAD') ?? null
 }
 
 async function patch(data: Record<string, unknown>) {
@@ -301,6 +309,13 @@ onMounted(load)
         <p class="mt-2 text-xs text-muted">
           „Nachgefasst" schreibt den Punkt in den Verlauf und zählt als Kontakt. Die App meldet eine
           fällige Wiedervorlage einmal als Mitteilung.
+          <template v-if="followUpTask">
+            Als Aufgabe steht sie auf dem
+            <RouterLink to="/tasks" class="text-blue hover:underline">Board</RouterLink>
+            — dort abhaken wirkt genauso<template v-if="followUpTask.trackedSec">
+              , {{ hours(followUpTask.trackedSec) }} sind schon darauf gebucht</template
+            >.
+          </template>
         </p>
       </template>
 

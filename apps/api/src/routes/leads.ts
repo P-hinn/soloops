@@ -15,6 +15,7 @@ import {
   touchLead,
   weightedCents,
 } from '../services/leads.js'
+import { dropFollowUpTask } from '../services/leadTasks.js'
 import { scoreLead } from '../ai/leadScore.js'
 import { emitAutomationEvent } from '../services/automationDelivery.js'
 
@@ -151,12 +152,26 @@ const routes: FastifyPluginAsync = async (app) => {
     const data = blankToNull(leadInput.partial().parse(req.body))
     // Changing the stage has rules of its own (probability, history) and
     // therefore does not belong in the generic field update.
-    const { stage: nextStage, ...rest } = data
-    const updated = await prisma.lead.update({
+    const { stage: nextStage, followUpOn, followUpNote, ...rest } = data
+
+    let updated = await prisma.lead.update({
       where: { id },
-      // A date set here is a new reminder, not one already announced.
-      data: 'followUpOn' in rest ? { ...rest, followUpNotifiedAt: null } : rest,
+      data: { ...rest, ...('followUpNote' in data ? { followUpNote } : {}) },
     })
+
+    // The follow-up is not a field like the others: it carries a ticket on
+    // the board. Setting the date here used to write the column directly,
+    // which left that ticket behind — so this path goes through the same two
+    // functions the dedicated endpoints use.
+    if ('followUpOn' in data) {
+      updated = followUpOn
+        ? await setFollowUp(id, followUpOn, followUpNote ?? updated.followUpNote)
+        : await clearFollowUp(id)
+    } else if ('followUpNote' in data && updated.followUpOn) {
+      // Only the reason changed — the card on the board is named after it.
+      updated = await setFollowUp(id, updated.followUpOn, followUpNote)
+    }
+
     return nextStage && nextStage !== updated.stage ? changeStage(id, nextStage) : updated
   })
 
@@ -168,6 +183,10 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.delete('/:id', async (req, reply) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
+    // Archiving takes the lead out of the pipeline, so its follow-up ticket
+    // has no business staying on the board. The date on the lead survives —
+    // unarchiving it later should still say when you meant to call.
+    await dropFollowUpTask(id)
     await prisma.lead.update({ where: { id }, data: { archived: true } })
     return reply.code(204).send()
   })

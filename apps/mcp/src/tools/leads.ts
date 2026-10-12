@@ -109,7 +109,7 @@ export function registerLeads(server: McpServer): void {
   tool(
     server,
     'soloops_set_follow_up',
-    'Lead auf Wiedervorlage packen oder die Wiedervorlage verschieben. Das Datum setzt die „zuletzt angefasst"-Uhr nicht zurück — eine Erinnerung ist kein Kundenkontakt.',
+    'Lead auf Wiedervorlage packen oder die Wiedervorlage verschieben. Legt zugleich die Aufgabe dazu an (bzw. verschiebt sie mit), damit die Wiedervorlage auf dem Board steht und Zeit darauf gebucht werden kann. Das Datum setzt die „zuletzt angefasst"-Uhr nicht zurück — eine Erinnerung ist kein Kundenkontakt.',
     {
       leadId: z.string(),
       on: z.string().describe('ISO-Datum, z.B. 2026-10-08'),
@@ -121,7 +121,7 @@ export function registerLeads(server: McpServer): void {
   tool(
     server,
     'soloops_complete_follow_up',
-    'Wiedervorlage abhaken: schreibt „nachgefasst" in den Verlauf, zählt als Kontakt und nimmt das Datum weg. Für einen Fehleintrag stattdessen soloops_clear_follow_up.',
+    'Wiedervorlage abhaken: schreibt „nachgefasst" in den Verlauf, zählt als Kontakt, nimmt das Datum weg und hakt die zugehörige Aufgabe ab. Für einen Fehleintrag stattdessen soloops_clear_follow_up.',
     { leadId: z.string(), note: z.string().optional().describe('was dabei herauskam') },
     ({ leadId, ...body }) => post(`/api/leads/${leadId}/follow-up/done`, body),
   )
@@ -129,7 +129,7 @@ export function registerLeads(server: McpServer): void {
   tool(
     server,
     'soloops_clear_follow_up',
-    'Wiedervorlage entfernen, ohne etwas in den Verlauf zu schreiben — für ein falsch gesetztes Datum.',
+    'Wiedervorlage entfernen, ohne etwas in den Verlauf zu schreiben — für ein falsch gesetztes Datum. Die Aufgabe dazu verschwindet mit (erfasste Zeit wird stattdessen abgehakt).',
     { leadId: z.string() },
     ({ leadId }) => del(`/api/leads/${leadId}/follow-up`),
   )

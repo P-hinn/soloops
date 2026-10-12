@@ -1,5 +1,6 @@
 import type { ActivityKind, LeadStage } from '@prisma/client'
 import { prisma } from '../db.js'
+import { closeFollowUpTask, dropFollowUpTask, syncFollowUpTask } from './leadTasks.js'
 import {
   followUpDays,
   followUpDue,
@@ -176,9 +177,15 @@ export async function dueFollowUps(withinDays = 14) {
   return withDays(leads, now)
 }
 
-/** Put a lead on follow-up, or move the date. */
+/**
+ * Put a lead on follow-up, or move the date.
+ *
+ * The ticket on the board comes with it — see services/leadTasks.ts. Every
+ * path that sets the date goes through here for that reason, the generic
+ * PATCH on the lead included.
+ */
 export async function setFollowUp(leadId: string, on: Date, note?: string | null) {
-  return prisma.lead.update({
+  const lead = await prisma.lead.update({
     where: { id: leadId },
     data: {
       followUpOn: on,
@@ -187,6 +194,8 @@ export async function setFollowUp(leadId: string, on: Date, note?: string | null
       followUpNotifiedAt: null,
     },
   })
+  await syncFollowUpTask(lead)
+  return lead
 }
 
 /**
@@ -200,6 +209,9 @@ export async function completeFollowUp(leadId: string, note?: string) {
     kind: 'FOLLOW_UP',
     body: reason ? `Nachgefasst: ${reason}` : 'Nachgefasst',
   })
+  // The ticket is ticked off before the date comes off the lead: afterwards
+  // there is nothing left that says which follow-up it belonged to.
+  await closeFollowUpTask(leadId)
   return prisma.lead.update({
     where: { id: leadId },
     data: { followUpOn: null, followUpNote: null, followUpNotifiedAt: null },
@@ -208,6 +220,7 @@ export async function completeFollowUp(leadId: string, note?: string) {
 
 /** Take the follow-up off without writing history — for a wrong date. */
 export async function clearFollowUp(leadId: string) {
+  await dropFollowUpTask(leadId)
   return prisma.lead.update({
     where: { id: leadId },
     data: { followUpOn: null, followUpNote: null, followUpNotifiedAt: null },
