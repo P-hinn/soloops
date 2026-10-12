@@ -31,6 +31,7 @@ import assistantRoutes from './routes/assistant.js'
 import onboardingRoutes from './routes/onboarding.js'
 import automationRoutes from './routes/automations.js'
 import automationConnectorRoutes from './routes/automationConnector.js'
+import contractRoutes from './routes/contracts.js'
 import syncRoutes from './routes/sync.js'
 
 const app = Fastify({
@@ -98,6 +99,7 @@ await app.register(automationRoutes, { prefix: '/api/automations' })
 // above: it is the only surface an n8n automation token opens, and that is
 // much easier to keep true when the two cannot share a hook by accident.
 await app.register(automationConnectorRoutes, { prefix: '/api/automations/connector' })
+await app.register(contractRoutes, { prefix: '/api/contracts' })
 await app.register(syncRoutes, { prefix: '/api/sync' })
 
 await ensureSearchIndexes()

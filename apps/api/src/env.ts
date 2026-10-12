@@ -32,6 +32,13 @@ const schema = z.object({
   GITLAB_HOST: z.string().default('https://gitlab.com'),
   PIPELINE_POLL_CRON: z.string().default('*/3 * * * *'),
 
+  /// Where the "Vertrag versenden" workflow listens. Inside the compose
+  /// network, so the browser never sees it — see routes/contracts.ts.
+  N8N_CONTRACT_WEBHOOK: z.string().default('http://n8n:5678/webhook/vertrag-versenden'),
+  /// Sent as a header with every contract send; the webhook refuses without
+  /// it. Empty means the workflow is unprotected — see routes/contracts.ts.
+  N8N_CONTRACT_WEBHOOK_SECRET: z.string().default(''),
+
   LEXOFFICE_API_KEY: z.string().optional(),
   LEXOFFICE_BASE_URL: z.string().default('https://api.lexoffice.io'),
 

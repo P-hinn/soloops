@@ -1,0 +1,433 @@
+{
+  "name": "Vertrag versenden (SoloOps → Zoho Sign)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vertrag versenden\n\nPOST auf den Webhook:\n```json\n{\n  \"vertrag\": \"nda | werkvertrag | dienstvertrag | freie-mitarbeit\",\n  \"client_id\": \"<SoloOps-Client-ID>\",\n  \"felder\": { \"projekt_gegenstand\": \"...\", \"stundensatz\": \"100,00\" }\n}\n```\n\n**Einmalig einrichten:**\n1. Templates nach `/data/vertraege/templates/` auf den n8n-Host legen\n2. Env-Vars: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `GOTENBERG_URL`\n3. Die zwei ►-Nodes durch deine SoloOps-Nodes ersetzen\n4. Einen Testversand an dich selbst machen und die Koordinaten der Signaturfelder im Node „Signaturfelder platzieren\" ggf. nachjustieren",
+        "height": 420,
+        "width": 440
+      },
+      "id": "sticky1",
+      "name": "Anleitung",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-20, -260]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vertrag-versenden",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "webhook1",
+      "name": "Webhook: Vertrag versenden",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VlTzmmdu52Hieihg",
+          "name": "Vertrags-Webhook"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== KONFIG: eigene Daten & Defaults – hier pflegen =====\nconst CONFIG = {\n  an: {\n    an_firma: 'Philipp Niestroj Software Engineering',\n    an_strasse: 'Neckarstraße 2',\n    an_plz_ort: '84036 Landshut',\n    an_ort: 'Landshut',\n    an_vertreter: 'Philipp Niestroj',\n    an_email: 'contact@philippniestroj.com',\n    an_website: 'www.philippniestroj.com',\n    an_telefon: '+49 1520 8880466',\n    an_bank: 'Kontoinhaber: Philipp Niestroj\\nIBAN: DE.. .... .... .... .... ..  ← eintragen\\nBIC: ........'\n  },\n  defaults: {\n    zahlungsziel_tage: '14',\n    kuendigungsfrist: 'vier Wochen zum Monatsende',\n    vertragsstrafe_min: '5.000,00',\n    vertragsstrafe_max: '25.000,00',\n    abwerbe_strafe_monate: 'drei',\n    werk_anlagen: '–'\n  },\n  vertraege: {\n    'nda':             { template: 'nda.html',             titel: 'Geheimhaltungsvereinbarung (NDA)', pflicht: ['projekt_gegenstand', 'gespraeche_seit'] },\n    'werkvertrag':     { template: 'werkvertrag.html',     titel: 'Werkvertrag',                      pflicht: ['werk_beschreibung', 'fertigstellung_datum', 'abnahme_person', 'festpreis'] },\n    'dienstvertrag':   { template: 'dienstvertrag.html',   titel: 'Dienstvertrag (Beratung)',         pflicht: ['beratung_gegenstand', 'beratung_bereich', 'beratung_leistungen', 'beginn_datum', 'stundensatz', 'tagessatz'] },\n    'freie-mitarbeit': { template: 'freie-mitarbeit.html', titel: 'Honorarvertrag (freie Mitarbeit)', pflicht: ['taetigkeit_rolle', 'taetigkeit_bereich', 'taetigkeit_aufgaben', 'beginn_datum', 'stundensatz', 'tagessatz'] }\n  }\n};\n\nconst b = $input.first().json.body || $input.first().json;\nconst art = b.vertrag;\nconst def = CONFIG.vertraege[art];\nif (!def) throw new Error(`Unbekannter Vertragstyp: ${art}. Erlaubt: ${Object.keys(CONFIG.vertraege).join(', ')}`);\nif (!b.client_id) throw new Error('client_id fehlt');\n\nconst felder = { ...CONFIG.an, ...CONFIG.defaults, ...(b.felder || {}) };\nconst fehlen = def.pflicht.filter(k => !felder[k]);\nif (fehlen.length) throw new Error(`Pflichtfelder fehlen: ${fehlen.join(', ')}`);\n\nreturn [{ json: { vertrag: art, titel: def.titel, templateFile: def.template, client_id: b.client_id, felder } }];"
+      },
+      "id": "code1",
+      "name": "Eingabe prüfen & Konfig",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 200]
+    },
+    {
+      "parameters": {
+        "resource": "client",
+        "operation": "get",
+        "clientId": "={{ $json.client_id }}"
+      },
+      "type": "CUSTOM.soloops",
+      "typeVersion": 1,
+      "position": [440, 200],
+      "id": "soloops-kunde-laden",
+      "name": "SoloOps: Kunde laden",
+      "credentials": {
+        "soloopsApi": {
+          "id": "lUK2wsDgumSh7D5P",
+          "name": "soloops account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Die get_client-Antwort auf die Vertragsfelder legen.\n// Feldnamen links gehören den Templates, rechts der SoloOps-Client.\nconst base = $('Eingabe prüfen & Konfig').first().json;\nconst c = $input.first().json;\n\n// In SoloOps ist `name` die Person und `company` die Firma; ein Kunde ohne\n// Firma ist eine Einzelperson, dann steht der Name in beiden Zeilen.\nconst kunde = {\n  kunde_firma:     c.company || c.name || null,\n  kunde_strasse:   c.street || null,\n  kunde_plz_ort:   (c.zip && c.city) ? `${c.zip} ${c.city}` : null,\n  kunde_ort:       c.city || null,\n  kunde_vertreter: c.name || null,\n  kunde_email:     c.email || null\n};\n\n// Fehlendes beim Namen nennen: „Kundendaten unvollständig\" schickt einen auf\n// die Suche, „Straße, PLZ, Ort fehlen\" sagt, was zu tun ist.\nconst LABEL = {\n  kunde_firma: 'Firma/Name', kunde_strasse: 'Straße', kunde_plz_ort: 'PLZ und Ort',\n  kunde_ort: 'Ort', kunde_vertreter: 'Ansprechpartner', kunde_email: 'E-Mail'\n};\nconst fehlt = Object.entries(kunde).filter(([, v]) => !v).map(([k]) => LABEL[k]);\nif (fehlt.length) {\n  throw new Error(`Beim Kunden ${c.name || c.id} fehlt: ${[...new Set(fehlt)].join(', ')} — in SoloOps unter Kunden ergänzen.`);\n}\n\nconst felder = { ...base.felder, ...kunde };\n\nconst zohoCreatePayload = {\n  requests: {\n    request_name: `${base.titel} – ${kunde.kunde_firma}`,\n    is_sequential: false,\n    expiration_days: 15,\n    actions: [\n      { recipient_name: kunde.kunde_vertreter, recipient_email: kunde.kunde_email, action_type: 'SIGN', signing_order: 0, verify_recipient: false },\n      { recipient_name: felder.an_vertreter,   recipient_email: felder.an_email,   action_type: 'SIGN', signing_order: 1, verify_recipient: false }\n    ]\n  }\n};\n\nreturn [{ json: { ...base, felder, kunde_email: kunde.kunde_email, kunde_firma: kunde.kunde_firma, zohoCreatePayload } }];\n"
+      },
+      "id": "code2",
+      "name": "Kundendaten mappen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://accounts.zoho.eu/oauth/v2/token",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "zohoSignApi",
+        "options": {}
+      },
+      "id": "token1",
+      "name": "Zoho Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "credentials": {
+        "zohoSignApi": {
+          "id": "WOsDVXG7G9WDfqn3",
+          "name": "Zoho Sign"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/data/vertraege/templates/{{ $('Eingabe prüfen & Konfig').first().json.templateFile }}",
+        "options": {}
+      },
+      "id": "readfile1",
+      "name": "Template laden",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const felder = $('Kundendaten mappen').first().json.felder;\nconst bin = $input.first().binary.data;\nconst html = Buffer.from(bin.data, 'base64').toString('utf-8');\n\nconst esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst missing = [];\nconst filled = html.replace(/\\{\\{(\\w+)\\}\\}/g, (m, k) => {\n  if (felder[k] === undefined || felder[k] === '') { missing.push(k); return m; }\n  return esc(felder[k]);\n});\nif (missing.length) throw new Error('Platzhalter ohne Wert: ' + [...new Set(missing)].join(', '));\n\nreturn [{ json: {}, binary: { data: { data: Buffer.from(filled, 'utf-8').toString('base64'), mimeType: 'text/html', fileName: 'index.html' } } }];"
+      },
+      "id": "code3",
+      "name": "Platzhalter füllen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "printBackground",
+              "value": "true"
+            },
+            {
+              "name": "preferCssPageSize",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "gotenberg1",
+      "name": "Gotenberg: HTML → PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sign.zoho.eu/api/v1/requests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Zoho-oauthtoken {{ $('Zoho Access Token').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify($('Kundendaten mappen').first().json.zohoCreatePayload) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "zohocreate1",
+      "name": "Zoho: Request anlegen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Signaturfelder auf der Unterschriftenseite (= letzte Seite) platzieren.\n// Die Templates haben dort zwei feste Boxen – Koordinaten in PDF-Punkten (A4 = 595 x 842).\n// Beim ersten Testversand prüfen und ggf. um ein paar Punkte verschieben.\nconst res = $input.first().json;\nconst req = res.requests;\nif (!req) throw new Error('Unerwartete Zoho-Antwort: ' + JSON.stringify(res).slice(0, 500));\n\nconst doc = req.document_ids[0];\n// total_pages kommt als String zurück; 0-basierte Seitennummer.\nconst lastPage = Number(doc.total_pages || 1) - 1;\n\nconst COORDS = { y: 168, width: 225, height: 55, xKunde: 55, xIch: 315 };\n\nconst actions = req.actions.map((a, i) => ({\n  action_id: a.action_id,\n  action_type: a.action_type,\n  recipient_name: a.recipient_name,\n  recipient_email: a.recipient_email,\n  signing_order: a.signing_order,\n  verify_recipient: false,\n  fields: [{\n    // field_category gehört dazu: ohne sie legt Zoho das Feld als Textfeld an\n    // und der Empfänger bekommt eine Zeile statt einer Unterschrift.\n    field_category: 'image',\n    field_type_name: 'Signature',\n    field_name: i === 0 ? 'Unterschrift Auftraggeber' : 'Unterschrift Auftragnehmer',\n    field_label: i === 0 ? 'Auftraggeber' : 'Auftragnehmer',\n    action_id: a.action_id,\n    document_id: doc.document_id,\n    is_mandatory: true,\n    page_no: lastPage,\n    x_coord: i === 0 ? COORDS.xKunde : COORDS.xIch,\n    y_coord: COORDS.y,\n    abs_width: COORDS.width,\n    abs_height: COORDS.height\n  }]\n}));\n\nreturn [{ json: { request_id: req.request_id, request_name: req.request_name, submitPayload: { requests: { actions } } } }];\n"
+      },
+      "id": "code4",
+      "name": "Signaturfelder platzieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sign.zoho.eu/api/v1/requests/{{ $json.request_id }}/submit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Zoho-oauthtoken {{ $('Zoho Access Token').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify($json.submitPayload) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "zohosubmit1",
+      "name": "Zoho: Versenden (submit)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'versendet', vertrag: $('Eingabe prüfen & Konfig').first().json.titel, zoho_request_id: $('Signaturfelder platzieren').first().json.request_id, notiz_id: $json.id, aufgabe_id: $('SoloOps: Signatur-Aufgabe').first().json.id }) }}"
+      },
+      "id": "respond1",
+      "name": "Antwort",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2640, 200]
+    },
+    {
+      "parameters": {
+        "resource": "task",
+        "operation": "create",
+        "title": "=Signatur ausstehend: {{ $('Eingabe prüfen & Konfig').first().json.titel }}",
+        "additionalFields": {
+          "clientId": "={{ $('Eingabe prüfen & Konfig').first().json.client_id }}",
+          "dueOn": "={{ $now.plus({ days: 7 }).toISO() }}"
+        }
+      },
+      "type": "CUSTOM.soloops",
+      "typeVersion": 1,
+      "position": [2420, 200],
+      "id": "soloops-signatur-aufgabe",
+      "name": "SoloOps: Signatur-Aufgabe",
+      "credentials": {
+        "soloopsApi": {
+          "id": "lUK2wsDgumSh7D5P",
+          "name": "soloops account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "note",
+        "operation": "create",
+        "title": "=[VERTRAG] {{ $('Eingabe prüfen & Konfig').first().json.titel }} – versendet {{ $now.toFormat('dd.LL.yyyy') }} – Zoho-ID: {{ $('Signaturfelder platzieren').first().json.request_id }}",
+        "body": "=An {{ $('Kundendaten mappen').first().json.kunde_email }} verschickt.\nAufgabe: {{ $json.id }}\nZoho-Request: {{ $('Signaturfelder platzieren').first().json.request_id }}",
+        "additionalFields": {
+          "clientId": "={{ $('Eingabe prüfen & Konfig').first().json.client_id }}"
+        }
+      },
+      "type": "CUSTOM.soloops",
+      "typeVersion": 1,
+      "position": [2620, 200],
+      "id": "soloops-notiz-versendet",
+      "name": "SoloOps: Notiz versendet",
+      "credentials": {
+        "soloopsApi": {
+          "id": "lUK2wsDgumSh7D5P",
+          "name": "soloops account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Vertrag versenden": {
+      "main": [
+        [
+          {
+            "node": "Eingabe prüfen & Konfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Eingabe prüfen & Konfig": {
+      "main": [
+        [
+          {
+            "node": "SoloOps: Kunde laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kundendaten mappen": {
+      "main": [
+        [
+          {
+            "node": "Zoho Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho Access Token": {
+      "main": [
+        [
+          {
+            "node": "Template laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template laden": {
+      "main": [
+        [
+          {
+            "node": "Platzhalter füllen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Platzhalter füllen": {
+      "main": [
+        [
+          {
+            "node": "Gotenberg: HTML → PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gotenberg: HTML → PDF": {
+      "main": [
+        [
+          {
+            "node": "Zoho: Request anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho: Request anlegen": {
+      "main": [
+        [
+          {
+            "node": "Signaturfelder platzieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signaturfelder platzieren": {
+      "main": [
+        [
+          {
+            "node": "Zoho: Versenden (submit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho: Versenden (submit)": {
+      "main": [
+        [
+          {
+            "node": "SoloOps: Signatur-Aufgabe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoloOps: Kunde laden": {
+      "main": [
+        [
+          {
+            "node": "Kundendaten mappen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoloOps: Signatur-Aufgabe": {
+      "main": [
+        [
+          {
+            "node": "SoloOps: Notiz versendet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoloOps: Notiz versendet": {
+      "main": [
+        [
+          {
+            "node": "Antwort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

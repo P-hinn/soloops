@@ -2,6 +2,7 @@ import type { INodeType, INodeTypeDescription } from 'n8n-workflow'
 // The value lives under the plural name; `NodeConnectionType` is the type.
 import { NodeConnectionTypes } from 'n8n-workflow'
 
+import { clientFields, clientOperations } from './ClientDescription'
 import { leadFields, leadOperations } from './LeadDescription'
 import { projectFields, projectOperations } from './ProjectDescription'
 import { taskFields, taskOperations } from './TaskDescription'
@@ -25,7 +26,7 @@ export class Soloops implements INodeType {
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-    description: 'Read and write leads, projects, tasks, time and notes in soloops',
+    description: 'Read and write clients, leads, projects, tasks, time and notes in soloops',
     defaults: { name: 'Soloops' },
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
@@ -47,6 +48,7 @@ export class Soloops implements INodeType {
         type: 'options',
         noDataExpression: true,
         options: [
+          { name: 'Client', value: 'client' },
           { name: 'Lead', value: 'lead' },
           { name: 'Note', value: 'note' },
           { name: 'Project', value: 'project' },
@@ -55,6 +57,8 @@ export class Soloops implements INodeType {
         ],
         default: 'lead',
       },
+      ...clientOperations,
+      ...clientFields,
       ...leadOperations,
       ...leadFields,
       ...projectOperations,

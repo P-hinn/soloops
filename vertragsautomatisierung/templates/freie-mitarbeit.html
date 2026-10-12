@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Honorarvertrag / Freie Mitarbeit</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 22mm 18mm 20mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+        color: #111;
+        font-size: 10.5pt;
+        line-height: 1.55;
+      }
+      .brand {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 10px;
+        border-bottom: 2.5px solid #d8ff55;
+        margin-bottom: 28px;
+      }
+      .brand .name {
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .brand .sub {
+        font-size: 8.5pt;
+        color: #555;
+        margin-top: 2px;
+      }
+      .brand .contact {
+        text-align: right;
+        font-size: 8pt;
+        color: #555;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 17pt;
+        margin: 0 0 4px;
+      }
+      .doc-sub {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 24px;
+      }
+      .parties {
+        margin: 0 0 26px;
+      }
+      .parties .p {
+        margin-bottom: 14px;
+      }
+      .parties .role {
+        color: #555;
+        font-size: 9.5pt;
+      }
+      .between {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 10px;
+      }
+      ol.contract {
+        counter-reset: top;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ol.contract > li {
+        counter-increment: top;
+        margin-bottom: 18px;
+      }
+      ol.contract > li > h2 {
+        font-size: 11.5pt;
+        margin: 0 0 8px;
+      }
+      ol.contract > li > h2::before {
+        content: counter(top) '. ';
+      }
+      ol.sub {
+        counter-reset: sub;
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+      ol.sub > li {
+        counter-increment: sub;
+        margin: 0 0 8px 0;
+        padding-left: 34px;
+        position: relative;
+      }
+      ol.sub > li::before {
+        content: counter(top) '.' counter(sub);
+        position: absolute;
+        left: 0;
+        font-weight: 600;
+        font-size: 9pt;
+        color: #333;
+      }
+      p.plain {
+        margin: 0 0 8px;
+      }
+      .box {
+        border: 1px solid #ddd;
+        border-left: 3px solid #d8ff55;
+        border-radius: 4px;
+        padding: 10px 14px;
+        margin: 6px 0;
+        white-space: pre-wrap;
+      }
+      .sign-page {
+        page-break-before: always;
+        padding-top: 30px;
+      }
+      .sign-page h2 {
+        font-size: 12pt;
+      }
+      .sign-grid {
+        display: flex;
+        gap: 40px;
+        margin-top: 36px;
+      }
+      .sign-col {
+        flex: 1;
+      }
+      .sign-box {
+        height: 90px;
+        border: 1px solid #bbb;
+        border-radius: 4px;
+        margin: 14px 0 8px;
+      }
+      .sign-meta {
+        font-size: 9pt;
+        color: #555;
+      }
+      .sig-name {
+        font-weight: 600;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brand">
+      <div>
+        <div class="name">PHILIPP NIESTROJ</div>
+        <div class="sub">Software Engineering</div>
+      </div>
+      <div class="contact">
+        {{an_firma}} · {{an_strasse}} · {{an_plz_ort}}<br />
+        {{an_email}} · {{an_website}}<br />
+        {{an_telefon}}
+      </div>
+    </header>
+
+    <h1>Honorarvertrag</h1>
+    <div class="doc-sub">Vertrag über die freie Mitarbeit</div>
+
+    <section class="parties">
+      <div class="between">zwischen</div>
+      <div class="p">
+        <strong>{{kunde_firma}}</strong><br />
+        {{kunde_strasse}}<br />
+        {{kunde_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>Auftraggeber</strong>" –</span>
+      </div>
+      <div class="between">und</div>
+      <div class="p">
+        <strong>{{an_firma}}</strong><br />
+        {{an_strasse}}<br />
+        {{an_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>freier Mitarbeiter</strong>" –</span>
+      </div>
+      <div class="role">– gemeinsam nachfolgend „<strong>Vertragspartner</strong>" –</div>
+    </section>
+
+    <ol class="contract">
+      <li>
+        <h2>Vertragsgegenstand</h2>
+        <ol class="sub">
+          <li>
+            Der freie Mitarbeiter wird in der Eigenschaft als
+            <strong>{{taetigkeit_rolle}}</strong> für den Auftraggeber tätig.
+          </li>
+          <li>
+            Der freie Mitarbeiter wird im Bereich {{taetigkeit_bereich}} tätig. Seine Aufgaben
+            werden sein:
+            <div class="box">{{taetigkeit_aufgaben}}</div>
+          </li>
+          <li>
+            Der freie Mitarbeiter erbringt seine Leistungen als selbständiger Unternehmer
+            („Freelancer") eigenverantwortlich und auf eigene Rechnung. Dabei unterliegt er nicht
+            der Weisungsbefugnis des Auftraggebers. Der freie Mitarbeiter ist bei der Ausübung
+            seiner Tätigkeit insbesondere örtlich und zeitlich nicht gebunden. Gleichwohl werden die
+            Vertragspartner auf die Interessen des jeweils anderen bei der Gestaltung der
+            Leistungserbringung Rücksicht nehmen.
+          </li>
+          <li>Ein Arbeitsverhältnis wird nicht begründet.</li>
+          <li>
+            Der freie Mitarbeiter ist verpflichtet, die Aufträge grundsätzlich persönlich
+            auszuführen. Bedient sich der freie Mitarbeiter im Einzelfall bei der Ausführung der
+            Aufträge anderer Personen, bleibt er für die ordnungsgemäße Erfüllung der Leistungen
+            nach diesem Vertrag gegenüber dem Auftraggeber verantwortlich. Der Auftraggeber hat das
+            Recht, vom freien Mitarbeiter zur Leistungserbringung eingesetzte Mitarbeiter oder
+            Dritte abzulehnen, wenn er hierzu ein berechtigtes Interesse geltend machen kann.
+          </li>
+          <li>
+            Im Falle einer Erkrankung oder sonstigen Dienstverhinderung ist dies dem anderen
+            Vertragspartner unverzüglich mitzuteilen.
+          </li>
+          <li>
+            Der freie Mitarbeiter ist berechtigt, Aufträge des Auftraggebers ohne Angabe von Gründen
+            abzulehnen. Er hat den Auftraggeber hierüber unverzüglich zu informieren.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vertragsbeginn und Vertragsbeendigung</h2>
+        <ol class="sub">
+          <li>Das Vertragsverhältnis beginnt am {{beginn_datum}}.</li>
+          <li>
+            Jede Vertragspartei kann das Vertragsverhältnis mit einer Frist von {{kuendigungsfrist}}
+            kündigen. Das Recht zur außerordentlichen Kündigung bleibt unberührt.
+          </li>
+          <li>Die Kündigung des Vertragsverhältnisses bedarf der Schriftform.</li>
+          <li>
+            Bei Beendigung des Vertragsverhältnisses hat der freie Mitarbeiter sämtliches in seinem
+            Besitz befindliche Eigentum des Auftraggebers und die ihm im Rahmen seiner Tätigkeit vom
+            Auftraggeber zur Verfügung gestellten Unterlagen unverzüglich und unaufgefordert an den
+            Auftraggeber herauszugeben.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vergütung</h2>
+        <ol class="sub">
+          <li>
+            Der freie Mitarbeiter erhält für jede geleistete volle Stunde seiner Tätigkeit einen
+            Stundensatz in Höhe von EUR {{stundensatz}}. Die Vergütung wird der freie Mitarbeiter
+            dem Auftraggeber am Ende eines jeden Monats unter Spezifizierung der Tätigkeit und ihrer
+            Dauer in Rechnung stellen.
+          </li>
+          <li>
+            Der freie Mitarbeiter erhält für seine Tätigkeit, die mindestens acht volle Zeitstunden
+            innerhalb eines Kalendertages umfasst, einen Tagessatz in Höhe von EUR {{tagessatz}}.
+            Die Vergütung wird der freie Mitarbeiter dem Auftraggeber am Ende eines jeden Monats
+            unter Spezifizierung der Tätigkeit und ihrer Dauer in Rechnung stellen.
+          </li>
+          <li>
+            Alle genannten Preise verstehen sich als Nettopreise. Hinzu kommt die jeweils geltende
+            gesetzliche Umsatzsteuer, derzeit 19 %.
+          </li>
+          <li>
+            Der Auftraggeber wird das Honorar innerhalb von {{zahlungsziel_tage}} Tagen nach Erhalt
+            einer ordnungsgemäßen Rechnung auf das folgende Konto des freien Mitarbeiters
+            überweisen:
+            <div class="box">{{an_bank}}</div>
+          </li>
+          <li>
+            Es obliegt dem freien Mitarbeiter, für die Abführung von Steuern, insbesondere
+            Einkommensteuer, und von etwaigen Sozialversicherungsbeiträgen Sorge zu tragen.
+          </li>
+          <li>
+            Der freie Mitarbeiter trägt alle Aufwendungen, die im Rahmen seiner Tätigkeit anfallen,
+            selbst. Die Vertragspartner können vereinbaren, dass Aufwendungen nach ordnungsgemäßem
+            Nachweis vom Auftraggeber erstattet werden.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Krankheit, Arbeitsverhinderung und Urlaub</h2>
+        <ol class="sub">
+          <li>
+            Der freie Mitarbeiter hat keinen Anspruch auf Vergütung, wenn er infolge Krankheit oder
+            aus sonstigen Gründen an der Ausübung der Tätigkeit verhindert ist.
+          </li>
+          <li>Der freie Mitarbeiter hat keinen Anspruch auf Urlaub oder Urlaubsgeld.</li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Wettbewerbsverbot / Tätigkeiten für Dritte</h2>
+        <ol class="sub">
+          <li>
+            Für die Dauer des Vertragsverhältnisses verpflichtet sich der freie Mitarbeiter, dass er
+            für kein Unternehmen tätig wird, das mit dem Auftraggeber im Wettbewerb steht, kein
+            solches Unternehmen zu gründen, zu betreiben oder sich an einem solchen Unternehmen über
+            eine Bagatellgrenze hinaus zu beteiligen.
+          </li>
+          <li>
+            Im Übrigen bleibt es dem freien Mitarbeiter überlassen, auch bei anderen Auftraggebern
+            tätig zu werden, sofern durch die anderweitige Tätigkeit die Tätigkeit für den
+            Auftraggeber nicht beeinträchtigt wird.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Verschwiegenheit</h2>
+        <ol class="sub">
+          <li>
+            Der freie Mitarbeiter verpflichtet sich, über alle ihm im Rahmen seiner freien Mitarbeit
+            bekannt gewordenen Geschäfts- und Betriebsgeheimnisse während und nach Beendigung des
+            Vertragsverhältnisses Stillschweigen zu bewahren, soweit es sich nicht um lediglich dem
+            allgemeinen Stand der Technik entsprechende oder sonst offenkundige Tatsachen oder
+            Umstände handelt. Der Auftraggeber wird den freien Mitarbeiter von dieser
+            Verschwiegenheitspflicht entbinden, wenn und soweit er gesetzlich oder durch
+            Rechtsmittel nicht mehr abwendbarer gerichtlicher oder behördlicher Anordnung zur
+            Veröffentlichung der jeweiligen Informationen verpflichtet ist.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Schlussbestimmungen</h2>
+        <ol class="sub">
+          <li>
+            Die Vertragspartner sind sich einig, dass der vorliegende Vertrag abschließend ist und
+            keine anderen, auch mündliche, Abreden getroffen wurden.
+          </li>
+          <li>
+            Änderungen, Aufhebungen und Ergänzungen dieser Vereinbarung einschließlich der Änderung
+            dieser Regelung bedürfen zu ihrer Wirksamkeit der Schriftform, soweit nicht gesetzlich
+            zwingend eine strengere Form vorgeschrieben ist.
+          </li>
+          <li>
+            Erfüllungsort und Gerichtsstand für alle Streitigkeiten aus und im Zusammenhang mit
+            dieser Vereinbarung ist der Sitz des freien Mitarbeiters, sofern der Auftraggeber
+            Kaufmann, juristische Person des öffentlichen Rechts oder öffentlich-rechtliches
+            Sondervermögen ist.
+          </li>
+          <li>
+            Sollte eine Bestimmung dieser Vereinbarung ganz oder teilweise unwirksam sein oder
+            werden oder sollte die Vereinbarung unvollständig sein, so wird die Vereinbarung im
+            übrigen Inhalt nicht berührt. Die Vertragspartner verpflichten sich, die unwirksame
+            Bestimmung durch eine solche Bestimmung zu ersetzen, welche dem Sinn und Zweck der
+            unwirksamen Bestimmung in rechtswirksamer Weise wirtschaftlich am nächsten kommt.
+            Entsprechendes gilt auch für festgestellte Lücken.
+          </li>
+        </ol>
+      </li>
+    </ol>
+
+    <section class="sign-page">
+      <h2>Unterschriften</h2>
+      <div class="sign-grid">
+        <div class="sign-col">
+          <div class="sign-meta">Auftraggeber</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{kunde_vertreter}}</div>
+          <div class="sign-meta">{{kunde_firma}}</div>
+          <div class="sign-meta">{{kunde_ort}}, den ________________</div>
+        </div>
+        <div class="sign-col">
+          <div class="sign-meta">Freier Mitarbeiter</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{an_vertreter}}</div>
+          <div class="sign-meta">{{an_firma}}</div>
+          <div class="sign-meta">{{an_ort}}, den ________________</div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

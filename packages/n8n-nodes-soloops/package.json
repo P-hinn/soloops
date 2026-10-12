@@ -2,7 +2,7 @@
   "name": "n8n-nodes-soloops",
   "version": "0.1.0",
   "private": true,
-  "description": "soloops nodes for n8n: read and write leads, projects, tasks, time and notes, and react to soloops events",
+  "description": "soloops nodes for n8n: read and write leads, projects, tasks, time and notes, and react to soloops events; plus the Zoho Sign credential the contract workflows use",
   "license": "MIT",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,8 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/SoloopsApi.credentials.js"
+      "dist/credentials/SoloopsApi.credentials.js",
+      "dist/credentials/ZohoSignApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/Soloops/Soloops.node.js",

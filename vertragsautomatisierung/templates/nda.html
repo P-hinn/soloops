@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Geheimhaltungsvereinbarung</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 22mm 18mm 20mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+        color: #111;
+        font-size: 10.5pt;
+        line-height: 1.55;
+      }
+      .brand {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 10px;
+        border-bottom: 2.5px solid #d8ff55;
+        margin-bottom: 28px;
+      }
+      .brand .name {
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .brand .sub {
+        font-size: 8.5pt;
+        color: #555;
+        margin-top: 2px;
+      }
+      .brand .contact {
+        text-align: right;
+        font-size: 8pt;
+        color: #555;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 17pt;
+        margin: 0 0 4px;
+      }
+      .doc-sub {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 24px;
+      }
+      .parties {
+        margin: 0 0 26px;
+      }
+      .parties .p {
+        margin-bottom: 14px;
+      }
+      .parties .role {
+        color: #555;
+        font-size: 9.5pt;
+      }
+      .between {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 10px;
+      }
+      ol.contract {
+        counter-reset: top;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ol.contract > li {
+        counter-increment: top;
+        margin-bottom: 18px;
+      }
+      ol.contract > li > h2 {
+        font-size: 11.5pt;
+        margin: 0 0 8px;
+      }
+      ol.contract > li > h2::before {
+        content: counter(top) '. ';
+      }
+      ol.sub {
+        counter-reset: sub;
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+      ol.sub > li {
+        counter-increment: sub;
+        margin: 0 0 8px 0;
+        padding-left: 34px;
+        position: relative;
+      }
+      ol.sub > li::before {
+        content: counter(top) '.' counter(sub);
+        position: absolute;
+        left: 0;
+        font-weight: 600;
+        font-size: 9pt;
+        color: #333;
+      }
+      ol.subsub {
+        list-style: lower-alpha;
+        margin: 6px 0 0;
+        padding-left: 22px;
+      }
+      ol.subsub > li {
+        margin-bottom: 4px;
+      }
+      p.plain {
+        margin: 0 0 8px;
+      }
+      .sign-page {
+        page-break-before: always;
+        padding-top: 30px;
+      }
+      .sign-page h2 {
+        font-size: 12pt;
+      }
+      .sign-grid {
+        display: flex;
+        gap: 40px;
+        margin-top: 36px;
+      }
+      .sign-col {
+        flex: 1;
+      }
+      .sign-box {
+        height: 90px;
+        border: 1px solid #bbb;
+        border-radius: 4px;
+        margin: 14px 0 8px;
+      }
+      .sign-meta {
+        font-size: 9pt;
+        color: #555;
+      }
+      .sig-name {
+        font-weight: 600;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brand">
+      <div>
+        <div class="name">PHILIPP NIESTROJ</div>
+        <div class="sub">Software Engineering</div>
+      </div>
+      <div class="contact">
+        {{an_firma}} · {{an_strasse}} · {{an_plz_ort}}<br />
+        {{an_email}} · {{an_website}}<br />
+        {{an_telefon}}
+      </div>
+    </header>
+
+    <h1>Geheimhaltungsvereinbarung</h1>
+    <div class="doc-sub">Vertraulichkeitsvereinbarung / Non-Disclosure Agreement (NDA)</div>
+
+    <section class="parties">
+      <div class="between">zwischen</div>
+      <div class="p">
+        <strong>{{kunde_firma}}</strong><br />
+        {{kunde_strasse}}<br />
+        {{kunde_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>Auftraggeber</strong>" –</span>
+      </div>
+      <div class="between">und</div>
+      <div class="p">
+        <strong>{{an_firma}}</strong><br />
+        {{an_strasse}}<br />
+        {{an_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>Auftragnehmer</strong>" –</span>
+      </div>
+      <div class="role">– gemeinsam nachfolgend „<strong>Vertragspartner</strong>" –</div>
+    </section>
+
+    <ol class="contract">
+      <li>
+        <h2>Vertragsgegenstand</h2>
+        <ol class="sub">
+          <li>
+            Der Auftraggeber plant, <strong>{{projekt_gegenstand}}</strong> in Auftrag zu geben. Der
+            Auftragnehmer kommt für das Projekt als Vertragspartner in Betracht. Die Vertragspartner
+            führen seit {{gespraeche_seit}} Gespräche über die Erteilung des Auftrags. In dieser
+            ersten Phase der Vertragsanbahnung wurden bereits Informationen ausgetauscht. Die
+            Vertragspartner werden diesen Informationsaustausch zukünftig forcieren.
+          </li>
+          <li>
+            Mit dieser Geheimhaltungsvereinbarung soll der weitere Austausch von Informationen im
+            Hinblick auf die Verschwiegenheitspflichten der Vertragspartner während der
+            Anbahnungsphase geregelt werden. Die Anbahnungsphase endet mit Vertragsschluss,
+            spätestens aber mit unmittelbarem Beginn der Ausführung der Tätigkeit durch den
+            Auftragnehmer oder mit Ende der Vertragsverhandlungen oder dem unmittelbaren Beginn der
+            Ausführung der Tätigkeit durch einen Dritten, der nicht mit dem Auftragnehmer in
+            Verbindung steht.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vertrauliche Informationen</h2>
+        <ol class="sub">
+          <li>
+            Vertrauliche Informationen im Sinne dieser Geheimhaltungsvereinbarung sind sämtliche
+            Informationen, gleich ob schriftlich, mündlich oder in Textform, die zwischen den
+            Parteien und den jeweils verbundenen Unternehmen im Sinne der §§ 15 ff. AktG im
+            Zusammenhang mit dem Projekt offenbart werden. Als vertrauliche Informationen gelten
+            insbesondere Informationen, die
+            <ol class="subsub">
+              <li>
+                von einem der Vertragspartner oder beiden Vertragspartnern ausdrücklich und in
+                Textform als vertraulich bezeichnet wurden,
+              </li>
+              <li>
+                alle finanziellen, technischen, wirtschaftlichen, rechtlichen, steuerlichen, die
+                Geschäftstätigkeit, die Mitarbeiter oder die Geschäftsleitung betreffenden oder
+                sonstigen Informationen, die weder insgesamt noch in der genauen Anordnung und
+                Zusammensetzung ihrer Bestandteile den Personen in den Kreisen, die üblicherweise
+                mit dieser Art von Informationen umgehen, allgemein bekannt oder ohne Weiteres
+                zugänglich sind und daher von wirtschaftlichem Wert sind,
+              </li>
+              <li>
+                Geschäftsgeheimnisse, Produkte, Know-how, Kalkulationen, Strategien,
+                Geschäftsbeziehungen, Finanzplanungen, digital verkörperte Informationen (Dateien),
+              </li>
+              <li>
+                sämtliche Informationen oder Teile davon, die Gegenstand technischer und
+                organisatorischer Geheimhaltungsmaßnahmen sind und als vertraulich gekennzeichnet
+                oder nach der Art der Information oder den Umständen der Offenbarung als vertraulich
+                anzusehen sind,
+              </li>
+              <li>das Bestehen sowie der Inhalt dieser Vertraulichkeitsvereinbarung.</li>
+            </ol>
+            <p class="plain" style="margin-top: 6px">
+              Unter den Begriff der „Information" im vorgenannten Sinne fallen sowohl die Daten an
+              sich als auch die mit den Daten versehenen Datenträger.
+            </p>
+          </li>
+          <li>
+            Nicht unter den Begriff der vertraulichen Information fallen solche Informationen, die
+            <ol class="subsub">
+              <li>öffentlich bekannt sind,</li>
+              <li>
+                nach schriftlicher Erklärung des offenbarenden Vertragspartners auf Verzicht des
+                Schutzes veröffentlicht werden,
+              </li>
+              <li>
+                dem empfangenden Vertragspartner auf anderem Wege als durch den offenbarenden
+                Vertragspartner bekannt wurden und hierbei durch niemanden eine
+                Geheimhaltungspflicht verletzt wurde.
+              </li>
+            </ol>
+            <p class="plain" style="margin-top: 6px">
+              Derjenige Vertragspartner, der sich auf eine der vorstehenden Ausnahmen beruft, hat im
+              Zweifelsfall deren Vorliegen zu beweisen.
+            </p>
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Zulässige Tätigkeiten und unerlaubte Vorgänge</h2>
+        <ol class="sub">
+          <li>
+            Den Vertragspartnern wird eingeräumt, die Informationen in der Art und Weise zu
+            benutzen, wie dies zur Durchführung der Zusammenarbeit zweckmäßig und üblich ist.
+          </li>
+          <li>
+            Erhaltene Informationen dürfen nur denjenigen Mitarbeitern zur Verfügung gestellt
+            werden, die in die Zusammenarbeit einbezogen sind, und zwar nur in dem Maße, wie dies
+            der Aufgabenstellung des Mitarbeiters im Rahmen der Zusammenarbeit entspricht.
+          </li>
+          <li>
+            Externen Beratern dürfen Informationen zur Verfügung gestellt werden, soweit diese
+            Berater einer Berufsverschwiegenheitspflicht unterliegen und dies für die Zusammenarbeit
+            notwendig und zweckmäßig ist.
+          </li>
+          <li>
+            Informationen dürfen Dritten dann überlassen werden, wenn der offenbarende
+            Vertragspartner dem zuvor schriftlich zugestimmt hat. Ist der Dritte mit dem
+            empfangenden Vertragspartner ein verbundenes Unternehmen im Sinne der §§ 15 ff. AktG und
+            ist seine Einbeziehung für das Projekt notwendig und zweckmäßig, darf der andere
+            Vertragspartner die Zustimmung nicht ohne wichtigen Grund verweigern.
+          </li>
+          <li>
+            Etwaige gesetzliche oder auf behördlicher Anordnung beruhende Offenbarungspflichten der
+            Vertragspartner bleiben hiervon unberührt.
+          </li>
+          <li>
+            Kein Vertragspartner darf Schutzrechte an den vertraulichen Informationen des jeweils
+            anderen Vertragspartners nutzen, verwerten oder solche beantragen oder schaffen, sofern
+            nicht etwas anderes ausdrücklich schriftlich vereinbart worden ist.
+          </li>
+          <li>
+            Kein Vertragspartner darf Mitarbeitern des anderen Vertragspartners das Angebot machen,
+            ihn während der Dauer dieser Vereinbarung oder im Zeitraum von zwei Kalenderjahren
+            danach einzustellen (Abwerbeverbot). Das Abwerbeverbot verpflichtet auch verbundene
+            Unternehmen des einen Vertragspartners und schützt auch im Sinne eines Vertrages zu
+            Gunsten Dritter verbundene Unternehmen des anderen Vertragspartners in Bezug auf deren
+            Mitarbeiter. Die Vertragspartner haften insofern für die Handlungen der mit ihnen
+            jeweils verbundenen Unternehmen. Einem solchen Arbeitsvertrag stehen andere Angebote und
+            Vereinbarungen gleich, aufgrund derer die Arbeitskraft des Mitarbeiters nicht mehr dem
+            bislang einstellenden Vertragspartner zugutekommt, sondern ganz oder teilweise dem
+            anderen Vertragspartner.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Pflichten</h2>
+        <ol class="sub">
+          <li>
+            Die Vertragspartner schützen und sichern die vertraulichen Informationen mit der
+            erforderlichen Sorgfalt, zumindest aber mit der Sorgfalt, mit welcher sie eigene
+            vergleichbare Informationen schützen. Informationen werden so verwahrt, dass Missbrauch
+            und unbefugte Kenntnisnahme ausgeschlossen sind. Keine Partei darf die vertraulichen
+            Informationen dazu nutzen, um sich selbst im Wettbewerb einen geschäftlichen Vorteil
+            gegenüber der anderen Partei, einem mit dieser Partei verbundenen Unternehmen oder
+            Dritten zu verschaffen. Hierzu zählt insbesondere die direkte Kontaktaufnahme mit
+            Geschäftspartnern der jeweils anderen Partei unter bewusster Umgehung des anderen.
+          </li>
+          <li>
+            Jeder Vertragspartner kann vom jeweils anderen Vertragspartner verlangen, dass eine
+            Kenntnis nehmende Person schriftlich zur Verschwiegenheit nach Maßgabe dieser
+            Geheimhaltungsvereinbarung verpflichtet wird und dass dies dem fordernden
+            Vertragspartner im Voraus nachgewiesen wird.
+          </li>
+          <li>
+            Jeder Vertragspartner unterrichtet den anderen Vertragspartner unverzüglich und
+            schriftlich, wenn er Kenntnis oder auch nur den Verdacht einer bevorstehenden oder
+            stattgefundenen Verletzung der Geheimhaltungsinteressen des anderen Vertragspartners
+            hat. Hierunter fallen auch Erkenntnisse oder Verdachtsmomente außerhalb der
+            Zusammenarbeit in diesem Projekt.
+          </li>
+          <li>
+            Jeder Vertragspartner unterrichtet unverzüglich den jeweils anderen Vertragspartner in
+            einem Fall der Ziff. 3.5 von einer gesetzlichen oder auf behördlicher Anordnung
+            beruhenden Offenbarungspflicht.
+          </li>
+          <li>
+            Auf erstes Auffordern hin hat jede Partei sämtliche Dokumente und Trägermedien nach
+            eigener Wahl entweder zurückzugeben, zu zerstören oder zu löschen, soweit darin
+            vertrauliche Informationen verkörpert sind. Dies gilt nicht, wenn die verpflichtete
+            Partei gesetzlich oder aufgrund von Regelwerken einer Börse oder durch Anordnung eines
+            zuständigen Gerichts oder einer zuständigen Behörde oder sonstigen befugten Einrichtung
+            zur Aufbewahrung verpflichtet ist. Vertrauliche Informationen, die in routinemäßig
+            elektronisch gespeicherten Dateien (z. B. Backups) enthalten sind, müssen dann nicht
+            gelöscht werden, wenn dies nur mit unverhältnismäßigem Aufwand möglich wäre.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vertragsstrafe</h2>
+        <ol class="sub">
+          <li>
+            Verletzt ein Vertragspartner schuldhaft Pflichten nach den vorstehenden Regelungen, hat
+            er dem anderen Vertragspartner für jeden Pflichtverstoß unter Verzicht auf die Einrede
+            des Fortsetzungszusammenhangs eine Vertragsstrafe zu zahlen.
+          </li>
+          <li>
+            Die Vertragsstrafe beträgt pro Verstoß zwischen EUR {{vertragsstrafe_min}} und EUR
+            {{vertragsstrafe_max}}. Der Gläubiger der Vertragsstrafe hat die Strafe nach billigem
+            Ermessen innerhalb dieses Rahmens zu wählen. Die festgesetzte Vertragsstrafe kann
+            jederzeit durch ein zuständiges Gericht überprüft werden.
+          </li>
+          <li>
+            Für einen Verstoß gegen das Abwerbeverbot nach Ziff. 3.7 beträgt die Vertragsstrafe
+            {{abwerbe_strafe_monate}} Bruttomonatsgehälter, wie der betroffene Mitarbeiter sie
+            zuletzt im Durchschnitt der letzten sechs Monate bekommen hatte. Bei erfolgreicher
+            Abwerbung beträgt die Vertragsstrafe das Doppelte.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vereinbarungsdauer</h2>
+        <ol class="sub">
+          <li>
+            Diese Geheimhaltungsvereinbarung gilt, soweit nichts anderes zwischen den
+            Vertragspartnern vereinbart worden ist, auf Dauer.
+          </li>
+          <li>
+            Die Vereinbarung kann von jedem Vertragspartner jederzeit gekündigt werden, jedoch
+            frühestens auf einen Zeitpunkt, zu welchem die in Ziff. 1 genannte Zusammenarbeit endet.
+          </li>
+          <li>
+            Die Vereinbarung endet in jedem Fall mit Ablauf des dritten Monats nach Ende der
+            Zusammenarbeit.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Wirkungsdauer</h2>
+        <p class="plain">
+          Soweit nichts anderes vereinbart ist, gelten die Verpflichtungen aus der vorliegenden
+          Geheimhaltungsvereinbarung dauerhaft auch über das Ende der Vereinbarung hinaus.
+        </p>
+      </li>
+
+      <li>
+        <h2>Schlussbestimmungen</h2>
+        <ol class="sub">
+          <li>
+            Änderungen, Aufhebungen und Ergänzungen dieser Vereinbarung einschließlich der Änderung
+            dieser Regelung bedürfen zu ihrer Wirksamkeit der Schriftform, soweit nicht gesetzlich
+            zwingend eine strengere Form vorgeschrieben ist.
+          </li>
+          <li>
+            Erfüllungsort und Gerichtsstand für alle Streitigkeiten aus und im Zusammenhang mit
+            dieser Vereinbarung ist der Sitz des Auftragnehmers, sofern der Auftraggeber Kaufmann,
+            juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen
+            ist.
+          </li>
+          <li>
+            Sollte eine Bestimmung dieser Vereinbarung ganz oder teilweise unwirksam sein oder
+            werden oder sollte die Vereinbarung unvollständig sein, so wird die Vereinbarung im
+            übrigen Inhalt nicht berührt. Die Vertragspartner verpflichten sich, die unwirksame
+            Bestimmung durch eine solche Bestimmung zu ersetzen, welche dem Sinn und Zweck der
+            unwirksamen Bestimmung in rechtswirksamer Weise wirtschaftlich am nächsten kommt.
+            Entsprechendes gilt auch für festgestellte Lücken.
+          </li>
+        </ol>
+      </li>
+    </ol>
+
+    <section class="sign-page">
+      <h2>Unterschriften</h2>
+      <div class="sign-grid">
+        <div class="sign-col">
+          <div class="sign-meta">Auftraggeber</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{kunde_vertreter}}</div>
+          <div class="sign-meta">{{kunde_firma}}</div>
+          <div class="sign-meta">{{kunde_ort}}, den ________________</div>
+        </div>
+        <div class="sign-col">
+          <div class="sign-meta">Auftragnehmer</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{an_vertreter}}</div>
+          <div class="sign-meta">{{an_firma}}</div>
+          <div class="sign-meta">{{an_ort}}, den ________________</div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

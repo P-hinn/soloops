@@ -101,16 +101,48 @@ services:
       # of the package plus a restart of this one container is the whole
       # deploy of a connector change.
       N8N_CUSTOM_EXTENSIONS: /custom-nodes/n8n-nodes-soloops
+      # Where a workflow may read and write files: the contract directory and
+      # nothing else. n8n blocks file access outright by default, and this is
+      # narrower than switching that off — the templates are read from here
+      # and the signed PDFs are written back here.
+      N8N_RESTRICT_FILE_ACCESS_TO: /data/vertraege
+      # Nothing about Zoho here on purpose: the contract workflows hold those
+      # three values in an n8n credential ("Zoho Sign"). Through the
+      # environment they would be readable by every workflow on the instance,
+      # which is a lot of reach for a client secret.
     volumes:
       # A named volume, not a bind mount under ./data: Docker would create
       # that one owned by root and n8n runs as uid 1000, which leaves it
       # unable to write its own database.
       - n8ndata:/home/node/.n8n
       - ./packages/n8n-nodes-soloops:/custom-nodes/n8n-nodes-soloops:ro
+      # The same /data the API sees — this is where the signed contracts land,
+      # which is how soloops can serve them back later.
+      - ./data:/data
+      # The contract templates, mounted straight out of the repository at the
+      # path the workflow reads. Copying them into ./data would work too and
+      # would go stale the first time one is edited; `data/` is runtime state
+      # and not in git, so the copy nobody updated would be the only one left.
+      - ./vertragsautomatisierung/templates:/data/vertraege/templates:ro
     ports:
       # Also reachable directly — handy when the editor misbehaves behind the
       # proxy and you want to rule the proxy out.
       - '${N8N_PORT:-5678}:5678'
+
+  # HTML to PDF for the contract workflows. Chromium in a container — the
+  # alternative is a headless browser inside n8n, which n8n images do not
+  # carry. Nothing but n8n talks to it, so it stays off the host network.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # Both defaults are about the one job it has here: a contract is a handful
+    # of pages of static HTML, so a long render means something is wrong.
+    command:
+      - 'gotenberg'
+      - '--chromium-disable-javascript=true'
+      - '--api-timeout=60s'
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
 
   web:
     <<: *node

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { api } from '@/api'
 import { formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
+import ContractDialog from '@/components/contracts/ContractDialog.vue'
 import { useAuth } from '@/stores/auth'
 
 type Client = {
@@ -24,6 +25,8 @@ type Client = {
 
 const auth = useAuth()
 const clients = ref<Client[]>([])
+/** The customer a contract is being sent to, while the dialog is open. */
+const contractFor = ref<Client | null>(null)
 const showForm = ref(false)
 const error = ref('')
 const form = ref({
@@ -102,6 +105,11 @@ async function save() {
   }
 }
 
+/** A sent contract leaves a note and a task — both show up elsewhere. */
+function onContractSent() {
+  error.value = ''
+}
+
 async function syncLexoffice(client: Client) {
   error.value = ''
   try {
@@ -172,6 +180,13 @@ onMounted(load)
 
     <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
 
+    <ContractDialog
+      v-if="contractFor"
+      :client="contractFor"
+      @close="contractFor = null"
+      @sent="onContractSent"
+    />
+
     <div class="border-t border-line-strong">
       <table class="table">
         <thead>
@@ -211,7 +226,14 @@ onMounted(load)
               <span v-else class="text-xs text-muted">—</span>
             </td>
             <td class="text-right">
-              <button class="btn-xs" @click="edit(c)">✎</button>
+              <button
+                class="btn-xs"
+                title="Vertrag erzeugen und zur Signatur verschicken"
+                @click="contractFor = c"
+              >
+                Vertrag
+              </button>
+              <button class="btn-xs ml-1" @click="edit(c)">✎</button>
             </td>
           </tr>
           <tr v-if="!clients.length">

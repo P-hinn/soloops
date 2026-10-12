@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Werkvertrag</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 22mm 18mm 20mm 18mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+        color: #111;
+        font-size: 10.5pt;
+        line-height: 1.55;
+      }
+      .brand {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 10px;
+        border-bottom: 2.5px solid #d8ff55;
+        margin-bottom: 28px;
+      }
+      .brand .name {
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .brand .sub {
+        font-size: 8.5pt;
+        color: #555;
+        margin-top: 2px;
+      }
+      .brand .contact {
+        text-align: right;
+        font-size: 8pt;
+        color: #555;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 17pt;
+        margin: 0 0 4px;
+      }
+      .doc-sub {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 24px;
+      }
+      .parties {
+        margin: 0 0 26px;
+      }
+      .parties .p {
+        margin-bottom: 14px;
+      }
+      .parties .role {
+        color: #555;
+        font-size: 9.5pt;
+      }
+      .between {
+        color: #555;
+        font-size: 9.5pt;
+        margin-bottom: 10px;
+      }
+      ol.contract {
+        counter-reset: top;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ol.contract > li {
+        counter-increment: top;
+        margin-bottom: 18px;
+      }
+      ol.contract > li > h2 {
+        font-size: 11.5pt;
+        margin: 0 0 8px;
+      }
+      ol.contract > li > h2::before {
+        content: counter(top) '. ';
+      }
+      ol.sub {
+        counter-reset: sub;
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
+      ol.sub > li {
+        counter-increment: sub;
+        margin: 0 0 8px 0;
+        padding-left: 34px;
+        position: relative;
+      }
+      ol.sub > li::before {
+        content: counter(top) '.' counter(sub);
+        position: absolute;
+        left: 0;
+        font-weight: 600;
+        font-size: 9pt;
+        color: #333;
+      }
+      ol.subsub {
+        list-style: lower-alpha;
+        margin: 6px 0 0;
+        padding-left: 22px;
+      }
+      ol.subsub > li {
+        margin-bottom: 4px;
+      }
+      p.plain {
+        margin: 0 0 8px;
+      }
+      .box {
+        border: 1px solid #ddd;
+        border-left: 3px solid #d8ff55;
+        border-radius: 4px;
+        padding: 10px 14px;
+        margin: 6px 0;
+        white-space: pre-wrap;
+      }
+      .sign-page {
+        page-break-before: always;
+        padding-top: 30px;
+      }
+      .sign-page h2 {
+        font-size: 12pt;
+      }
+      .sign-grid {
+        display: flex;
+        gap: 40px;
+        margin-top: 36px;
+      }
+      .sign-col {
+        flex: 1;
+      }
+      .sign-box {
+        height: 90px;
+        border: 1px solid #bbb;
+        border-radius: 4px;
+        margin: 14px 0 8px;
+      }
+      .sign-meta {
+        font-size: 9pt;
+        color: #555;
+      }
+      .sig-name {
+        font-weight: 600;
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="brand">
+      <div>
+        <div class="name">PHILIPP NIESTROJ</div>
+        <div class="sub">Software Engineering</div>
+      </div>
+      <div class="contact">
+        {{an_firma}} · {{an_strasse}} · {{an_plz_ort}}<br />
+        {{an_email}} · {{an_website}}<br />
+        {{an_telefon}}
+      </div>
+    </header>
+
+    <h1>Werkvertrag</h1>
+    <div class="doc-sub">Projektvertrag nach §§ 631 ff. BGB</div>
+
+    <section class="parties">
+      <div class="between">zwischen</div>
+      <div class="p">
+        <strong>{{kunde_firma}}</strong><br />
+        {{kunde_strasse}}<br />
+        {{kunde_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>Auftraggeber</strong>" –</span>
+      </div>
+      <div class="between">und</div>
+      <div class="p">
+        <strong>{{an_firma}}</strong><br />
+        {{an_strasse}}<br />
+        {{an_plz_ort}}<br />
+        <span class="role">– nachfolgend „<strong>Unternehmer</strong>" –</span>
+      </div>
+      <div class="role">– gemeinsam nachfolgend „<strong>Vertragspartner</strong>" –</div>
+    </section>
+
+    <ol class="contract">
+      <li>
+        <h2>Vertragsgegenstand</h2>
+        <ol class="sub">
+          <li>
+            Der Unternehmer wird durch den Auftraggeber beauftragt, das nachfolgend beschriebene
+            Werk zu erstellen.
+          </li>
+          <li>
+            Der Unternehmer ist mit der Erstellung folgender Werkleistungen beauftragt:
+            <div class="box">{{werk_beschreibung}}</div>
+            <p class="plain">
+              Maßgeblich für das geschuldete Ergebnis ist ergänzend: {{werk_anlagen}}
+            </p>
+          </li>
+          <li>
+            Dieser Vertrag ist ein Werkvertrag. Ergänzend zu diesem Vertrag finden die Regelungen
+            der §§ 631 ff. BGB Anwendung.
+          </li>
+          <li>
+            Der Unternehmer führt den erteilten Auftrag in eigener Verantwortung aus. Dabei hat der
+            Unternehmer die Interessen des Auftraggebers zu berücksichtigen.
+          </li>
+          <li>
+            Der Unternehmer unterliegt keinem Weisungs- oder Direktionsrecht des Auftraggebers. Er
+            hat jedoch fachliche Vorgaben des Auftraggebers so weit zu beachten, als dies
+            erforderlich ist, um die ordnungsgemäße Vertragsdurchführung und das vereinbarte
+            Vertragsziel zu erreichen.
+          </li>
+          <li>
+            Ein sozialversicherungspflichtiges Arbeitsverhältnis wird durch diesen Vertrag nicht
+            begründet.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Leistungszeitraum</h2>
+        <ol class="sub">
+          <li>
+            Der Unternehmer hat das in Ziff. 1 genannte Werk spätestens bis zum
+            {{fertigstellung_datum}} abnahmereif und mängelfrei herzustellen.
+          </li>
+          <li>
+            Nach Herstellung des Werkes hat der Unternehmer unverzüglich gegenüber dem Auftraggeber
+            die Abnahmereife anzuzeigen.
+          </li>
+          <li>
+            Werden die vereinbarten Fristen und Termine schuldhaft nicht eingehalten, ist der
+            säumigen Partei eine angemessene Frist zur Leistung zu setzen. Mit Ablauf der Nachfrist
+            und ausgebliebenem Erfolg liegt auch ohne weitere Mahnung Verzug vor.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Abnahme</h2>
+        <ol class="sub">
+          <li>
+            Der Auftraggeber hat das vom Unternehmer erstellte Werk unverzüglich nach Mitteilung der
+            Abnahmereife daraufhin zu überprüfen, dass Mängelfreiheit besteht, und bei positivem
+            Vorliegen der Mängelfreiheit das Werk abzunehmen. Über die Abnahme wird ein beidseitig
+            unterschriebenes Protokoll erstellt.
+          </li>
+          <li>
+            Einzelleistungen oder Meilensteine können vereinbart werden. Hierin ist jedoch keine
+            automatische Abnahme zu sehen.
+          </li>
+          <li>Die Abnahme erfolgt durch {{abnahme_person}}.</li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vertragsdurchführung / Leistungsänderungen</h2>
+        <ol class="sub">
+          <li>
+            Dem Unternehmer ist es gestattet, den Vertrag auch unter Zuhilfenahme von
+            Erfüllungsgehilfen zu erfüllen, soweit der Unternehmer deren fachliche Qualifikation
+            sichergestellt hat. Der Unternehmer haftet für seine Erfüllungsgehilfen und sonst von
+            ihm zur Mitwirkung herangezogenen Personen.
+          </li>
+          <li>
+            Bei der Vertragsdurchführung verpflichtet sich der Unternehmer, die anzuwendenden
+            Gesetze und Genehmigungserfordernisse zu beachten und einzuhalten, insbesondere auch das
+            Mindestlohngesetz und soweit zutreffend das Lieferkettensorgfaltspflichtengesetz.
+          </li>
+          <li>Der Unternehmer bestimmt den Tätigkeitsort nach freiem Ermessen.</li>
+          <li>
+            Sofern es die Eigenart des Werkes erforderlich macht, erhält der Unternehmer die
+            Möglichkeit, die Einrichtungen und Ressourcen des Auftraggebers in Absprache mit dem
+            beim Auftraggeber benannten Projektverantwortlichen in angemessenem Umfang zu nutzen.
+            Der Unternehmer ist dabei nicht an dienstliche Weisungen gebunden, sofern diese
+            Weisungen nicht der Sicherheit oder dem Schutz von Geschäftsgeheimnissen oder Personen
+            dienen.
+          </li>
+          <li>
+            Der Auftraggeber kann Änderungen von Inhalt und Umfang der Leistung verlangen. Selbiges
+            gilt auch für bereits erbrachte und abgenommene Teilleistungen.
+          </li>
+          <li>
+            Der Unternehmer wird die gewünschten Änderungen hinsichtlich Mehraufwand und zeitlicher
+            Veränderung/Verzögerung bewerten und einen Vorschlag zur Vertragsanpassung machen.
+            Können sich die Parteien nicht auf eine Vertragsanpassung einigen, kann der Unternehmer
+            den Änderungswunsch ablehnen.
+          </li>
+          <li>
+            Jede Leistungsänderung ist vor Beginn der Ausführung in Schriftform festzuhalten und als
+            Zusatzvereinbarung zum Vertrag zu nehmen. Die Zusatzvereinbarung hat mindestens die
+            geänderte Vergütung und die geänderten Zeitabläufe zu enthalten.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Anderweitige Tätigkeiten</h2>
+        <ol class="sub">
+          <li>
+            Dem Unternehmer steht es frei, auch für andere Auftraggeber tätig zu werden, sofern die
+            Tätigkeit für andere Auftraggeber der Tätigkeit für diesen Auftraggeber nicht abträglich
+            ist.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Vergütung und Aufwendungen/Kosten</h2>
+        <ol class="sub">
+          <li>
+            Der Unternehmer erhält für seine nach Ziff. 1 des Vertrages zu erbringende Werkleistung
+            eine Vergütung in Höhe von EUR {{festpreis}}.
+          </li>
+          <li>
+            Alle genannten Preise verstehen sich als Nettopreise. Hinzu kommt die jeweils geltende
+            gesetzliche Umsatzsteuer, derzeit 19 %.
+          </li>
+          <li>
+            Die Vergütung wird vier Wochen nach Abnahme des Werkes und nach ordnungsgemäßer
+            Rechnungsstellung fällig. Der Auftraggeber wird die Vergütung auf das folgende Konto des
+            Unternehmers überweisen:
+            <div class="box">{{an_bank}}</div>
+          </li>
+          <li>
+            Es obliegt dem Unternehmer, für die Abführung von Steuern, insbesondere Einkommensteuer,
+            und von etwaigen Sozialversicherungsbeiträgen Sorge zu tragen.
+          </li>
+          <li>
+            Der Unternehmer trägt alle Aufwendungen, die im Rahmen seiner Tätigkeit anfallen,
+            selbst. Die Vertragspartner können vereinbaren, dass Aufwendungen nach ordnungsgemäßem
+            Nachweis vom Auftraggeber erstattet werden.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Verschwiegenheit</h2>
+        <ol class="sub">
+          <li>
+            Der Unternehmer verpflichtet sich, über alle ihm im Rahmen seiner Tätigkeit bekannt
+            gewordenen Geschäfts- und Betriebsgeheimnisse während und nach Beendigung des
+            Vertragsverhältnisses Stillschweigen zu bewahren, soweit es sich nicht um lediglich dem
+            allgemeinen Stand der Technik entsprechende oder sonst offenkundige Tatsachen oder
+            Umstände handelt. Der Auftraggeber wird den Unternehmer von dieser
+            Verschwiegenheitspflicht entbinden, wenn und soweit er gesetzlich oder durch
+            Rechtsmittel nicht mehr abwendbarer gerichtlicher oder behördlicher Anordnung zur
+            Veröffentlichung der jeweiligen Informationen verpflichtet ist.
+          </li>
+          <li>
+            Vorbehaltlich anderer schriftlicher Vereinbarungen wird der Unternehmer jedwede
+            eigenständige Veröffentlichung der vom Gegenstand dieses Vertrages erfassten
+            Erkenntnisse unterlassen.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Nutzungsrecht und Benennungspflichten</h2>
+        <ol class="sub">
+          <li>
+            Soweit bei der Erstellung des Werkes Urheberrechte begründet werden, steht dem
+            Auftraggeber das ausschließliche, zeitlich, räumlich, quantitativ und inhaltlich
+            unbeschränkte Nutzungsrecht in allen gegenwärtigen und zukünftigen Nutzungsarten zu. Das
+            Nutzungsrecht beinhaltet insbesondere auch das Recht zur vollständigen oder teilweisen
+            Vervielfältigung, Verbreitung, Bearbeitung und Veröffentlichung des Werkes oder
+            einzelner Arbeitsergebnisse. Dem Auftraggeber steht das Recht zu, das Nutzungsrecht an
+            Dritte weiter zu übertragen und Dritten einfache Nutzungsrechte einzuräumen.
+          </li>
+          <li>
+            Die Einräumung der vorgenannten Rechte ist mit der in diesem Vertrag vereinbarten
+            Vergütung vollständig abgegolten.
+          </li>
+          <li>
+            Der Auftraggeber wird bei der Nutzung des Werkes oder einzelner Arbeitsergebnisse auf
+            die Leistungen des Unternehmers hinweisen.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Herausgabe von Unterlagen</h2>
+        <ol class="sub">
+          <li>
+            Bei Beendigung des Vertragsverhältnisses hat der Unternehmer sämtliches in seinem Besitz
+            befindliche Eigentum des Auftraggebers und die ihm im Rahmen seiner Tätigkeit vom
+            Auftraggeber zur Verfügung gestellten Unterlagen unverzüglich und unaufgefordert an den
+            Auftraggeber herauszugeben.
+          </li>
+          <li>
+            Der Unternehmer ist unbeschadet der Verpflichtung nach Abs. 1 verpflichtet, dem
+            Auftraggeber alle der Gesamtleistung zugrunde liegenden Einzelunterlagen, wie
+            Erhebungen, Protokolle, Zeichnungen, Quellcodes etc., bei der Abnahme zu übergeben.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Haftung / Gewährleistung</h2>
+        <ol class="sub">
+          <li>
+            Der Unternehmer haftet dem Auftraggeber gegenüber, gleichgültig aus welchem Rechtsgrund,
+            für die von ihm bzw. seinen Mitarbeitern vorsätzlich oder grob fahrlässig verursachten
+            Schäden sowie bei der Verletzung von Leben, Körper oder Gesundheit.
+          </li>
+          <li>
+            Der Unternehmer haftet dem Auftraggeber gegenüber für die schuldhafte Verletzung einer
+            Garantie und wesentlicher Vertragspflichten nach den gesetzlichen Bestimmungen, wobei
+            wesentliche Vertragspflichten solche sind, deren Erfüllung die ordnungsgemäße
+            Durchführung des Vertrages überhaupt erst ermöglichen und auf deren Einhaltung der
+            Auftraggeber regelmäßig vertrauen darf.
+          </li>
+          <li>
+            Der Unternehmer und der Auftraggeber sind sich vorbehaltlich besonderer
+            einzelvertraglicher Vereinbarungen einig, dass die Haftung des Unternehmers für Schäden
+            aus der Verletzung wesentlicher Vertragspflichten im Falle einfacher Fahrlässigkeit auf
+            den vertragstypischen, vorhersehbaren Schaden begrenzt ist.
+          </li>
+          <li>In allen anderen Fällen sind Schadensersatzansprüche ausgeschlossen.</li>
+          <li>
+            Eine Änderung der Beweislast zum Nachteil des Auftraggebers ist damit nicht verbunden.
+          </li>
+        </ol>
+      </li>
+
+      <li>
+        <h2>Schlussbestimmungen</h2>
+        <ol class="sub">
+          <li>
+            Die Vertragspartner sind sich einig, dass der vorliegende Vertrag abschließend ist und
+            keine anderen, auch mündliche, Abreden getroffen wurden.
+          </li>
+          <li>
+            Änderungen, Aufhebungen und Ergänzungen dieser Vereinbarung einschließlich der Änderung
+            dieser Regelung bedürfen zu ihrer Wirksamkeit der Schriftform, soweit nicht gesetzlich
+            zwingend eine strengere Form vorgeschrieben ist.
+          </li>
+          <li>
+            Erfüllungsort und Gerichtsstand für alle Streitigkeiten aus und im Zusammenhang mit
+            dieser Vereinbarung ist der Sitz des Unternehmers, sofern der Auftraggeber Kaufmann,
+            juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen
+            ist.
+          </li>
+          <li>
+            Sollte eine Bestimmung dieser Vereinbarung ganz oder teilweise unwirksam sein oder
+            werden oder sollte die Vereinbarung unvollständig sein, so wird die Vereinbarung im
+            übrigen Inhalt nicht berührt. Die Vertragspartner verpflichten sich, die unwirksame
+            Bestimmung durch eine solche Bestimmung zu ersetzen, welche dem Sinn und Zweck der
+            unwirksamen Bestimmung in rechtswirksamer Weise wirtschaftlich am nächsten kommt.
+            Entsprechendes gilt auch für festgestellte Lücken.
+          </li>
+        </ol>
+      </li>
+    </ol>
+
+    <section class="sign-page">
+      <h2>Unterschriften</h2>
+      <div class="sign-grid">
+        <div class="sign-col">
+          <div class="sign-meta">Auftraggeber</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{kunde_vertreter}}</div>
+          <div class="sign-meta">{{kunde_firma}}</div>
+          <div class="sign-meta">{{kunde_ort}}, den ________________</div>
+        </div>
+        <div class="sign-col">
+          <div class="sign-meta">Unternehmer</div>
+          <div class="sign-box"></div>
+          <div class="sig-name">{{an_vertreter}}</div>
+          <div class="sign-meta">{{an_firma}}</div>
+          <div class="sign-meta">{{an_ort}}, den ________________</div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
