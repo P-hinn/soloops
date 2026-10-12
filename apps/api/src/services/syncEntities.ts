@@ -127,7 +127,9 @@ export const SYNC_ENTITIES = {
   },
   TimeEntry: {
     model: 'timeEntry',
-    rank: 2,
+    // Behind ActionItem: a booking may name the task it belongs to, so the
+    // task has to exist by the time the entry is applied.
+    rank: 5,
     required: ['projectId', 'startedAt'],
     fields: {
       projectId: 'string',
@@ -140,6 +142,7 @@ export const SYNC_ENTITIES = {
       rateCents: 'int',
       tags: 'strings',
       source: 'string',
+      actionItemId: 'string',
     },
   },
   Meeting: {
@@ -170,11 +173,17 @@ export const SYNC_ENTITIES = {
     fields: {
       title: 'string',
       done: 'bool',
+      // The board column of an open task. `done` stays the closed flag —
+      // see the enum's note in schema.prisma for why there is no DONE here.
+      status: 'string',
       dueOn: 'date',
       assignee: 'string',
       source: 'string',
       meetingId: 'string',
       projectId: 'string',
+      clientId: 'string',
+      leadId: 'string',
+      position: 'int',
     },
   },
   Note: {
@@ -222,6 +231,7 @@ export const DELETE_SIDE_EFFECTS: Readonly<Record<SyncEntity, readonly SideEffec
     { kind: 'clear', entity: 'Note', fk: 'clientId' },
     { kind: 'clear', entity: 'Lead', fk: 'clientId' },
     { kind: 'clear', entity: 'TimeEntry', fk: 'clientId' },
+    { kind: 'clear', entity: 'ActionItem', fk: 'clientId' },
   ],
   Project: [
     // TimeEntry.projectId is non-null, so the rows cannot survive it.
@@ -237,11 +247,14 @@ export const DELETE_SIDE_EFFECTS: Readonly<Record<SyncEntity, readonly SideEffec
     { kind: 'delete', entity: 'ActionItem', fk: 'meetingId' },
     { kind: 'clear', entity: 'Note', fk: 'meetingId' },
   ],
-  // Offers, lead activities and mail links hang off a lead, but none of them
-  // sync, so a lead delete has no effect this log has to carry.
-  Lead: [],
+  // Offers, lead activities and mail links hang off a lead too, but none of
+  // those sync — the ticket does, and it survives its lead with the reference
+  // cleared, because it may already carry booked time.
+  Lead: [{ kind: 'clear', entity: 'ActionItem', fk: 'leadId' }],
   TimeEntry: [],
-  ActionItem: [],
+  // The booking survives the task it was made on: the hours were worked and
+  // are possibly invoiced, so only the reference goes.
+  ActionItem: [{ kind: 'clear', entity: 'TimeEntry', fk: 'actionItemId' }],
   Note: [],
 }
 

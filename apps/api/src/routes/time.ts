@@ -26,7 +26,10 @@ const routes: FastifyPluginAsync = async (app) => {
   app.get('/running', async () => {
     return prisma.timeEntry.findFirst({
       where: { endedAt: null },
-      include: { project: { select: { id: true, key: true, name: true, color: true } } },
+      include: {
+        project: { select: { id: true, key: true, name: true, color: true } },
+        actionItem: { select: { id: true, title: true } },
+      },
       orderBy: { startedAt: 'desc' },
     })
   })
@@ -34,23 +37,41 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/start', async (req, reply) => {
     const data = timerStartInput.parse(req.body)
 
+    // On a task the project comes from the task, so a ticket and its booking
+    // can never end up on different projects.
+    const task = data.actionItemId
+      ? await prisma.actionItem.findUniqueOrThrow({ where: { id: data.actionItemId } })
+      : null
+    const projectId = data.projectId ?? task?.projectId
+    if (!projectId) {
+      return reply.code(422).send({
+        error: 'Die Aufgabe hängt an keinem Projekt — Zeiterfassung braucht eines (Stundensatz)',
+      })
+    }
+
     // Stop a running timer automatically — no double tracking.
     const running = await prisma.timeEntry.findFirst({ where: { endedAt: null } })
     if (running) await stopEntry(running.id)
 
-    const project = await prisma.project.findUniqueOrThrow({ where: { id: data.projectId } })
+    const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } })
     const entry = await prisma.timeEntry.create({
       data: {
-        projectId: data.projectId,
+        projectId,
         clientId: project.clientId,
-        description: data.description,
+        actionItemId: data.actionItemId ?? null,
+        // Without a description of its own the task title is the better
+        // label than an empty line in the report.
+        description: data.description || task?.title || '',
         billable: data.billable,
         tags: data.tags,
         source: data.source,
         startedAt: new Date(),
-        rateCents: await resolveRateCents(data.projectId),
+        rateCents: await resolveRateCents(projectId),
       },
-      include: { project: { select: { id: true, key: true, name: true, color: true } } },
+      include: {
+        project: { select: { id: true, key: true, name: true, color: true } },
+        actionItem: { select: { id: true, title: true } },
+      },
     })
     return reply.code(201).send(entry)
   })
@@ -69,6 +90,7 @@ const routes: FastifyPluginAsync = async (app) => {
       .object({
         projectId: z.string().optional(),
         clientId: z.string().optional(),
+        actionItemId: z.string().optional(),
         from: z.string().optional(),
         to: z.string().optional(),
         billable: z.coerce.boolean().optional(),
@@ -81,6 +103,7 @@ const routes: FastifyPluginAsync = async (app) => {
       where: {
         ...(q.projectId ? { projectId: q.projectId } : {}),
         ...(q.clientId ? { clientId: q.clientId } : {}),
+        ...(q.actionItemId ? { actionItemId: q.actionItemId } : {}),
         ...(q.billable !== undefined ? { billable: q.billable } : {}),
         ...(q.unbilledOnly ? { invoiceItemId: null, billable: true, endedAt: { not: null } } : {}),
         ...(q.from || q.to
@@ -97,6 +120,7 @@ const routes: FastifyPluginAsync = async (app) => {
       include: {
         project: { select: { id: true, key: true, name: true, color: true } },
         client: { select: { id: true, name: true } },
+        actionItem: { select: { id: true, title: true } },
       },
     })
   })
@@ -113,6 +137,7 @@ const routes: FastifyPluginAsync = async (app) => {
       data: {
         projectId: data.projectId,
         clientId: project.clientId,
+        actionItemId: data.actionItemId ?? null,
         description: data.description,
         startedAt,
         endedAt,
@@ -140,6 +165,7 @@ const routes: FastifyPluginAsync = async (app) => {
         tags: data.tags,
         rateCents: data.rateCents,
         projectId: data.projectId,
+        actionItemId: data.actionItemId,
         startedAt,
         endedAt,
         durationSec: endedAt ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000) : 0,
@@ -215,7 +241,10 @@ async function stopEntry(id: string) {
       endedAt,
       durationSec: Math.round((endedAt.getTime() - entry.startedAt.getTime()) / 1000),
     },
-    include: { project: { select: { id: true, key: true, name: true, color: true } } },
+    include: {
+      project: { select: { id: true, key: true, name: true, color: true } },
+      actionItem: { select: { id: true, title: true } },
+    },
   })
 }
 

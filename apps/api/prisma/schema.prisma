@@ -52,6 +52,7 @@ model Client {
   notes_      Note[]
   leads       Lead[]
   mails       MailMessage[]
+  actionItems ActionItem[]
 }
 
 enum ProjectStatus {
@@ -311,22 +312,97 @@ model Meeting {
   @@index([startsAt])
 }
 
+/// Where an open task sits on the board.
+///
+/// Deliberately without a DONE value: `ActionItem.done` already says whether
+/// a task is closed, and two columns that both mean "finished" drift apart the
+/// first time the phone ticks one off — the field-level merge would carry the
+/// flag and leave the status behind. So the board reads `done` for its last
+/// column and the status only orders the open ones, which also means dragging
+/// a task back out of "Erledigt" returns it to the column it came from.
+enum TaskStatus {
+  TODO
+  DOING
+  BLOCKED
+}
+
 model ActionItem {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   title     String
-  done      Boolean   @default(false)
+  done      Boolean    @default(false)
+  status    TaskStatus @default(TODO)
   dueOn     DateTime?
   assignee  String?
-  source    String    @default("MANUAL") // MANUAL | AI | MCP
+  /// MANUAL | AI | MCP | LEAD. `LEAD` marks the ticket a follow-up created
+  /// for itself — only those are opened and closed with the follow-up, a
+  /// hand-written task on a lead stays yours.
+  source    String     @default("MANUAL")
   meetingId String?
   projectId String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  clientId  String?
+  leadId    String?
+  /// Hand-sorted rank inside a board column. Spaced in steps of
+  /// POSITION_STEP so a card can be dropped between two others without
+  /// renumbering the column, see services/tasks.ts.
+  position  Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  client  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  timeEntries TimeEntry[]
+  links       TaskLink[]
 
   @@index([done, dueOn])
+  @@index([done, status, position])
+  @@index([leadId, done])
+}
+
+/// What a task points at in a repository.
+enum TaskLinkKind {
+  COMMIT
+  PULL_REQUEST
+  ISSUE
+}
+
+/// A commit, pull request or issue hanging off a task.
+///
+/// Its own table rather than a URL column on the task: a ticket is normally
+/// one branch, several commits and a PR, and the state of those is what you
+/// want to see on the board ("merged" says more than "in Arbeit" ever will).
+/// Title and state are a cache — refreshed on demand, never written back.
+///
+/// This one does not sync to the phone. Reading a diff is not something that
+/// happens in the car, and every synced field is a field the Swift registry
+/// has to mirror forever.
+model TaskLink {
+  id           String       @id @default(cuid())
+  actionItemId String
+  provider     RepoProvider @default(GITHUB)
+  kind         TaskLinkKind
+  /// owner/repo (GitHub) or group/project (GitLab).
+  repo         String
+  /// The PR/issue number, or the full commit sha.
+  ref          String
+  url          String
+  /// Mirrored from the provider: PR title or commit subject.
+  title        String?
+  /// open | closed | merged | draft — the provider's wording, normalised.
+  state        String?
+  author       String?
+  mergedAt     DateTime?
+  /// When title and state were last read. Null means never enriched, which
+  /// is the normal state without a token for that provider.
+  checkedAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  item ActionItem @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+
+  @@unique([actionItemId, url])
+  @@index([repo, ref])
 }
 
 // ---------------------------------------------------------------------------
@@ -464,15 +540,21 @@ model TimeEntry {
   tags          String[]   @default([])
   source        TimeSource @default(TIMER)
   invoiceItemId String?
+  /// The task this was booked on. Optional — most time is still logged
+  /// against the project alone, and a ticket without a project cannot carry
+  /// time at all (`projectId` is non-null).
+  actionItemId  String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
+  actionItem  ActionItem?  @relation(fields: [actionItemId], references: [id], onDelete: SetNull)
 
   @@index([startedAt])
   @@index([projectId, billable, invoiceItemId])
+  @@index([actionItemId])
 }
 
 // ---------------------------------------------------------------------------
@@ -652,8 +734,8 @@ model Lead {
   /// When to come back to this lead, and what for. Putting a lead on
   /// follow-up is not contact with the customer, so it deliberately leaves
   /// `lastActivityAt` alone — the staleness counter keeps running.
-  followUpOn   DateTime?
-  followUpNote String?
+  followUpOn         DateTime?
+  followUpNote       String?
   /// When the reminder for the current date went out. Keeps a due follow-up
   /// from being announced again on every poll; a new date clears it.
   followUpNotifiedAt DateTime?
@@ -669,6 +751,9 @@ model Lead {
   offers     Offer[]
   activities LeadActivity[]
   mails      MailMessage[]
+  /// The tickets on this lead. The one the follow-up keeps for itself carries
+  /// `source = "LEAD"`; everything else here was put there by hand.
+  tasks      ActionItem[]
 
   @@index([stage, archived])
   @@index([lastActivityAt])
@@ -882,10 +967,10 @@ enum AutomationEvent {
 /// the graph itself; what lives here is the handful of things soloops has an
 /// opinion about — which project it belongs to, and how it has been doing.
 model AutomationFlow {
-  id    String @id @default(cuid())
+  id     String   @id @default(cuid())
   /// n8n's workflow id. The join between both sides.
-  n8nId String @unique
-  name  String
+  n8nId  String   @unique
+  name   String
   /// Whether n8n will run it on its own. Mirrored, not decided here.
   active Boolean  @default(false)
   tags   String[] @default([])
@@ -896,13 +981,13 @@ model AutomationFlow {
 
   /// Rolled up from the runs so the list does not have to aggregate on every
   /// render. `lastRunAt` is the newest run of any outcome.
-  lastRunAt     DateTime?
-  lastStatus    AutomationRunStatus?
+  lastRunAt  DateTime?
+  lastStatus AutomationRunStatus?
   /// Consecutive failures. Reset by the first run that works — this is what
   /// the monitoring badge reads.
-  failStreak    Int                  @default(0)
-  runCount      Int                  @default(0)
-  errorCount    Int                  @default(0)
+  failStreak Int                  @default(0)
+  runCount   Int                  @default(0)
+  errorCount Int                  @default(0)
 
   /// Gone from n8n but kept here, so the run history of a deleted workflow
   /// does not vanish silently.
@@ -911,7 +996,7 @@ model AutomationFlow {
   firstSeenAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project  Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project  Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   runs     AutomationRun[]
   triggers AutomationTrigger[]
 
@@ -922,8 +1007,8 @@ model AutomationFlow {
 /// One execution, mirrored from n8n. Only the newest
 /// AUTOMATION_RUN_HISTORY per flow are kept — the full history stays in n8n.
 model AutomationRun {
-  id     String @id @default(cuid())
-  flowId String
+  id         String @id @default(cuid())
+  flowId     String
   /// n8n's execution id.
   externalId String
 
@@ -946,18 +1031,18 @@ model AutomationRun {
 /// soloops -> n8n. A soloops event and the n8n webhook it is posted to.
 /// The other direction needs none of this: there n8n simply calls the API.
 model AutomationTrigger {
-  id    String          @id @default(cuid())
-  event AutomationEvent
+  id         String          @id @default(cuid())
+  event      AutomationEvent
   /// The webhook URL copied out of the workflow. Kept verbatim rather than
   /// assembled from a path, because test and production webhooks differ and
   /// the editor is what knows which is which.
   webhookUrl String
   /// Optional: only fire for this project. Events without a project never
   /// match a scoped trigger.
-  projectId String?
+  projectId  String?
   /// The flow this belongs to, when it could be resolved from the URL.
-  flowId  String?
-  enabled Boolean @default(true)
+  flowId     String?
+  enabled    Boolean         @default(true)
 
   /// Sent along as X-Soloops-Signature so the receiving end can tell a real
   /// call from a replayed one. Encrypted at rest, see services/secretbox.ts.
@@ -966,8 +1051,8 @@ model AutomationTrigger {
   lastFiredAt DateTime?
   /// Consecutive delivery failures. Past a ceiling the trigger switches
   /// itself off rather than hammering a dead endpoint every time.
-  failStreak Int     @default(0)
-  lastError  String?
+  failStreak  Int       @default(0)
+  lastError   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -982,19 +1067,19 @@ model AutomationTrigger {
 /// Every outbound attempt. Without this an automation that quietly stopped
 /// firing looks exactly like one that was never set up.
 model AutomationDelivery {
-  id        String          @id @default(cuid())
-  triggerId String
-  event     AutomationEvent
+  id         String          @id @default(cuid())
+  triggerId  String
+  event      AutomationEvent
   /// Whether the webhook accepted it. A 2xx is a success, everything else
   /// and every network error is not.
   ok         Boolean
   httpStatus Int?
   error      String?
   durationMs Int?
-  attempt    Int      @default(1)
+  attempt    Int             @default(1)
   /// What was sent. Kept for replaying a failed delivery by hand.
   payload    Json
-  at         DateTime @default(now())
+  at         DateTime        @default(now())
 
   trigger AutomationTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
 
@@ -1006,10 +1091,10 @@ model AutomationDelivery {
 /// workflow never needs the SERVICE_TOKEN that also opens the desktop app
 /// and the MCP server.
 model AutomationToken {
-  id    String @id @default(cuid())
-  name  String
+  id        String   @id @default(cuid())
+  name      String
   /// The token is shown once and then only ever compared as a hash.
-  tokenHash String @unique
+  tokenHash String   @unique
   /// The leading characters, so the list can name a token without holding it.
   prefix    String
   /// Coarse scopes: read, write. An empty list reads as read-only.
@@ -1076,7 +1161,7 @@ model SyncOp {
   op       String
 
   /// The changed fields only, never the whole row. Null for a delete.
-  patch Json?
+  patch  Json?
   /// The keys of `patch`, lifted out of the JSON so the merge can ask "who
   /// last touched this field" against an index instead of unpacking every row.
   fields String[] @default([])

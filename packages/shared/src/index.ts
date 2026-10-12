@@ -10,6 +10,8 @@ export const MeetingStatus = z.enum(['PLANNED', 'RUNNING', 'DONE'])
 export const InvoiceStatus = z.enum(['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED'])
 export const RepoProvider = z.enum(['GITHUB', 'GITLAB'])
 export const TimeSource = z.enum(['TIMER', 'MANUAL', 'MCP'])
+/// Board column of an open task. Closed is `done`, not a status.
+export const TaskStatus = z.enum(['TODO', 'DOING', 'BLOCKED'])
 
 const isoDate = z.string().datetime({ offset: true }).or(z.string().datetime())
 
@@ -125,16 +127,30 @@ export const noteInput = z.object({
 // Time tracking
 // ---------------------------------------------------------------------------
 
-export const timerStartInput = z.object({
-  projectId: z.string(),
-  description: z.string().default(''),
-  billable: z.boolean().default(true),
-  tags: z.array(z.string()).default([]),
-  source: TimeSource.default('TIMER'),
-})
+/**
+ * Starting the clock.
+ *
+ * Either on a project or on a task: with `actionItemId` the project comes
+ * from the task, so the two cannot name different ones. A task without a
+ * project cannot carry time — `TimeEntry.projectId` is non-null, and the
+ * hourly rate hangs off the project.
+ */
+export const timerStartInput = z
+  .object({
+    projectId: z.string().optional(),
+    actionItemId: z.string().optional(),
+    description: z.string().default(''),
+    billable: z.boolean().default(true),
+    tags: z.array(z.string()).default([]),
+    source: TimeSource.default('TIMER'),
+  })
+  .refine((v) => v.projectId || v.actionItemId, {
+    message: 'Projekt oder Aufgabe wird gebraucht',
+  })
 
 export const timeEntryInput = z.object({
   projectId: z.string(),
+  actionItemId: z.string().nullish(),
   description: z.string().default(''),
   startedAt: isoDate,
   endedAt: isoDate,

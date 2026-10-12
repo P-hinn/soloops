@@ -21,6 +21,7 @@ const routes = [
     name: 'meeting',
     component: () => import('@/views/MeetingDetailView.vue'),
   },
+  { path: '/tasks', name: 'tasks', component: () => import('@/views/TasksView.vue') },
   { path: '/notes', name: 'notes', component: () => import('@/views/NotesView.vue') },
   { path: '/projects', name: 'projects', component: () => import('@/views/ProjectsView.vue') },
   {
@@ -28,6 +29,7 @@ const routes = [
     name: 'project',
     component: () => import('@/views/ProjectDetailView.vue'),
   },
+  { path: '/contracts', name: 'contracts', component: () => import('@/views/ContractsView.vue') },
   { path: '/clients', name: 'clients', component: () => import('@/views/ClientsView.vue') },
   { path: '/leads', name: 'leads', component: () => import('@/views/LeadsView.vue') },
   { path: '/leads/:id', name: 'lead', component: () => import('@/views/LeadDetailView.vue') },

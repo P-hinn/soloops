@@ -91,6 +91,7 @@ public enum SyncEntities {
                 SideEffect(kind: .clear, entity: "Note", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "Lead", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "TimeEntry", fk: "clientId"),
+                SideEffect(kind: .clear, entity: "ActionItem", fk: "clientId"),
             ]
         ),
         EntitySpec(
@@ -139,17 +140,20 @@ public enum SyncEntities {
                 ("followUpNote", .string), ("aiScore", .int), ("aiScoreReason", .string),
                 ("aiNextStep", .string), ("aiScoredAt", .date), ("clientId", .string),
                 ("projectId", .string), ("archived", .bool),
-            ]
+            ],
+            sideEffects: [SideEffect(kind: .clear, entity: "ActionItem", fk: "leadId")]
         ),
+        // Behind ActionItem: a booking may name the task it belongs to, so the
+        // task has to exist by the time the entry is applied.
         EntitySpec(
             "TimeEntry",
-            rank: 2,
+            rank: 5,
             required: ["projectId", "startedAt"],
             fields: [
                 ("projectId", .string), ("clientId", .string), ("description", .string),
                 ("startedAt", .date), ("endedAt", .date), ("durationSec", .int),
                 ("billable", .bool), ("rateCents", .int), ("tags", .strings),
-                ("source", .string),
+                ("source", .string), ("actionItemId", .string),
             ]
         ),
         EntitySpec(
@@ -168,14 +172,20 @@ public enum SyncEntities {
                 SideEffect(kind: .clear, entity: "Note", fk: "meetingId"),
             ]
         ),
+        // `status` is the board column of an open task; `done` stays the
+        // closed flag. The two cannot disagree because there is no DONE
+        // status — see the enum in schema.prisma.
         EntitySpec(
             "ActionItem",
             rank: 4,
             required: ["title"],
             fields: [
-                ("title", .string), ("done", .bool), ("dueOn", .date), ("assignee", .string),
-                ("source", .string), ("meetingId", .string), ("projectId", .string),
-            ]
+                ("title", .string), ("done", .bool), ("status", .string), ("dueOn", .date),
+                ("assignee", .string), ("source", .string), ("meetingId", .string),
+                ("projectId", .string), ("clientId", .string), ("leadId", .string),
+                ("position", .int),
+            ],
+            sideEffects: [SideEffect(kind: .clear, entity: "TimeEntry", fk: "actionItemId")]
         ),
         EntitySpec(
             "Note",

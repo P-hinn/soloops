@@ -26,7 +26,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
-    "test": "npm -w @soloops/api run test"
+    "test": "npm -w @soloops/api run test && npm -w @soloops/web run test"
   },
   "engines": {
     "node": ">=22"

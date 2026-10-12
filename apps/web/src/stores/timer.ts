@@ -9,7 +9,22 @@ export type RunningTimer = {
   billable: boolean
   startedAt: string
   project: { id: string; key: string; name: string; color: string }
+  /** The task it was started on, when it was started from the board. */
+  actionItem: { id: string; title: string } | null
 } | null
+
+/**
+ * What the clock is started on.
+ *
+ * Either a project or a task — with a task the API takes the project from it,
+ * so the two cannot name different ones.
+ */
+export type TimerStart = {
+  projectId?: string
+  actionItemId?: string
+  description?: string
+  billable?: boolean
+}
 
 /** The last project booked — the timer nearly always starts on the same one. */
 const LAST_PROJECT = 'soloops.lastProjectId'
@@ -37,13 +52,18 @@ export const useTimer = defineStore('timer', () => {
     running.value = await api.get<RunningTimer>('/api/time/running')
   }
 
-  async function start(projectId: string, description = '', billable = true) {
+  async function start(target: TimerStart | string, description = '', billable = true) {
+    // The positional form is the one the stopwatch and the project rows use:
+    // start(projectId, text, billable).
+    const data: TimerStart =
+      typeof target === 'string' ? { projectId: target, description, billable } : target
+
     running.value = await api.post<NonNullable<RunningTimer>>('/api/time/start', {
-      projectId,
-      description,
-      billable,
+      description: '',
+      billable: true,
+      ...data,
     })
-    localStorage.setItem(LAST_PROJECT, projectId)
+    if (running.value?.projectId) localStorage.setItem(LAST_PROJECT, running.value.projectId)
   }
 
   async function stop() {

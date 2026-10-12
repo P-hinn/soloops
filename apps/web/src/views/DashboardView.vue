@@ -349,7 +349,10 @@ const week = computed(() => {
         </section>
 
         <section class="tile">
-          <h2 class="eyebrow mb-4">Offene Punkte</h2>
+          <div class="mb-4 flex items-baseline justify-between">
+            <h2 class="eyebrow">Offene Punkte</h2>
+            <RouterLink to="/tasks" class="btn-xs">Alle Aufgaben</RouterLink>
+          </div>
           <ul v-if="data.openActions.length" class="space-y-2">
             <li
               v-for="a in data.openActions"

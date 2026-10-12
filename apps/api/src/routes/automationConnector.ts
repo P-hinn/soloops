@@ -5,6 +5,7 @@ import { prisma } from '../db.js'
 import { changeStage, leadValueCents, touchLead, weightedCents } from '../services/leads.js'
 import { emitAutomationEvent, newSecret, sealSecret } from '../services/automationDelivery.js'
 import { eventFromWire } from '../services/automationEvents.js'
+import { createTask } from '../services/taskWrite.js'
 
 /**
  * What an n8n workflow may do to soloops.
@@ -77,6 +78,30 @@ function leadOut(lead: LeadRow) {
 }
 
 const offerSelect = { select: { status: true, amountCents: true, sentOn: true } } as const
+
+/**
+ * What a workflow gets to see of a customer.
+ *
+ * The invoicing details are in there because a contract names the payment
+ * term; `lexofficeContactId` is not, because it belongs to this machine's
+ * accounting link and means nothing anywhere else.
+ */
+const clientOut = {
+  id: true,
+  name: true,
+  company: true,
+  email: true,
+  phone: true,
+  street: true,
+  zip: true,
+  city: true,
+  country: true,
+  vatId: true,
+  currency: true,
+  hourlyRateCents: true,
+  paymentTermDays: true,
+  archived: true,
+} as const
 
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticateConnector)
@@ -296,6 +321,44 @@ const routes: FastifyPluginAsync = async (app) => {
     return { ok: true }
   })
 
+  // --- Clients -------------------------------------------------------------
+  //
+  // Read-only. A workflow that fills a contract needs the address and the
+  // person it is addressed to; creating or changing a customer from a graph
+  // is a different kind of decision and stays in the interface.
+
+  app.get('/clients', async (req) => {
+    const q = z
+      .object({
+        q: z.string().optional(),
+        archived: z.coerce.boolean().default(false),
+        limit: z.coerce.number().max(200).default(50),
+      })
+      .parse(req.query)
+
+    return prisma.client.findMany({
+      where: {
+        archived: q.archived,
+        ...(q.q
+          ? {
+              OR: [
+                { name: { contains: q.q, mode: 'insensitive' } },
+                { company: { contains: q.q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { name: 'asc' },
+      take: q.limit,
+      select: clientOut,
+    })
+  })
+
+  app.get('/clients/:id', async (req) => {
+    const { id } = idParam.parse(req.params)
+    return prisma.client.findUniqueOrThrow({ where: { id }, select: clientOut })
+  })
+
   // --- Projects ------------------------------------------------------------
 
   app.get('/projects', async (req) => {
@@ -350,11 +413,19 @@ const routes: FastifyPluginAsync = async (app) => {
       .object({
         done: z.coerce.boolean().optional(),
         projectId: z.string().optional(),
+        clientId: z.string().optional(),
+        /** Substring on the title — how a workflow finds back its own task. */
+        q: z.string().optional(),
         limit: z.coerce.number().max(200).default(50),
       })
       .parse(req.query)
     return prisma.actionItem.findMany({
-      where: { done: q.done, projectId: q.projectId },
+      where: {
+        done: q.done,
+        projectId: q.projectId,
+        clientId: q.clientId,
+        ...(q.q ? { title: { contains: q.q, mode: 'insensitive' } } : {}),
+      },
       orderBy: [{ done: 'asc' }, { dueOn: 'asc' }],
       take: q.limit,
     })
@@ -367,12 +438,17 @@ const routes: FastifyPluginAsync = async (app) => {
         dueOn: z.coerce.date().nullish(),
         assignee: z.string().nullish(),
         projectId: z.string().nullish(),
+        clientId: z.string().nullish(),
         meetingId: z.string().nullish(),
+        leadId: z.string().nullish(),
       })
       .parse(req.body)
     // `source` marks where it came from, so a flood from a misfiring workflow
-    // can be cleared out without taking hand-written tasks with it.
-    return prisma.actionItem.create({ data: { ...body, source: 'MCP' } })
+    // can be cleared out without taking hand-written tasks with it. The row
+    // itself is built where every other caller builds it, so a task from a
+    // workflow carries the same client and the same place in its column as
+    // one created by hand.
+    return createTask({ ...body, source: 'MCP' })
   })
 
   app.post('/tasks/:id/complete', async (req) => {
@@ -426,6 +502,45 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   // --- Notes ---------------------------------------------------------------
+
+  /**
+   * Finding a note back.
+   *
+   * This exists for the contract workflows: when Zoho reports a signature,
+   * all it knows is its own request id, and the note written on sending is
+   * what ties that id to a customer. Searching the title is enough for that
+   * and keeps the surface small — the bodies of all notes are not something a
+   * workflow has any business paging through.
+   */
+  app.get('/notes', async (req) => {
+    const q = z
+      .object({
+        q: z.string().optional(),
+        clientId: z.string().optional(),
+        projectId: z.string().optional(),
+        limit: z.coerce.number().max(100).default(20),
+      })
+      .parse(req.query)
+
+    return prisma.note.findMany({
+      where: {
+        ...(q.q ? { title: { contains: q.q, mode: 'insensitive' } } : {}),
+        ...(q.clientId ? { clientId: q.clientId } : {}),
+        ...(q.projectId ? { projectId: q.projectId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: q.limit,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        tags: true,
+        clientId: true,
+        projectId: true,
+        createdAt: true,
+      },
+    })
+  })
 
   app.post('/notes', async (req) => {
     const body = z

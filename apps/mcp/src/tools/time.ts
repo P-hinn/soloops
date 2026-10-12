@@ -14,13 +14,16 @@ export function registerTime(server: McpServer): void {
   tool(
     server,
     'soloops_timer_start',
-    'Startet einen Timer auf ein Projekt. Ein bereits laufender Timer wird automatisch gestoppt.',
+    'Startet einen Timer auf ein Projekt oder direkt auf eine Aufgabe. Bei einer Aufgabe kommt das Projekt ' +
+      'von der Aufgabe. Ein bereits laufender Timer wird automatisch gestoppt.',
     {
-      projectId: z.string(),
+      projectId: z.string().optional(),
+      taskId: z.string().optional().describe('Aufgabe, auf die die Zeit gebucht wird'),
       description: z.string().default(''),
       billable: z.boolean().default(true),
     },
-    (args) => post('/api/time/start', { ...args, source: 'MCP' }),
+    ({ taskId, ...args }) =>
+      post('/api/time/start', { ...args, actionItemId: taskId, source: 'MCP' }),
   )
 
   tool(server, 'soloops_timer_stop', 'Stoppt den laufenden Timer.', {}, () =>
@@ -33,13 +36,14 @@ export function registerTime(server: McpServer): void {
     'Trägt Zeit nachträglich ein (z.B. „gestern 2h Konzeption").',
     {
       projectId: z.string(),
+      taskId: z.string().optional().describe('Aufgabe, auf die die Zeit gebucht wird'),
       description: z.string(),
       startedAt: z.string().describe('ISO-8601 Zeitstempel'),
       endedAt: z.string().describe('ISO-8601 Zeitstempel'),
       billable: z.boolean().default(true),
       tags: z.array(z.string()).optional(),
     },
-    (args) => post('/api/time', args),
+    ({ taskId, ...args }) => post('/api/time', { ...args, actionItemId: taskId }),
   )
 
   tool(
@@ -52,10 +56,15 @@ export function registerTime(server: McpServer): void {
       startedAt: z.string().optional().describe('ISO-8601'),
       endedAt: z.string().optional().describe('ISO-8601'),
       projectId: z.string().optional(),
+      taskId: z.string().nullish().describe('Aufgabe zuordnen, null löst die Zuordnung'),
       billable: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
     },
-    ({ timeEntryId, ...body }) => patch(`/api/time/${timeEntryId}`, body),
+    ({ timeEntryId, taskId, ...body }) =>
+      patch(`/api/time/${timeEntryId}`, {
+        ...body,
+        ...(taskId === undefined ? {} : { actionItemId: taskId }),
+      }),
   )
 
   tool(

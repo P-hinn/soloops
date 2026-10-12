@@ -24,6 +24,11 @@
       "sideEffects": [
         {
           "kind": "clear",
+          "entity": "ActionItem",
+          "fk": "clientId"
+        },
+        {
+          "kind": "clear",
           "entity": "CalendarEvent",
           "fk": "clientId"
         },
@@ -164,13 +169,20 @@
         "title": "string",
         "valueCents": "int"
       },
-      "sideEffects": []
+      "sideEffects": [
+        {
+          "kind": "clear",
+          "entity": "ActionItem",
+          "fk": "leadId"
+        }
+      ]
     },
     {
       "name": "TimeEntry",
-      "rank": 2,
+      "rank": 5,
       "required": ["projectId", "startedAt"],
       "fields": {
+        "actionItemId": "string",
         "billable": "bool",
         "clientId": "string",
         "description": "string",
@@ -223,14 +235,24 @@
       "required": ["title"],
       "fields": {
         "assignee": "string",
+        "clientId": "string",
         "done": "bool",
         "dueOn": "date",
+        "leadId": "string",
         "meetingId": "string",
+        "position": "int",
         "projectId": "string",
         "source": "string",
+        "status": "string",
         "title": "string"
       },
-      "sideEffects": []
+      "sideEffects": [
+        {
+          "kind": "clear",
+          "entity": "TimeEntry",
+          "fk": "actionItemId"
+        }
+      ]
     },
     {
       "name": "Note",

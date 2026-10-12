@@ -41,7 +41,13 @@ type Project = {
   }[]
   notes_: { id: string; title: string; updatedAt: string }[]
   meetings: { id: string; title: string; startsAt: string }[]
-  actionItems: { id: string; title: string; dueOn: string | null; done: boolean }[]
+  actionItems: {
+    id: string
+    title: string
+    dueOn: string | null
+    done: boolean
+    status: 'TODO' | 'DOING' | 'BLOCKED'
+  }[]
   digests: Digest[]
 }
 
@@ -206,11 +212,33 @@ onMounted(load)
       </section>
 
       <section class="card">
-        <h2 class="eyebrow mb-3">Offene Punkte</h2>
+        <div class="mb-3 flex items-baseline justify-between">
+          <h2 class="eyebrow">Offene Punkte</h2>
+          <RouterLink :to="`/tasks?project=${project.id}`" class="btn-xs">Board</RouterLink>
+        </div>
         <ul class="space-y-1.5 text-sm">
           <li v-for="a in project.actionItems" :key="a.id" class="flex items-start gap-2">
-            <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warn" />
+            <!-- The dot carries the column: blocked is the one worth seeing
+                 from here without opening the board. -->
+            <span
+              class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+              :class="
+                a.status === 'BLOCKED' ? 'bg-bad' : a.status === 'DOING' ? 'bg-good' : 'bg-warn'
+              "
+              :title="
+                a.status === 'BLOCKED'
+                  ? 'blockiert'
+                  : a.status === 'DOING'
+                    ? 'in Arbeit'
+                    : 'Backlog'
+              "
+            />
             <span class="flex-1">{{ a.title }}</span>
+            <span v-if="a.dueOn" class="shrink-0 text-xs tabular-nums text-muted">
+              {{
+                new Date(a.dueOn).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+              }}
+            </span>
           </li>
         </ul>
         <p v-if="!project.actionItems.length" class="text-sm text-muted">Nichts offen.</p>
