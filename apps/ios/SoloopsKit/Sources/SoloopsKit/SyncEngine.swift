@@ -12,6 +12,7 @@ import Foundation
 /// is written, stamped and shown immediately; the sync is a separate matter
 /// that catches up later. That is the whole reason for the op log, and it is
 /// why nothing here waits on a network call before letting the UI move on.
+@SyncActor
 public final class SyncEngine {
     public struct Identity: Equatable, Sendable {
         public let deviceId: String
@@ -32,6 +33,10 @@ public final class SyncEngine {
         public var failed = 0
         /// The reasons, so a stuck row can be explained rather than guessed at.
         public var notes: [String] = []
+
+        /// Same reason as `SyncCoordinator.Status.init`: the synthesised one
+        /// is internal, and this type is read and built outside the package.
+        public init() {}
     }
 
     static let cursorKey = "sync.cursor"

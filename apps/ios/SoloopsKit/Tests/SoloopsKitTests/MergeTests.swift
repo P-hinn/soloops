@@ -8,6 +8,7 @@ import Testing
 /// The names are the same as over there on purpose: when one side changes, the
 /// pair of test names makes it obvious which case is now decided differently.
 @Suite("Merge")
+@SyncActor
 struct MergeTests {
     let phone = "phone"
     let mac = "mac"
@@ -186,6 +187,7 @@ struct MergeTests {
 /// The codec, where a wrong answer becomes a corrupted row rather than an
 /// error.
 @Suite("Codec")
+@SyncActor
 struct CodecTests {
     @Test("ein ISO-String bleibt als ISO-String erhalten")
     func dateRoundTrip() throws {

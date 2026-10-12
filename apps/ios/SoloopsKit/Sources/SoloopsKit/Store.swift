@@ -12,6 +12,7 @@ import SQLite3
 /// exactly the columns in `SyncEntities`, plus `SyncOp` and a key/value table.
 /// Dates are stored as the ISO strings they arrive as, so a row read back and
 /// pushed again is byte-identical to what the Mac sent.
+@SyncActor
 public final class Store {
     public enum StoreError: Error, Equatable {
         case open(String)
@@ -42,7 +43,9 @@ public final class Store {
         try migrate()
     }
 
-    deinit {
+    /// `isolated` because the handle belongs to `SyncActor` like everything
+    /// else here, and a plain `deinit` is nonisolated — it may not touch it.
+    isolated deinit {
         if let db { sqlite3_close_v2(db) }
     }
 

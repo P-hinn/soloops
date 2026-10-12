@@ -9,6 +9,7 @@ import Testing
 /// asked, so every rule that decides "yes, record this, against that customer"
 /// is pinned down. A wrong guess ends up on an invoice.
 @Suite("Fahrzeit")
+@SyncActor
 struct TravelTimerTests {
     var calendar: Calendar {
         var c = Calendar(identifier: .gregorian)
@@ -195,6 +196,7 @@ struct TravelTimerTests {
 /// The pairing payload, which arrives as a scanned string and must not be
 /// trusted to be well formed.
 @Suite("Kopplung")
+@SyncActor
 struct PairingTests {
     @Test("eine Einladung wird aus dem QR-Code gelesen")
     func parsesInvitation() throws {

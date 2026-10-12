@@ -11,6 +11,7 @@ import Testing
 /// that forgets where it was, a batch applied twice — none of those show up in
 /// a pure merge test.
 @Suite("Store und Engine")
+@SyncActor
 struct EngineTests {
     let phone = "phone-device"
     let mac = "mac-device"
@@ -437,6 +438,7 @@ struct EngineTests {
 /// against a temporary directory: the behaviour worth testing is the naming,
 /// the atomic write and the refusal to read another device's file.
 @Suite("iCloud-Transport")
+@SyncActor
 struct ICloudTransportTests {
     func makeTransport() throws -> (ICloudTransport, URL) {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())

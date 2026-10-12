@@ -13,7 +13,11 @@ import PackageDescription
 /// phone app free of a package graph it would otherwise have to carry.
 let package = Package(
     name: "SoloopsKit",
-    platforms: [.iOS(.v18), .macOS(.v14)],
+    // 15.4/18.4 rather than 14/18 only because `Store` needs an `isolated
+    // deinit` to close the SQLite handle inside its actor; the alternative is
+    // `nonisolated(unsafe)` on the handle, which turns the check off for good.
+    // Both floors are long past on any device that runs this.
+    platforms: [.iOS("18.4"), .macOS("15.4")],
     products: [
         .library(name: "SoloopsKit", targets: ["SoloopsKit"])
     ],

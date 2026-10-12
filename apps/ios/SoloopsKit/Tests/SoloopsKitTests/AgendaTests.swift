@@ -10,6 +10,7 @@ import Testing
 /// checked here — that a driver hears something usable — has nothing to do
 /// with either.
 @Suite("Agenda und Briefing")
+@SyncActor
 struct AgendaTests {
     /// Berlin, so the day boundary is the one the user lives in and not UTC.
     var calendar: Calendar {

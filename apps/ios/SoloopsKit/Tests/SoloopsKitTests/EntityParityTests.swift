@@ -16,6 +16,7 @@ import Testing
 /// them fails, the fix is to mirror the change here, not to regenerate the
 /// fixture.
 @Suite("Registry-Paritaet")
+@SyncActor
 struct EntityParityTests {
     struct Registry: Decodable {
         struct Entity: Decodable {

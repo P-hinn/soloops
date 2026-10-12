@@ -138,6 +138,7 @@ public struct Pairing {
 /// get slower every month the Mac has been running. The snapshot is the state
 /// as of one point in time, and the cursor that comes with it says where the
 /// log carries on — so nothing is applied twice and nothing is missed.
+@SyncActor
 public struct SnapshotImport {
     public let engine: SyncEngine
 

@@ -6,7 +6,8 @@ import Foundation
 /// Kept apart because the interesting behaviour is in the choosing: the phone
 /// is on the house Wi-Fi, or on mobile data with the Mac asleep, or in a
 /// tunnel, and all three have to leave the local database in a usable state.
-public actor SyncCoordinator {
+@SyncActor
+public final class SyncCoordinator {
     /// What the UI shows about the last attempt.
     public enum Route: Equatable, Sendable {
         case lan
@@ -21,6 +22,11 @@ public actor SyncCoordinator {
         public var pending: Int = 0
         public var lastError: String?
         public var report = SyncEngine.Report()
+
+        /// Spelled out because Swift keeps the synthesised memberwise
+        /// initialiser `internal`, and the app builds an empty status before
+        /// there is a coordinator to ask.
+        public init() {}
     }
 
     let engine: SyncEngine

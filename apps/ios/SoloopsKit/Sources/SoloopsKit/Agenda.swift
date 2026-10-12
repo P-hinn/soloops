@@ -52,6 +52,7 @@ public struct AgendaTask: Equatable, Sendable, Identifiable {
 /// Every query goes against SQLite, never the network: in the car there is
 /// frequently no network, and an agenda that is sometimes empty is worse than
 /// no agenda at all.
+@SyncActor
 public struct Agenda {
     let store: Store
     let calendar: Calendar

@@ -19,7 +19,9 @@ name: Soloops
 options:
   bundleIdPrefix: com.soloops
   deploymentTarget:
-    iOS: '18.0'
+    # 18.4, not 18.0: `Store` closes the SQLite handle in an `isolated deinit`,
+    # which the runtime only supports from there. See SoloopsKit/Package.swift.
+    iOS: '18.4'
   createIntermediateGroups: true
 
 settings:

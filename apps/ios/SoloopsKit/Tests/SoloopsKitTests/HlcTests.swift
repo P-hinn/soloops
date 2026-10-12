@@ -9,6 +9,7 @@ import Testing
 /// code cannot catch the thing that actually goes wrong here, which is the two
 /// implementations drifting apart.
 @Suite("HLC")
+@SyncActor
 struct HlcTests {
     let phone = "phone"
     let mac = "mac"
