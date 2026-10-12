@@ -19,6 +19,7 @@ WORKDIR /app
 # Copy the manifests only -> the npm layer stays cached
 COPY package.json ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/e2e/package.json packages/e2e/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/

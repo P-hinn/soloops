@@ -36,6 +36,7 @@
 - [Running as a macOS app](#running-as-a-macos-app) — its own window instead of a browser tab
 - [Design system](#design-system) — tokens, rules, classes
 - [Tooling and conventions](#tooling-and-conventions) — Prettier, ESLint, the 1000-line limit
+- [E2E across all browsers](#e2e-across-all-browsers) — the Playwright kit, reusable elsewhere
 - [Architecture](#architecture) — five apps, one monorepo
 - [Modules](#modules) — what the thing actually does
 - [Two-way calendar sync](#two-way-calendar-sync) — Google, CalDAV, conflict rules
@@ -262,6 +263,34 @@ you have two things in one file. Largest file right now: `CalendarView.vue` at
 Comments and commit messages are English; the UI copy is German. Commits follow
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+### E2E across all browsers
+
+```bash
+npm run e2e:install                     # once: Chromium, Firefox, WebKit
+npm run e2e                             # the interface in all three engines
+E2E_BROWSERS=webkit npm run e2e         # the Safari engine only
+npm -w @soloops/web run e2e:ui          # interactive, with time travel
+```
+
+The tests live in [`apps/web/e2e/`](apps/web/e2e) and need nothing but Vite —
+the API is mocked ([`mock-api.ts`](apps/web/e2e/mock-api.ts)), and strictly so:
+an endpoint without a stub answers 501 and fails the test. Every test also
+watches for JS errors, `console.error` and 5xx responses on the side; the smoke
+tests additionally check accessibility (axe, WCAG 2.2 AA) and sideways
+scrolling. In CI each browser runs as its own job
+([`.github/workflows/e2e.yml`](.github/workflows/e2e.yml)).
+
+Two things are deliberately excluded, each with a reason in the code: **colour
+contrast** (`--color-muted` and the kicker blue sit below 4.5:1 — a decision at
+the design-system level) and **mobile** (there is no layout below ~1024px yet).
+
+The kit itself ([`packages/e2e`](packages/e2e/README.md)) is project-agnostic
+and drops into any other web project:
+
+```bash
+npm run e2e:init -- ../other-project --routes /,/pricing,/contact
+```
+
 ### Dependencies held back
 
 Deliberately **not** upgraded, each with a reason:
@@ -296,6 +325,7 @@ apps/
 packages/
   shared/              Zod schemas and formatters shared by API, web and MCP
   n8n-nodes-soloops/   the soloops nodes, mounted into the n8n container
+  e2e/                 Playwright kit for E2E across all browsers — reusable elsewhere
 ```
 
 n8n itself is a container rather than an app here — it is run, not written.
