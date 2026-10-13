@@ -219,6 +219,9 @@ struct TodayView: View {
     // runs again on every redraw.
     @State private var events: [AgendaEvent] = []
     @State private var tasks: [AgendaTask] = []
+    /// Resolved once per load, not per row: a list cannot await, and looking a
+    /// name up inside `body` would do it again on every redraw.
+    @State private var clientNames: [String: String] = [:]
 
     var body: some View {
         NavigationStack {
@@ -227,16 +230,28 @@ struct TodayView: View {
                     ContentUnavailableView("Keine Termine heute", systemImage: "calendar")
                 } else {
                     ForEach(events) { event in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(event.allDay ? "ganztägig" : briefing.time(event.startsAt))
-                                .font(Display.font(12, .medium))
+                        HStack(alignment: .top, spacing: 14) {
+                            // The time in its own column, so a glance down the
+                            // list reads as a schedule rather than as prose.
+                            Text(event.allDay ? "ganztags" : briefing.time(event.startsAt))
+                                .font(Display.font(13, .medium))
                                 .monospacedDigit()
                                 .foregroundStyle(Paper.blue)
-                            Text(event.title)
-                            if let location = event.location, !location.isEmpty {
-                                Text(location).font(.caption).foregroundStyle(Paper.muted)
+                                .frame(width: 58, alignment: .leading)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(event.title)
+                                    .foregroundStyle(Paper.ink)
+                                    .lineLimit(2)
+                                if let context = context(for: event) {
+                                    Text(context)
+                                        .font(.caption)
+                                        .foregroundStyle(Paper.muted)
+                                        .lineLimit(1)
+                                }
                             }
                         }
+                        .padding(.vertical, 3)
                         .listRowBackground(Paper.paper)
                         .listRowSeparatorTint(Paper.line)
                     }
@@ -248,12 +263,30 @@ struct TodayView: View {
                             Button {
                                 Task { await tick(task) }
                             } label: {
-                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                HStack(alignment: .top, spacing: 12) {
                                     Image(systemName: "circle")
                                         .foregroundStyle(Paper.lineStrong)
-                                    Text(task.title)
-                                        .foregroundStyle(Paper.ink)
+                                        .padding(.top, 2)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        // Two lines and then an ellipsis. A
+                                        // note pasted into a task title runs to
+                                        // five lines and pushes everything else
+                                        // off the screen.
+                                        Text(task.title)
+                                            .foregroundStyle(Paper.ink)
+                                            .multilineTextAlignment(.leading)
+                                            .lineLimit(2)
+                                        if let due = task.dueOn {
+                                            Text(dueLabel(due))
+                                                .font(.caption)
+                                                .foregroundStyle(
+                                                    due < Calendar.current.startOfDay(for: Date())
+                                                        ? Paper.bad : Paper.muted
+                                                )
+                                        }
+                                    }
                                 }
+                                .padding(.vertical, 3)
                             }
                             .listRowBackground(Paper.paper)
                             .listRowSeparatorTint(Paper.line)
@@ -284,6 +317,36 @@ struct TodayView: View {
         }
         events = (try? await agenda.events(on: Date())) ?? []
         tasks = (try? await agenda.openTasks(limit: 10)) ?? []
+
+        var names: [String: String] = [:]
+        for id in Set(events.compactMap(\.clientId)) {
+            if let name = try? await agenda.clientName(id) { names[id] = name }
+        }
+        clientNames = names
+    }
+
+    /// Whose appointment this is, and where. Without it the list is a column
+    /// of bare titles that could belong to anyone.
+    private func context(for event: AgendaEvent) -> String? {
+        let parts = [
+            event.clientId.flatMap { clientNames[$0] },
+            event.location?.isEmpty == false ? event.location : nil,
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func dueLabel(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "heute fällig" }
+        if calendar.isDateInTomorrow(date) { return "morgen fällig" }
+        if date < calendar.startOfDay(for: Date()) {
+            let days = calendar.dateComponents(
+                [.day], from: calendar.startOfDay(for: date),
+                to: calendar.startOfDay(for: Date())
+            ).day ?? 0
+            return days == 1 ? "seit gestern überfällig" : "seit \(days) Tagen überfällig"
+        }
+        return date.formatted(.dateTime.weekday(.abbreviated).day().month())
     }
 
     private func tick(_ task: AgendaTask) async {
@@ -308,12 +371,31 @@ struct FollowUpView: View {
                     ContentUnavailableView("Nichts offen", systemImage: "checkmark.circle")
                 } else {
                     ForEach(due) { followUp in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(followUp.title).foregroundStyle(Paper.ink)
-                            Text(briefing.line(for: followUp, at: Date()))
-                                .font(.caption)
-                                .foregroundStyle(Paper.muted)
+                        VStack(alignment: .leading, spacing: 4) {
+                            // Two lines at most. A follow-up note is often a
+                            // paragraph of its own, and left whole it buries
+                            // every other row on the screen.
+                            Text(followUp.title)
+                                .foregroundStyle(Paper.ink)
+                                .lineLimit(2)
+
+                            HStack(spacing: 6) {
+                                Text(overdueLabel(followUp))
+                                    .font(Display.font(12, .medium))
+                                    .foregroundStyle(
+                                        followUp.daysOverdue(at: Date(), calendar: .current) > 0
+                                            ? Paper.bad : Paper.blue
+                                    )
+                                if let company = followUp.company, !company.isEmpty {
+                                    Text("·").foregroundStyle(Paper.line)
+                                    Text(company)
+                                        .font(.caption)
+                                        .foregroundStyle(Paper.muted)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
+                        .padding(.vertical, 3)
                         .listRowBackground(Paper.paper)
                         .listRowSeparatorTint(Paper.line)
                         .swipeActions {
@@ -342,6 +424,18 @@ struct FollowUpView: View {
             return
         }
         due = (try? await agenda.dueFollowUps(at: Date())) ?? []
+    }
+
+    /// How late it is, in words. The number of days is the thing that decides
+    /// whether you call now or after lunch; the date itself rarely is.
+    private func overdueLabel(_ followUp: AgendaFollowUp) -> String {
+        let days = followUp.daysOverdue(at: Date(), calendar: .current)
+        switch days {
+        case ..<0: return "in \(-days) Tagen"
+        case 0: return "heute"
+        case 1: return "seit gestern"
+        default: return "seit \(days) Tagen"
+        }
     }
 
     private func clear(_ followUp: AgendaFollowUp) async {
