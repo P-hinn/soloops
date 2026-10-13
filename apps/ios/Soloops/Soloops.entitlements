@@ -18,7 +18,14 @@
 	-->
 
 	<!-- The store-and-forward route for when the Mac is not reachable. The
-	     container holds op batches only, never the database itself. -->
+	     container holds op batches only, never the database itself.
+
+	     Commented out because iCloud needs a paid membership — a free personal
+	     team cannot sign it, and the error Xcode gives names the team rather
+	     than the capability. Nothing else has to change for this: the transport
+	     asks for the container and gets nil, and SyncCoordinator skips the
+	     route. Pairing and syncing over the local network are untouched.
+	     Uncomment all three keys once the membership is back.
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.soloops.app</string>
@@ -31,5 +38,6 @@
 	<array>
 		<string>iCloud.com.soloops.app</string>
 	</array>
+	-->
 </dict>
 </plist>

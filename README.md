@@ -768,10 +768,12 @@ The phone needs **Developer Mode** once (_Settings → Privacy & Security_), and
 the build runs in a scratch path outside `~/Desktop` for the same reason
 `ios-test.sh` does — see [Tooling](#tooling-and-conventions).
 
-A paid Apple Developer account makes the install last **twelve months**, the
-life of the provisioning profile; free signing expires after seven days. The
-iCloud entitlement needs the paid one — a free team cannot sign it, and the
-error Xcode gives for that names the team rather than the capability.
+The install lasts as long as the provisioning profile: **twelve months** with
+a paid membership, seven days with free signing. The iCloud entitlement needs
+the paid one, and the error Xcode gives for that names the team rather than
+the capability — "personal development teams do not support the iCloud
+capability" is what a lapsed membership looks like, not a statement about
+which team you picked.
 
 Do not edit `Info.plist` through Xcode's inspector: it rewrites the file
 alphabetically and drops every comment, and the comments in there are the
