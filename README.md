@@ -32,6 +32,7 @@
 ## Contents
 
 - [What this is](#what-this-is) — scope, assumptions, and what it deliberately isn't
+- [What it looks like](#what-it-looks-like) — the interface, and the phone next to it
 - [Quick start](#quick-start) — from nothing to running in four commands
 - [Running as a macOS app](#running-as-a-macos-app) — its own window instead of a browser tab
 - [Design system](#design-system) — tokens, rules, classes
@@ -80,6 +81,28 @@ problem. A few things are worth knowing before you invest an evening in it:
 
 What it is not: a product, a hosted service, or something with a support
 promise. See [Contributing](#contributing) for what that means in practice.
+
+---
+
+## What it looks like
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+The day at a glance: what is on, what is unbilled, what is open. One sentence
+at the top says the thing that actually matters today — an overdue invoice
+outranks a full calendar.
+
+|                                                                                  |                                                                                      |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| ![Tasks](docs/screenshots/tasks.png)                                             | ![Leads](docs/screenshots/leads.png)                                                 |
+| **Tasks** — the same list as a board, filtered on a copy so switching is instant | **Leads** — the pipeline, weighted, with what has gone quiet                         |
+| ![Calendar](docs/screenshots/calendar.png)                                       | ![Time](docs/screenshots/time.png)                                                   |
+| **Calendar** — two-way with Google and Apple, conflicts resolved per field       | **Time** — the stopwatch where the entries are, and what the Mac picked up by itself |
+
+The images are generated, not collected: `npm run shots` drives the interface
+through the E2E mock and writes `docs/screenshots/`. Against the mock rather
+than a real instance, so they carry example data instead of somebody's
+clients, and so a changed layout is one command away from a refreshed README.
 
 ---
 
@@ -262,6 +285,17 @@ you have two things in one file. Largest file right now: `CalendarView.vue` at
 
 Comments and commit messages are English; the UI copy is German. Commits follow
 [Conventional Commits](https://www.conventionalcommits.org/).
+
+### Screenshots
+
+```bash
+npm run shots      # drives the mocked interface, writes docs/screenshots/
+```
+
+Not a test and deliberately not part of CI: these assert nothing, and a
+changed pixel should refresh the README rather than turn a build red. They run
+against the same mock the E2E suite uses, so the pictures carry example data
+instead of real clients.
 
 ### E2E across all browsers
 
@@ -622,6 +656,24 @@ One rule in there is a judgement call rather than a consequence: **an edit made
 after a delete keeps the row alive.** The edit is work, the delete is the
 absence of it. Keeping the row loses nothing a second delete cannot fix;
 honouring the delete would throw away something nobody can get back.
+
+### Catching something on the phone
+
+The phone's first tab is one text field and three buttons: lead, task, note.
+First line becomes the title, the rest the body, and German date words —
+_morgen_, _Freitag_, _in 3 Tagen_ — become a due date, shown under the field
+before saving rather than as a surprise in the list afterwards.
+
+Deliberately not the Mac's AI quick entry. That one reads a sentence, proposes
+a client, a project and three appointments, and waits for confirmation — right
+at a desk, wrong in a car park, where it needs network, reading and a decision.
+The rule here is blunt enough to predict, so what you get is what you typed.
+
+It writes to the local database, not to the API, so it works with no network
+at all and travels on the next sync. `Capture` in SoloopsKit holds the rules
+and is tested against the entity registry: every draft fills the required
+fields of the table it targets, and writes no column that does not exist —
+a row the Mac rejects would sync, fail the merge and vanish without a word.
 
 ### Two routes, different failure modes
 

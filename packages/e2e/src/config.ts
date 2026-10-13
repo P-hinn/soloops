@@ -21,7 +21,11 @@ export type E2EOptions = {
   }
   /** The default selection when `E2E_BROWSERS` is unset. */
   browsers?: BrowserName[]
-  /** Pass through whatever the kit does not cover. Merged last. */
+  /**
+   * Pass through whatever the kit does not cover. Merged last, and `use` is
+   * merged rather than replaced — overriding one thing in there should not
+   * silently drop the baseURL and the locale with it.
+   */
   overrides?: PlaywrightTestConfig
 }
 
@@ -56,6 +60,15 @@ export function defineE2EConfig(options: E2EOptions) {
     }
   })
 
+  const base: PlaywrightTestConfig['use'] = {
+    baseURL,
+    locale: 'de-DE',
+    timezoneId: 'Europe/Berlin',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  }
+
   return defineConfig({
     testDir: options.testDir ?? './e2e',
     outputDir: './test-results',
@@ -78,14 +91,6 @@ export function defineE2EConfig(options: E2EOptions) {
           ['junit', { outputFile: 'test-results/junit.xml' }],
         ]
       : [['list'], ['html', { open: 'on-failure' }]],
-    use: {
-      baseURL,
-      locale: 'de-DE',
-      timezoneId: 'Europe/Berlin',
-      trace: 'on-first-retry',
-      screenshot: 'only-on-failure',
-      video: 'retain-on-failure',
-    },
     projects,
     webServer:
       options.webServer && !remote
@@ -101,5 +106,8 @@ export function defineE2EConfig(options: E2EOptions) {
           }
         : undefined,
     ...options.overrides,
+    // After the spread, because a shallow spread would have replaced the whole
+    // block. Overriding the viewport must not take the baseURL with it.
+    use: { ...base, ...options.overrides?.use },
   })
 }

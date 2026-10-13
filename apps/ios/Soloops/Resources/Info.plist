@@ -35,6 +35,17 @@
 	     full screen, everything scaled, and the keyboard squeezed to match.
 	     An empty dict is the whole declaration — it says "this app is built
 	     for the current screen", which is all iOS wants to know. -->
+	<!-- The same typeface the web interface uses, so the two halves of
+	     soloops do not look like two products. Static cuts rather than the
+	     variable file: UIFont picks an instance by name, and three named
+	     weights are less to go wrong than one axis. OFL, see Fonts/OFL.txt. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fonts/SpaceGrotesk-Regular.ttf</string>
+		<string>Fonts/SpaceGrotesk-Medium.ttf</string>
+		<string>Fonts/SpaceGrotesk-Bold.ttf</string>
+	</array>
+
 	<key>UILaunchScreen</key>
 	<dict/>
 

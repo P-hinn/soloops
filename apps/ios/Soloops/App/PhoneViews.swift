@@ -18,15 +18,18 @@ struct PairingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            ZStack {
+                Paper.paper.ignoresSafeArea()
+                VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 10) {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.system(size: 56, weight: .light))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Paper.muted)
+                    Eyebrow("Einrichten")
                     Text("Mit dem Mac koppeln")
-                        .font(.title2.weight(.semibold))
+                        .font(Display.font(26, .bold))
                     Text("Am Mac unter Einstellungen → iPhone einen Code erzeugen. Dann hier scannen — Adresse und Code stecken im Bild.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -41,8 +44,7 @@ struct PairingView: View {
                     Label(busy ? "Koppeln …" : "QR-Code scannen", systemImage: "camera.viewfinder")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(PillButton())
                 .disabled(busy)
                 .padding(.horizontal, 32)
                 .padding(.top, 28)
@@ -74,6 +76,7 @@ struct PairingView: View {
                 }
 
                 Spacer(minLength: 0)
+                }
             }
             .navigationTitle("soloops")
             .navigationBarTitleDisplayMode(.inline)
@@ -196,11 +199,13 @@ struct MainView: View {
 
     var body: some View {
         TabView {
+            Tab("Neu", systemImage: "square.and.pencil") { CaptureView() }
             Tab("Heute", systemImage: "calendar") { TodayView() }
             Tab("Wiedervorlage", systemImage: "arrow.uturn.backward") { FollowUpView() }
             Tab("Fahrten", systemImage: "car") { DrivesView() }
             Tab("Abgleich", systemImage: "arrow.triangle.2.circlepath") { SyncView() }
         }
+        .tint(Paper.ink)
     }
 }
 
@@ -223,8 +228,9 @@ struct TodayView: View {
                     ForEach(events) { event in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.allDay ? "ganztägig" : briefing.time(event.startsAt))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(Display.font(12, .medium))
+                                .monospacedDigit()
+                                .foregroundStyle(Paper.blue)
                             Text(event.title)
                             if let location = event.location, !location.isEmpty {
                                 Text(location).font(.caption).foregroundStyle(.secondary)
@@ -234,7 +240,7 @@ struct TodayView: View {
                 }
 
                 if !tasks.isEmpty {
-                    Section("Offene Punkte") {
+                    Section {
                         ForEach(tasks) { task in
                             Button {
                                 Task { await tick(task) }
@@ -243,11 +249,17 @@ struct TodayView: View {
                                     Image(systemName: "circle")
                                     Text(task.title)
                                 }
+                                .foregroundStyle(Paper.ink)
                             }
                         }
+                    } header: {
+                        Eyebrow("Offene Punkte")
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Paper.paper)
             .navigationTitle("Heute")
             .task { await load() }
             .refreshable {
@@ -302,6 +314,9 @@ struct FollowUpView: View {
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Paper.paper)
             .navigationTitle("Wiedervorlage")
             .task { await load() }
             .refreshable {
@@ -375,6 +390,9 @@ struct DrivesView: View {
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Paper.paper)
             .navigationTitle("Fahrten")
             .onAppear { reload() }
         }
@@ -429,7 +447,7 @@ struct SyncView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Zuletzt") {
+                Section {
                     LabeledContent("Weg", value: route)
                     LabeledContent(
                         "Erfolg",
@@ -437,24 +455,30 @@ struct SyncView: View {
                             date: .omitted, time: .standard) ?? "noch nie")
                     LabeledContent("Offen", value: "\(environment.status.pending)")
                     if let error = environment.status.lastError {
-                        Text(error).foregroundStyle(.orange)
+                        Text(error).foregroundStyle(Paper.warn)
                     }
+                } header: {
+                    Eyebrow("Zuletzt")
                 }
 
-                Section("Letzter Stapel") {
+                Section {
                     LabeledContent("Gesendet", value: "\(environment.status.report.pushed)")
                     LabeledContent("Übernommen", value: "\(environment.status.report.applied)")
                     LabeledContent("Verworfen", value: "\(environment.status.report.skipped)")
                     LabeledContent("Fehler", value: "\(environment.status.report.failed)")
+                } header: {
+                    Eyebrow("Letzter Stapel")
                 }
 
                 // The reasons, verbatim. A row that will not sync is otherwise
                 // impossible to explain from the phone.
                 if !environment.status.report.notes.isEmpty {
-                    Section("Hinweise") {
+                    Section {
                         ForEach(environment.status.report.notes, id: \.self) { note in
-                            Text(note).font(.caption).foregroundStyle(.secondary)
+                            Text(note).font(.caption).foregroundStyle(Paper.muted)
                         }
+                    } header: {
+                        Eyebrow("Hinweise")
                     }
                 }
 
@@ -463,6 +487,8 @@ struct SyncView: View {
                     Button("Kopplung lösen", role: .destructive) { environment.unpair() }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Paper.paper)
             .navigationTitle("Abgleich")
         }
     }

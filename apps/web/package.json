@@ -12,7 +12,8 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
-    "test": "tsx test/tasks.test.ts && tsx test/contracts.test.ts"
+    "test": "tsx test/tasks.test.ts && tsx test/contracts.test.ts",
+    "shots": "playwright test -c playwright.screenshots.config.ts"
   },
   "dependencies": {
     "@soloops/shared": "*",
