@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api } from '@/api'
+import QrCode from '@/components/QrCode.vue'
 
 /**
  * The iPhone, as a card.
@@ -196,24 +197,47 @@ onUnmounted(() => {
           Code abgelaufen. Einen neuen erzeugen und am iPhone noch einmal versuchen.
         </p>
         <template v-else>
-          <p class="mb-1 text-xs text-muted">Code am iPhone eingeben — noch {{ countdown }}</p>
-          <p class="mb-3 font-mono text-3xl tracking-[0.2em] tabular-nums">{{ offer.code }}</p>
+          <div class="flex flex-wrap items-start gap-5">
+            <QrCode :value="pairingUrl" :size="200" label="Kopplungscode für das iPhone" />
 
-          <p class="mb-1 text-xs text-muted">
-            Dazu die Adresse dieses Macs. Falls mehrere dastehen: die aus demselben Netz wie das
-            iPhone.
-          </p>
-          <ul class="mb-3 space-y-1">
-            <li v-for="address in offer.addresses" :key="address" class="flex items-center gap-2">
-              <code class="border border-line bg-paper px-1 text-sm">{{ address }}</code>
-              <button class="btn-xs" @click="copy(address, address)">
-                {{ copied === address ? 'kopiert' : 'kopieren' }}
-              </button>
-            </li>
-          </ul>
-          <p v-if="offer.addresses.length === 0" class="mb-3 text-sm text-bad">
-            Dieser Mac hat keine Netzwerkadresse, die das iPhone erreichen könnte. Im selben WLAN?
-          </p>
+            <div class="min-w-48 flex-1">
+              <p class="mb-1 text-xs text-muted">
+                In soloops am iPhone auf <strong>QR scannen</strong> und hier drauf halten. Code und
+                Adresse stecken drin — noch {{ countdown }}.
+              </p>
+
+              <p
+                v-if="offer.addresses.length === 0"
+                class="mt-3 border-l-2 border-bad px-3 py-2 text-sm text-bad"
+              >
+                Dieser Mac hat keine Netzwerkadresse, die das iPhone erreichen könnte. Im selben
+                WLAN?
+              </p>
+
+              <details v-else class="mt-3">
+                <summary class="cursor-pointer text-xs text-muted">Ohne Kamera eingeben</summary>
+                <p class="mt-2 font-mono text-2xl tracking-[0.2em] tabular-nums">
+                  {{ offer.code }}
+                </p>
+                <p class="mt-2 mb-1 text-xs text-muted">
+                  Dazu die Adresse dieses Macs. Falls mehrere dastehen: die aus demselben Netz wie
+                  das iPhone.
+                </p>
+                <ul class="space-y-1">
+                  <li
+                    v-for="address in offer.addresses"
+                    :key="address"
+                    class="flex items-center gap-2"
+                  >
+                    <code class="border border-line bg-paper px-1 text-sm">{{ address }}</code>
+                    <button class="btn-xs" @click="copy(address, address)">
+                      {{ copied === address ? 'kopiert' : 'kopieren' }}
+                    </button>
+                  </li>
+                </ul>
+              </details>
+            </div>
+          </div>
         </template>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -225,8 +249,8 @@ onUnmounted(() => {
       <details class="mt-3">
         <summary class="cursor-pointer text-xs text-muted">Als Link</summary>
         <p class="mt-2 text-xs text-muted">
-          Enthält Code und Adressen in einem. Praktisch, wenn das iPhone den Link ohnehin erreicht —
-          per AirDrop oder aus einer Notiz heraus geöffnet, koppelt sich die App ohne Eingabe.
+          Derselbe Inhalt wie im QR-Code. Für den Fall, dass die Kamera nicht infrage kommt — per
+          AirDrop geschickt und am iPhone geöffnet, koppelt sich die App ohne Eingabe.
         </p>
         <pre class="mt-2 overflow-x-auto bg-paper p-3 text-xs text-soft">{{ pairingUrl }}</pre>
         <button class="btn-xs" @click="copy(pairingUrl, 'url')">

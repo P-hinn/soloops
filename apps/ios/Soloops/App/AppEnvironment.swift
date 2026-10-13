@@ -121,16 +121,36 @@ public final class AppEnvironment {
 
     // --- Pairing -----------------------------------------------------------
 
-    public func pair(with invitation: Pairing.Invitation) async -> String? {
+    /// Why pairing did not work, in a form the screen can act on.
+    ///
+    /// A string was not enough: the one failure worth offering a button for is
+    /// the phone not reaching the Mac, because the usual cause is a permission
+    /// that can only be granted in Settings — iOS does not ask twice.
+    public struct PairingFailure: Equatable, Sendable {
+        public let message: String
+        /// Nothing answered. Either the Mac is not there, or iOS is silently
+        /// dropping the request because local network access was refused.
+        public let mayBeLocalNetwork: Bool
+    }
+
+    public func pair(with invitation: Pairing.Invitation) async -> PairingFailure? {
         let name = UIDevice.current.name
         let result = await Pairing.claim(invitation: invitation, deviceName: name)
 
         switch result {
         case .failure(let error):
             switch error {
-            case .notReachable: return "Mac nicht erreichbar. Gleiches WLAN?"
-            case .rejected(let reason): return reason
-            case .malformed(let reason): return reason
+            case .notReachable:
+                return PairingFailure(
+                    message: "Keine Antwort vom Mac. Entweder läuft soloops dort nicht, "
+                        + "die Geräte sind in verschiedenen Netzen, oder soloops darf hier "
+                        + "nicht ins lokale Netz.",
+                    mayBeLocalNetwork: true
+                )
+            case .rejected(let reason):
+                return PairingFailure(message: reason, mayBeLocalNetwork: false)
+            case .malformed(let reason):
+                return PairingFailure(message: reason, mayBeLocalNetwork: false)
             }
 
         case .success(let (claim, endpoint)):
@@ -140,12 +160,17 @@ public final class AppEnvironment {
             do {
                 adopt(try await Self.open(identity: identity, endpoint: endpoint))
             } catch {
-                return "Lokale Datenbank konnte nicht angelegt werden: \(error)"
+                return PairingFailure(
+                    message: "Lokale Datenbank konnte nicht angelegt werden: \(error)",
+                    mayBeLocalNetwork: false
+                )
             }
 
             // The first fill comes from a snapshot rather than from replaying
             // the log, which only gets longer — see SnapshotImport.
-            guard let engine else { return "Sync nicht bereit" }
+            guard let engine else {
+                return PairingFailure(message: "Sync nicht bereit", mayBeLocalNetwork: false)
+            }
             do {
                 let transport = LanTransport(endpoint: endpoint, identity: identity)
                 let snapshot = try await transport.snapshot()
@@ -156,7 +181,10 @@ public final class AppEnvironment {
                 // Pairing worked; the first fill did not. The next sync will
                 // catch up from the cursor, so this is not worth undoing.
                 state = .ready
-                return "Gekoppelt, aber die Erstübertragung fehlt noch"
+                return PairingFailure(
+                    message: "Gekoppelt, aber die Erstübertragung fehlt noch",
+                    mayBeLocalNetwork: false
+                )
             }
 
             state = .ready
