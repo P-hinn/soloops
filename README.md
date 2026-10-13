@@ -751,11 +751,13 @@ Everything that decides how the app behaves — the scene manifest, the
 entitlements, the asset catalog with its CarPlay icon slot — is in version
 control next to `project.yml`.
 
-Xcode is needed **once**: sign in under _Settings → Accounts_, then put the
-team into [`Local.xcconfig`](apps/ios/Local.xcconfig). It goes there rather
-than into Xcode's signing pane because the project is generated — anything set
-in the pane is gone after the next `xcodegen`. After that, every install is one
-command:
+Xcode is needed **once**: sign in under _Settings → Accounts_, open the
+project and let it create the certificate, the App ID and the iCloud container
+— the command line cannot do that first-time setup. Then write the team id to
+`apps/ios/.team`, which is untracked and substituted into the generated
+project. It goes there rather than into Xcode's signing pane because the
+project is generated, and anything set in the pane is gone after the next
+`xcodegen`. After that, every install is one command:
 
 ```bash
 bash scripts/ios-install.sh          # the connected iPhone
@@ -767,7 +769,13 @@ the build runs in a scratch path outside `~/Desktop` for the same reason
 `ios-test.sh` does — see [Tooling](#tooling-and-conventions).
 
 A paid Apple Developer account makes the install last **twelve months**, the
-life of the provisioning profile; free signing expires after seven days.
+life of the provisioning profile; free signing expires after seven days. The
+iCloud entitlement needs the paid one — a free team cannot sign it, and the
+error Xcode gives for that names the team rather than the capability.
+
+Do not edit `Info.plist` through Xcode's inspector: it rewrites the file
+alphabetically and drops every comment, and the comments in there are the
+reasons for the parts that look wrong.
 Letting anyone else install it is a different question — that needs the App
 Store, because Ad Hoc caps at 100 hand-registered devices and the Enterprise
 programme requires a company with 100+ employees.

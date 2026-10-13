@@ -50,10 +50,6 @@ targets:
     dependencies:
       - package: SoloopsKit
         product: SoloopsKit
-    # Signing lives outside the generated project — see Local.xcconfig.
-    configFiles:
-      Debug: Local.xcconfig
-      Release: Local.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.soloops.app
@@ -65,6 +61,9 @@ targets:
         # landscape, and the CarPlay screen lays itself out.
         TARGETED_DEVICE_FAMILY: '1'
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
-        # Set this to your team id, or set it once in Xcode's signing tab.
-        # Empty here so the file does not carry an account identifier.
-        DEVELOPMENT_TEAM: ''
+        # Substituted from the environment, so this file carries no account
+        # identifier. scripts/ios-install.sh reads it from apps/ios/.team,
+        # which is untracked; an .xcconfig does not work for this one key,
+        # because XcodeGen writes DEVELOPMENT_TEAM into the target's own
+        # build settings and those override any base configuration.
+        DEVELOPMENT_TEAM: ${SOLOOPS_TEAM}

@@ -2,7 +2,7 @@
 # Build the phone app and put it on the connected iPhone.
 #
 # Everything after the first run is this one command — Xcode is only needed
-# once, to sign in with the Apple ID and set the team (see apps/ios/Local.xcconfig).
+# once, to sign in with the Apple ID; the team id goes into apps/ios/.team.
 #
 #   bash scripts/ios-install.sh            # the only connected device
 #   bash scripts/ios-install.sh <udid>     # a specific one
@@ -22,13 +22,18 @@ if ! command -v xcodegen >/dev/null; then
   exit 1
 fi
 
-team="$(sed -n 's/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*//p' \
-  "$ios/Local.xcconfig" | tr -d '[:space:]')"
+# The team id is substituted into the generated project from here, so that
+# the tracked spec carries no account identifier. An .xcconfig cannot do this
+# one key: XcodeGen writes DEVELOPMENT_TEAM into the target's own build
+# settings, and those override any base configuration.
+team="$(tr -d '[:space:]' <"$ios/.team" 2>/dev/null || true)"
 if [ -z "$team" ]; then
-  echo "DEVELOPMENT_TEAM ist leer in apps/ios/Local.xcconfig." >&2
-  echo "Team-ID dort eintragen, sonst kann nicht signiert werden." >&2
+  echo "Keine Team-ID in apps/ios/.team." >&2
+  echo "Xcode -> Settings -> Accounts zeigt sie hinter dem Teamnamen, dann:" >&2
+  echo "  echo DEINETEAMID > apps/ios/.team" >&2
   exit 1
 fi
+export SOLOOPS_TEAM="$team"
 
 # The project is generated, so regenerate before building — otherwise a change
 # to project.yml silently does not apply.

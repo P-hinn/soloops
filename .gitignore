@@ -26,3 +26,11 @@ apps/ios/SoloopsKit/.build
 test-results/
 playwright-report/
 blob-report/
+
+# The Apple developer team id, substituted into the generated Xcode
+# project. Local so the repository carries no account identifier.
+apps/ios/.team
+
+# Xcode's per-user state (scheme order, breakpoints). Opening the generated
+# project writes this; it says nothing about the project itself.
+**/xcuserdata/
