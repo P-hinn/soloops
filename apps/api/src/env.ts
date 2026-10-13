@@ -11,6 +11,12 @@ const schema = z.object({
   TZ: z.string().default('Europe/Berlin'),
   APP_URL: z.string().default('http://localhost:5173'),
 
+  // Where the phone should look for this API, when the API cannot tell.
+  // Running in Docker it sees only the container's own address — 172.x — and
+  // handing that to a phone is handing it somewhere it cannot go. Comma
+  // separated; empty means "read the interfaces and hope".
+  SYNC_ADVERTISE_HOSTS: z.string().default(''),
+
   DATABASE_URL: z.string(),
   REDIS_URL: z.string().default('redis://redis:6379'),
 

@@ -37,7 +37,23 @@ function newCode(): string {
 }
 
 /** The addresses the phone can actually reach this machine on. */
+/**
+ * The addresses to hand the phone.
+ *
+ * `SYNC_ADVERTISE_HOSTS` first, because in Docker the interfaces are a lie:
+ * the container sees its own address on the bridge network — 172.something —
+ * and the phone has no route to it. The port is published on the host, so the
+ * address that works is the host's, and nothing inside the container knows it.
+ *
+ * Without the variable this falls back to reading the interfaces, which is
+ * right when the API runs directly on the machine.
+ */
 export function lanAddresses(): string[] {
+  const configured = env.SYNC_ADVERTISE_HOSTS.split(',')
+    .map((host) => host.trim())
+    .filter(Boolean)
+  if (configured.length) return configured
+
   const out: string[] = []
   for (const entries of Object.values(networkInterfaces())) {
     for (const entry of entries ?? []) {
@@ -48,11 +64,25 @@ export function lanAddresses(): string[] {
   return out
 }
 
+/**
+ * Whether what we are advertising looks like a container's own network rather
+ * than something a phone can reach. Docker's default bridge pools are
+ * 172.16/12 and sometimes 10/8; a real LAN uses those too, so this is a hint
+ * for the interface to show, never a reason to withhold an address.
+ */
+export function looksContainerLocal(addresses: string[]): boolean {
+  if (!addresses.length) return false
+  if (env.SYNC_ADVERTISE_HOSTS.trim()) return false
+  return addresses.every((address) => /^172\.(1[6-9]|2\d|3[01])\./.test(address))
+}
+
 export type PairingOffer = {
   code: string
   expiresAt: string
   port: number
   addresses: string[]
+  /** The addresses look like a container's, so the phone probably cannot reach them. */
+  addressesMayBeUnreachable: boolean
 }
 
 /**
@@ -70,7 +100,14 @@ export async function startPairing(): Promise<PairingOffer> {
     update: { value: stored },
   })
 
-  return { code, expiresAt, port: env.PORT, addresses: lanAddresses() }
+  const addresses = lanAddresses()
+  return {
+    code,
+    expiresAt,
+    port: env.PORT,
+    addresses,
+    addressesMayBeUnreachable: looksContainerLocal(addresses),
+  }
 }
 
 export async function cancelPairing(): Promise<void> {

@@ -28,7 +28,13 @@ type Overview = {
   devices: Device[]
   ops: number
 }
-type Offer = { code: string; expiresAt: string; port: number; addresses: string[] }
+type Offer = {
+  code: string
+  expiresAt: string
+  port: number
+  addresses: string[]
+  addressesMayBeUnreachable: boolean
+}
 
 const overview = ref<Overview | null>(null)
 const offer = ref<Offer | null>(null)
@@ -48,7 +54,16 @@ const phones = computed(() => overview.value?.devices.filter((d) => d.platform =
  */
 const pairingUrl = computed(() => {
   if (!offer.value) return ''
-  const hosts = offer.value.addresses.map((a) => `host=${encodeURIComponent(a)}`).join('&')
+
+  // Whatever this page was opened on goes first, when it is not loopback: the
+  // browser demonstrably reached the Mac at that address, which is more than
+  // can be said for anything the API reports about itself from inside a
+  // container.
+  const seen = window.location.hostname
+  const reachable = seen && !['localhost', '127.0.0.1', '::1'].includes(seen) ? [seen] : []
+  const all = [...new Set([...reachable, ...offer.value.addresses])]
+
+  const hosts = all.map((a) => `host=${encodeURIComponent(a)}`).join('&')
   return `soloops://pair?code=${offer.value.code}&${hosts}&port=${offer.value.port}`
 })
 
@@ -212,6 +227,18 @@ onUnmounted(() => {
               >
                 Dieser Mac hat keine Netzwerkadresse, die das iPhone erreichen könnte. Im selben
                 WLAN?
+              </p>
+
+              <p
+                v-else-if="offer.addressesMayBeUnreachable"
+                class="mt-3 border-l-2 border-warn px-3 py-2 text-xs text-warn"
+              >
+                Die API läuft in Docker und kennt nur ihre eigene Adresse im Container (<code>{{
+                  offer.addresses.join(', ')
+                }}</code
+                >). Dorthin kommt kein iPhone. Trag die Adresse dieses Macs im WLAN als
+                <code>SYNC_ADVERTISE_HOSTS</code> in die <code>.env</code> ein und starte die
+                Container neu.
               </p>
 
               <details v-else class="mt-3">
