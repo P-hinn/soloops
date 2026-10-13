@@ -50,6 +50,10 @@ targets:
     dependencies:
       - package: SoloopsKit
         product: SoloopsKit
+    # Signing lives outside the generated project — see Local.xcconfig.
+    configFiles:
+      Debug: Local.xcconfig
+      Release: Local.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.soloops.app

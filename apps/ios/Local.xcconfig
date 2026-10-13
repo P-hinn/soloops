@@ -1,0 +1,12 @@
+// Signing, kept out of the generated project.
+//
+// The .xcodeproj is built by XcodeGen, so anything set in Xcode's Signing &
+// Capabilities pane is gone after the next `xcodegen`. Put it here instead and
+// it survives. A Team ID is not a secret — it is readable in any shipped app —
+// so this file is tracked.
+//
+// Find yours: Xcode → Settings → Accounts → your team → the ID in brackets,
+// or `xcrun xcodebuild -showBuildSettings | grep DEVELOPMENT_TEAM` after
+// signing once by hand.
+
+DEVELOPMENT_TEAM =

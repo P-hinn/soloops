@@ -749,8 +749,28 @@ open Soloops.xcodeproj
 
 Everything that decides how the app behaves — the scene manifest, the
 entitlements, the asset catalog with its CarPlay icon slot — is in version
-control next to `project.yml`. Installing on a real iPhone needs an Apple
-Developer account; free signing expires after seven days.
+control next to `project.yml`.
+
+Xcode is needed **once**: sign in under _Settings → Accounts_, then put the
+team into [`Local.xcconfig`](apps/ios/Local.xcconfig). It goes there rather
+than into Xcode's signing pane because the project is generated — anything set
+in the pane is gone after the next `xcodegen`. After that, every install is one
+command:
+
+```bash
+bash scripts/ios-install.sh          # the connected iPhone
+bash scripts/ios-install.sh <udid>   # a specific one, if several are attached
+```
+
+The phone needs **Developer Mode** once (_Settings → Privacy & Security_), and
+the build runs in a scratch path outside `~/Desktop` for the same reason
+`ios-test.sh` does — see [Tooling](#tooling-and-conventions).
+
+A paid Apple Developer account makes the install last **twelve months**, the
+life of the provisioning profile; free signing expires after seven days.
+Letting anyone else install it is a different question — that needs the App
+Store, because Ad Hoc caps at 100 hand-registered devices and the Enterprise
+programme requires a company with 100+ employees.
 
 ---
 
