@@ -79,6 +79,7 @@ struct PairingView: View {
                 }
             }
             .navigationTitle("soloops")
+            .paperChrome()
             .navigationBarTitleDisplayMode(.inline)
         }
         .fullScreenCover(isPresented: $scanning) {
@@ -226,16 +227,18 @@ struct TodayView: View {
                     ContentUnavailableView("Keine Termine heute", systemImage: "calendar")
                 } else {
                     ForEach(events) { event in
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(event.allDay ? "ganztägig" : briefing.time(event.startsAt))
                                 .font(Display.font(12, .medium))
                                 .monospacedDigit()
                                 .foregroundStyle(Paper.blue)
                             Text(event.title)
                             if let location = event.location, !location.isEmpty {
-                                Text(location).font(.caption).foregroundStyle(.secondary)
+                                Text(location).font(.caption).foregroundStyle(Paper.muted)
                             }
                         }
+                        .listRowBackground(Paper.paper)
+                        .listRowSeparatorTint(Paper.line)
                     }
                 }
 
@@ -245,12 +248,15 @@ struct TodayView: View {
                             Button {
                                 Task { await tick(task) }
                             } label: {
-                                HStack {
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
                                     Image(systemName: "circle")
+                                        .foregroundStyle(Paper.lineStrong)
                                     Text(task.title)
+                                        .foregroundStyle(Paper.ink)
                                 }
-                                .foregroundStyle(Paper.ink)
                             }
+                            .listRowBackground(Paper.paper)
+                            .listRowSeparatorTint(Paper.line)
                         }
                     } header: {
                         Eyebrow("Offene Punkte")
@@ -261,6 +267,7 @@ struct TodayView: View {
             .scrollContentBackground(.hidden)
             .background(Paper.paper)
             .navigationTitle("Heute")
+            .paperChrome()
             .task { await load() }
             .refreshable {
                 await environment.sync()
@@ -301,12 +308,14 @@ struct FollowUpView: View {
                     ContentUnavailableView("Nichts offen", systemImage: "checkmark.circle")
                 } else {
                     ForEach(due) { followUp in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(followUp.title)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(followUp.title).foregroundStyle(Paper.ink)
                             Text(briefing.line(for: followUp, at: Date()))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Paper.muted)
                         }
+                        .listRowBackground(Paper.paper)
+                        .listRowSeparatorTint(Paper.line)
                         .swipeActions {
                             Button("Erledigt") { Task { await clear(followUp) } }.tint(.green)
                             Button("Morgen") { Task { await postpone(followUp) } }.tint(.orange)
@@ -318,6 +327,7 @@ struct FollowUpView: View {
             .scrollContentBackground(.hidden)
             .background(Paper.paper)
             .navigationTitle("Wiedervorlage")
+            .paperChrome()
             .task { await load() }
             .refreshable {
                 await environment.sync()
@@ -378,15 +388,17 @@ struct DrivesView: View {
                         NavigationLink {
                             AssignDriveView(suggestion: suggestion) { reload() }
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(suggestion.description)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(suggestion.description).foregroundStyle(Paper.ink)
                                 Text(
                                     "\(suggestion.startedAt.formatted(date: .abbreviated, time: .shortened)) · \(Int(suggestion.endedAt.timeIntervalSince(suggestion.startedAt) / 60)) min"
                                 )
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Paper.muted)
                             }
                         }
+                        .listRowBackground(Paper.paper)
+                        .listRowSeparatorTint(Paper.line)
                     }
                 }
             }
@@ -394,6 +406,7 @@ struct DrivesView: View {
             .scrollContentBackground(.hidden)
             .background(Paper.paper)
             .navigationTitle("Fahrten")
+            .paperChrome()
             .onAppear { reload() }
         }
     }
@@ -490,6 +503,7 @@ struct SyncView: View {
             .scrollContentBackground(.hidden)
             .background(Paper.paper)
             .navigationTitle("Abgleich")
+            .paperChrome()
         }
     }
 

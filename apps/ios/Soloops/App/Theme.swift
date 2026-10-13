@@ -128,6 +128,19 @@ struct PillButton: ButtonStyle {
     }
 }
 
+extension View {
+    /// Paper all the way up, including the bars.
+    ///
+    /// Without this the navigation and tab bars keep their own translucent
+    /// surface, which reads as a second, cooler shade of white above and below
+    /// the page — the one thing the web interface never does.
+    func paperChrome() -> some View {
+        self
+            .toolbarBackground(Paper.paper, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
 /// A row that sits under a heavy rule and carries a figure, the way key
 /// numbers are set on the web.
 struct StatRow: View {

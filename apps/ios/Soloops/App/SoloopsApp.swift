@@ -18,6 +18,14 @@ struct SoloopsApp: App {
         WindowGroup {
             RootView()
                 .environment(environment)
+                // The design system is light, and only light: `color-scheme:
+                // light` in the web's style.css, paper rather than screen. In
+                // the dark the two halves fight — a forced paper background
+                // under system foreground colours is white text on off-white
+                // and black rows with near-black text. A second palette would
+                // be a design decision nobody has made, so until then the app
+                // says which one it is.
+                .preferredColorScheme(.light)
                 .onOpenURL { url in
                     // The pairing QR code opens the app with the invitation in
                     // it, so scanning with the camera is enough and nobody has

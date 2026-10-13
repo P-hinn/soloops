@@ -38,30 +38,34 @@ struct CaptureView: View {
 
                     Text("Ein Satz genügt.")
                         .font(Display.font(26, .bold))
+                        .foregroundStyle(Paper.ink)
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
 
-                    TextEditor(text: $text)
-                        .focused($typing)
-                        .font(.body)
-                        .scrollContentBackground(.hidden)
-                        .background(Paper.raised)
-                        .overlay(alignment: .topLeading) {
-                            if text.isEmpty {
-                                Text("Angebot für Muster AG nachfassen")
-                                    .font(.body)
-                                    .foregroundStyle(Paper.muted)
-                                    .padding(.top, 8)
-                                    .padding(.leading, 5)
-                                    .allowsHitTesting(false)
-                            }
+                    ZStack(alignment: .topLeading) {
+                        if text.isEmpty {
+                            // Lighter than body copy on purpose: at muted it
+                            // reads as something already typed.
+                            Text("Angebot für Muster AG nachfassen")
+                                .font(.body)
+                                .foregroundStyle(Paper.ink.opacity(0.35))
+                                .padding(.top, 18)
+                                .padding(.leading, 15)
+                                .allowsHitTesting(false)
                         }
-                        .padding(10)
-                        .background(Paper.raised)
-                        .overlay(Rectangle().stroke(Paper.lineStrong, lineWidth: 1))
-                        .frame(height: 150)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 18)
+
+                        TextEditor(text: $text)
+                            .focused($typing)
+                            .font(.body)
+                            .foregroundStyle(Paper.ink)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                    }
+                    .frame(height: 150)
+                    .background(Paper.raised)
+                    .overlay(Rectangle().stroke(Paper.lineStrong, lineWidth: 1))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
 
                     if let hint = Capture.dueHint(in: text) {
                         Label(hint, systemImage: "calendar")
@@ -104,6 +108,7 @@ struct CaptureView: View {
                 }
             }
             .navigationTitle("Neu")
+            .paperChrome()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .keyboard) {
