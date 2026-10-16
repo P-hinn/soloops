@@ -84,7 +84,7 @@ Deliberately **not** upgraded, each with a reason:
 
 Known and open: `deepmerge-ts@7.1.5` under `@prisma/config` has a stack
 exhaustion on recursive object graphs (GHSA-ggr8-5vv4-36mx, high). The affected
-path is the Prisma **CLI** (`generate`, `db push`), not the query engine, and it
+path is the Prisma **CLI** (`generate`, `migrate`), not the query engine, and it
 only ever processes our own configuration — effectively no attack surface. An
 npm `override` to 8.x doesn't take with npm 11; the advisory goes away with the
 Prisma upgrade.

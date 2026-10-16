@@ -12,7 +12,7 @@
  *     docker run -d --name soloops-synctest -e POSTGRES_PASSWORD=test \
  *       -e POSTGRES_USER=test -e POSTGRES_DB=synctest -p 55432:5432 postgres:17-alpine
  *     DATABASE_URL="postgresql://test:test@localhost:55432/synctest?schema=public" \
- *       npx prisma db push --schema prisma/schema.prisma
+ *       npx prisma migrate deploy --schema prisma/schema.prisma
  *     npm -w @soloops/api run test:sync
  */
 

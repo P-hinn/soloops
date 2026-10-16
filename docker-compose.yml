@@ -48,12 +48,30 @@ services:
       timeout: 3s
       retries: 20
 
+  # The schema, once, before anything talks to the database. Its own service
+  # rather than a line in the api command: two services that both migrate on
+  # startup race each other, and a migration that fails has to stop the boot
+  # instead of being the first line of a log nobody reads.
+  #
+  # Generate before deploying: node_modules lives in a named volume, so a
+  # client generated for an older schema survives restarts and crashes the
+  # API.
+  migrate:
+    <<: *node
+    restart: 'no'
+    command: sh -c "npx prisma generate --schema apps/api/prisma/schema.prisma && npx prisma migrate deploy --schema apps/api/prisma/schema.prisma"
+
   api:
     <<: *node
     restart: unless-stopped
-    # Generate before pushing: node_modules lives in a named volume, so a client
-    # generated for an older schema survives restarts and crashes the API.
-    command: sh -c "npx prisma generate --schema apps/api/prisma/schema.prisma && npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run dev"
+    command: npm -w @soloops/api run dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       # 3000 is often taken by some other dev server already
       - '${API_PORT:-3000}:3000'
@@ -67,6 +85,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       api:
         condition: service_started
 

@@ -91,9 +91,29 @@ services:
       timeout: 3s
       retries: 20
 
+  # The schema, once, before anything talks to the database. The client is
+  # already in the image, so this only applies migrations.
+  migrate:
+    <<: *node
+    restart: 'no'
+    command: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+    environment:
+      NODE_ENV: production
+    mem_limit: 256m
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     <<: *node
-    command: sh -c "npx prisma db push --schema apps/api/prisma/schema.prisma --skip-generate && npm -w @soloops/api run start"
+    command: npm -w @soloops/api run start
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=256
@@ -117,6 +137,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       api:
         condition: service_healthy
 

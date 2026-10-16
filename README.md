@@ -34,7 +34,10 @@ problem. A few things are worth knowing before you invest an evening in it:
 - **The interface is German.** Code, comments and the docs are English.
 - **It assumes German invoicing rules** (sequential numbering per year,
   §19 UStG small-business note, lexoffice as the accounting target).
-- **No migration history.** Schema changes go out with `prisma db push`.
+- **Schema changes go out as migrations.** `prisma migrate deploy` runs once
+  before the API starts; the first migration is the schema as it stood when
+  they were introduced, so an older database needs one `migrate resolve` —
+  see [Operations](docs/operations.md).
 - **AI is optional.** Everything except digests, lead scores, meeting
   summaries and the quick-entry parser works without an `ANTHROPIC_API_KEY`.
 
