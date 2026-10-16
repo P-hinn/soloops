@@ -229,7 +229,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'versendet', vertrag: $('Eingabe prüfen & Konfig').first().json.titel, zoho_request_id: $('Signaturfelder platzieren').first().json.request_id, notiz_id: $json.id, aufgabe_id: $('SoloOps: Signatur-Aufgabe').first().json.id }) }}"
+        "responseBody": "={{ JSON.stringify({ status: 'versendet', vertrag: $('Eingabe prüfen & Konfig').first().json.titel, zoho_request_id: $('Signaturfelder platzieren').first().json.request_id, aufgabe_id: $('SoloOps: Signatur-Aufgabe').first().json.id }) }}"
       },
       "id": "respond1",
       "name": "Antwort",
@@ -252,28 +252,6 @@
       "position": [2420, 200],
       "id": "soloops-signatur-aufgabe",
       "name": "SoloOps: Signatur-Aufgabe",
-      "credentials": {
-        "soloopsApi": {
-          "id": "lUK2wsDgumSh7D5P",
-          "name": "soloops account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "resource": "note",
-        "operation": "create",
-        "title": "=[VERTRAG] {{ $('Eingabe prüfen & Konfig').first().json.titel }} – versendet {{ $now.toFormat('dd.LL.yyyy') }} – Zoho-ID: {{ $('Signaturfelder platzieren').first().json.request_id }}",
-        "body": "=An {{ $('Kundendaten mappen').first().json.kunde_email }} verschickt.\nAufgabe: {{ $json.id }}\nZoho-Request: {{ $('Signaturfelder platzieren').first().json.request_id }}",
-        "additionalFields": {
-          "clientId": "={{ $('Eingabe prüfen & Konfig').first().json.client_id }}"
-        }
-      },
-      "type": "CUSTOM.soloops",
-      "typeVersion": 1,
-      "position": [2620, 200],
-      "id": "soloops-notiz-versendet",
-      "name": "SoloOps: Notiz versendet",
       "credentials": {
         "soloopsApi": {
           "id": "lUK2wsDgumSh7D5P",
@@ -405,17 +383,6 @@
       ]
     },
     "SoloOps: Signatur-Aufgabe": {
-      "main": [
-        [
-          {
-            "node": "SoloOps: Notiz versendet",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "SoloOps: Notiz versendet": {
       "main": [
         [
           {

@@ -101,19 +101,28 @@ paar Punkten Luft. Beim ersten echten Versand trotzdem draufschauen.
   der Webhook liegt im Compose-Netz, und so landet die Fehlermeldung des Workflows in
   der Oberfläche statt in der Konsole.
 
-### Tracking-Konvention
+### Wo der Vertrag landet
 
-Unverändert wie in `SETUP.md`, jetzt mit Parser und Tests (`apps/api/test/contracts.test.ts`):
+In der Tabelle `Contract` am Kunden — nicht in einer Notiz, wie es früher war. Der
+Versand legt den Datensatz an (`POST /api/contracts/send`, `status: versendet`,
+`externalId` = Zoho-Request-ID) und hängt die Aufgabe „Signatur ausstehend" daran.
+
+Der Rückweg braucht deshalb zwei Connector-Aufrufe:
 
 ```
-[VERTRAG] <Titel> – versendet <Datum> – Zoho-ID: <id>
-[VERTRAG] <Titel> – signiert <Datum> – Zoho-ID: <id> – Datei: <pfad>
+GET  /api/automations/connector/contracts?externalId=<zoho-request-id>
+POST /api/automations/connector/contracts/<id>/signed   { "file": "<name>" }
 ```
 
-Es gibt bewusst **keine Vertragstabelle**: zwei Notizen und eine Aufgabe, beide
-synchronisieren schon aufs iPhone und tauchen in der Suche auf. Die Übersicht faltet die
-Notizen pro Vertrag zu einer Zeile (über die Zoho-ID, ersatzweise über den Titel), damit
-ein von Hand geschriebener Eintrag genauso auftaucht.
+Der erste liefert den Vertrag **samt `fileName`** — dem Namen, unter dem das signierte
+PDF abzulegen ist. Die Regel dafür steht in `services/contracts.ts` und wird im Workflow
+bewusst nicht nachgebaut; der Code-Node übernimmt den Namen und gibt ihn mit dem zweiten
+Aufruf zurück. Der setzt in einem Rutsch Status, Datum und Datei und hakt die Aufgabe ab
+(über denselben Service wie die Oberfläche, damit ein daran hängender Follow-up
+mitgeschlossen wird).
+
+Die Ablage ist flach (`/data/vertraege/signiert/`), weil n8ns Write-Node keine
+Verzeichnisse anlegt. Gelesen wird sie nur über `resolveSignedPath`.
 
 ### Infrastruktur
 

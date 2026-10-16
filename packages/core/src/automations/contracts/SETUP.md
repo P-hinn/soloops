@@ -73,11 +73,14 @@ Defaults (überschreibbar): `zahlungsziel_tage` 14 · `kuendigungsfrist` „vier
 
 Kundendaten (`kunde_*`) kommen automatisch aus SoloOps `get_client`.
 
-### Tracking-Konvention
+### Wo der Vertrag landet
 
-- Versand: Notiz `[VERTRAG] <Titel> – versendet <Datum> – Zoho-ID: <id>` + Follow-up „Signatur ausstehend"
-- Signiert: Follow-up abschließen + Notiz `[VERTRAG] <Titel> – signiert <Datum>` + PDF im Kundenordner
-- Übersicht „wer hat was": `soloops_search("[VERTRAG]")`
+- Versand: Vertragsdatensatz am Kunden (`status: versendet`, Zoho-Request-ID als
+  `externalId`) + Follow-up „Signatur ausstehend"
+- Signiert: Status `signiert`, Unterschriftsdatum, PDF daran — und das Follow-up ist
+  abgehakt
+- Übersicht „wer hat was": beim Kunden in der Spalte _Verträge_, über alle Kunden
+  unter _Verträge_ oder per `soloops_list_contracts`
 
 ## Änderungen an deinen Mustern
 

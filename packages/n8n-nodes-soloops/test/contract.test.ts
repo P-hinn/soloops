@@ -18,6 +18,7 @@ import { resolve } from 'node:path'
 import type { INodeProperties } from 'n8n-workflow'
 
 import { clientFields, clientOperations } from '../nodes/Soloops/ClientDescription.js'
+import { contractFields, contractOperations } from '../nodes/Soloops/ContractDescription.js'
 import { leadFields, leadOperations } from '../nodes/Soloops/LeadDescription.js'
 import { noteFields, noteOperations } from '../nodes/Soloops/NoteDescription.js'
 import { projectFields, projectOperations } from '../nodes/Soloops/ProjectDescription.js'
@@ -59,6 +60,7 @@ type Routed = { resource: string; operation: string; method: string; url: string
 
 const groups: [string, INodeProperties[], INodeProperties[]][] = [
   ['client', clientOperations, clientFields],
+  ['contract', contractOperations, contractFields],
   ['lead', leadOperations, leadFields],
   ['note', noteOperations, noteFields],
   ['project', projectOperations, projectFields],
@@ -88,7 +90,7 @@ for (const [resource, operations] of groups) {
   }
 }
 
-check('jede Operation traegt Methode und Pfad', routed.length, 16)
+check('jede Operation traegt Methode und Pfad', routed.length, 18)
 
 // --- Which field fills what, per operation ---------------------------------
 

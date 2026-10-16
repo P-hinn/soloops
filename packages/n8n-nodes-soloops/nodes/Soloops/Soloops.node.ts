@@ -3,6 +3,7 @@ import type { INodeType, INodeTypeDescription } from 'n8n-workflow'
 import { NodeConnectionTypes } from 'n8n-workflow'
 
 import { clientFields, clientOperations } from './ClientDescription'
+import { contractFields, contractOperations } from './ContractDescription'
 import { leadFields, leadOperations } from './LeadDescription'
 import { projectFields, projectOperations } from './ProjectDescription'
 import { taskFields, taskOperations } from './TaskDescription'
@@ -49,6 +50,7 @@ export class Soloops implements INodeType {
         noDataExpression: true,
         options: [
           { name: 'Client', value: 'client' },
+          { name: 'Contract', value: 'contract' },
           { name: 'Lead', value: 'lead' },
           { name: 'Note', value: 'note' },
           { name: 'Project', value: 'project' },
@@ -59,6 +61,8 @@ export class Soloops implements INodeType {
       },
       ...clientOperations,
       ...clientFields,
+      ...contractOperations,
+      ...contractFields,
       ...leadOperations,
       ...leadFields,
       ...projectOperations,

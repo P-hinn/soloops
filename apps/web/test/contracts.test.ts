@@ -237,12 +237,49 @@ check(
   true,
 )
 
-// Die Ablage ist flach: n8ns Write-Node legt keine Verzeichnisse an.
+// Der Dateiname kommt aus der API (services/contracts.ts) und wird im
+// Workflow nicht nachgebaut — sonst laufen beide Regeln auseinander, und zwar
+// erst beim nächsten Vertrag, dessen Titel ein Sonderzeichen enthält.
 const kontext = String(nodeOf(signedWorkflow, 'Kontext bauen')?.parameters.jsCode ?? '')
 check(
-  'der Dateiname enthält kein Verzeichnis',
-  /const relPfad = `\$\{note\.clientId\}-/.test(kontext),
+  'der Dateiname kommt aus dem Vertragsdatensatz',
+  /relPfad = vertrag\.fileName/.test(kontext),
   true,
+)
+check('und wird nicht selbst zusammengesetzt', /relPfad = `/.test(kontext), false)
+
+// Und derselbe Name geht zurück: sonst steht in der Datenbank ein anderer
+// Pfad als auf der Platte.
+const signiert = nodeOf(signedWorkflow, 'SoloOps: Vertrag signiert')
+check(
+  'der Vertrag wird über die Vertrags-Operation abgeschlossen',
+  signiert?.parameters.operation,
+  'markSigned',
+)
+check(
+  'mit dem Namen, unter dem die Datei geschrieben wurde',
+  String(signiert?.parameters.file ?? '').includes("Kontext bauen').first().json.relPfad"),
+  true,
+)
+
+// Der Vertrag wird über die Zoho-Request-ID gefunden, nicht über einen Titel.
+check(
+  'der Rückweg sucht den Vertrag über die externe ID',
+  (
+    nodeOf(signedWorkflow, 'SoloOps: Vertrag finden')?.parameters.additionalFields as
+      { externalId?: string } | undefined
+  )?.externalId?.includes('request_id'),
+  true,
+)
+
+// Verträge werden nicht mehr als Notizen geführt — eine zurückgebliebene
+// Notiz-Node würde einen zweiten, stillen Datensatz schreiben.
+check(
+  'keine Notiz-Nodes mehr in den Vertrags-Workflows',
+  [...sendWorkflow.nodes, ...signedWorkflow.nodes]
+    .filter((n) => n.parameters.resource === 'note')
+    .map((n) => n.name),
+  [],
 )
 
 // ---------------------------------------------------------------------------

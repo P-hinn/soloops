@@ -16,6 +16,7 @@ import {
 } from '@soloops/core/services/automationDelivery.js'
 import { eventFromWire } from '@soloops/core/services/automationEvents.js'
 import { completeTask, createTask } from '@soloops/core/services/taskWrite.js'
+import { resolveSignedPath, signedFileName } from '@soloops/core/services/contracts.js'
 import { logTime } from '@soloops/core/services/time.js'
 
 /**
@@ -670,6 +671,114 @@ const routes: FastifyPluginAsyncZod = async (app) => {
         data: { id: note.id, title: note.title, tags: note.tags, projectId: note.projectId },
       })
       return note
+    },
+  )
+
+  // --- Contracts -----------------------------------------------------------
+
+  /**
+   * The contract a signing event belongs to.
+   *
+   * Found by the Zoho request id, which the API wrote when it sent the
+   * contract. The row carries `fileName` as well: the name the signed PDF is
+   * to be written under. The workflow cannot compute it — the rule lives in
+   * services/contracts.ts and a second implementation inside a code node
+   * would drift on the first renamed field — so it is handed out here, and
+   * the workflow writes the file and hands the same name back.
+   */
+  app.get(
+    '/contracts',
+    {
+      schema: {
+        querystring: z.object({
+          externalId: z.string().optional(),
+          clientId: z.string().optional(),
+          status: z.string().optional(),
+          limit: z.coerce.number().max(100).default(20),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+
+      const rows = await prisma.contract.findMany({
+        where: {
+          ...(q.externalId ? { externalId: q.externalId } : {}),
+          ...(q.clientId ? { clientId: q.clientId } : {}),
+          ...(q.status ? { status: q.status } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: q.limit,
+        select: {
+          id: true,
+          clientId: true,
+          projectId: true,
+          type: true,
+          title: true,
+          status: true,
+          externalId: true,
+          taskId: true,
+          file: true,
+          signedOn: true,
+          endsOn: true,
+          createdAt: true,
+        },
+      })
+
+      return rows.map((row) => ({
+        ...row,
+        fileName:
+          row.file ??
+          signedFileName({
+            clientId: row.clientId,
+            title: row.title,
+            unique: row.externalId ?? row.id,
+            on: new Date(),
+          }),
+      }))
+    },
+  )
+
+  /**
+   * Signed, by both sides.
+   *
+   * One call for the whole state change — status, date, file, and the
+   * "Signatur ausstehend" task — because a workflow that does it in three
+   * calls can stop after the first. The task goes through the same service
+   * the interface uses, so a follow-up hanging off it closes with it.
+   */
+  app.post(
+    '/contracts/:id/signed',
+    {
+      schema: {
+        params: idParam,
+        body: z.object({
+          /** File name inside the contract directory, as handed out above. */
+          file: z.string().nullish(),
+          signedOn: z.coerce.date().optional(),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params
+      const body = req.body
+
+      const contract = await prisma.contract.findUnique({ where: { id } })
+      if (!contract) return reply.code(404).send({ error: 'Vertrag nicht gefunden' })
+
+      // A name that does not resolve into the contract directory is dropped
+      // rather than stored: it would be a file nobody can open, recorded as
+      // if there were one.
+      const file = body.file && resolveSignedPath(body.file) ? body.file : contract.file
+
+      const updated = await prisma.contract.update({
+        where: { id },
+        data: { status: 'signiert', signedOn: body.signedOn ?? new Date(), file },
+      })
+
+      if (contract.taskId) await completeTask(contract.taskId, (message) => app.log.warn(message))
+
+      return updated
     },
   )
 }

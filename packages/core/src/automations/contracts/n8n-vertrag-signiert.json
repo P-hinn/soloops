@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Signatur abgeschlossen\n\nDiesen Webhook in Zoho Sign registrieren:\nEinstellungen → Developer/Webhooks → neuer Webhook auf die Produktions-URL dieses Workflows, Event **RequestCompleted** (gern auch RequestRejected/RequestExpired – landen im unteren Zweig).\n\nDer ►-Node wird durch deine SoloOps-Nodes ersetzt:\n- Follow-up „Signatur ausstehend\" abschließen\n- Notiz: `[VERTRAG] <Name> – signiert <Datum>`\n- signiertes PDF ablegen (Binary `data` dieses Workflows)",
+        "content": "## Signatur abgeschlossen\n\nDiesen Webhook in Zoho Sign registrieren:\nEinstellungen → Developer/Webhooks → neuer Webhook auf die Produktions-URL dieses Workflows, Event **RequestCompleted** (gern auch RequestRejected/RequestExpired – landen im unteren Zweig).\n\nDer ►-Node wird durch deine SoloOps-Nodes ersetzt:\n- Follow-up „Signatur ausstehend\" abschließen\n- Vertragsdatensatz: `[VERTRAG] <Name> – signiert <Datum>`\n- signiertes PDF ablegen (Binary `data` dieses Workflows)",
         "height": 320,
         "width": 420
       },
@@ -119,10 +119,10 @@
     },
     {
       "parameters": {
-        "resource": "note",
+        "resource": "contract",
         "operation": "getMany",
         "additionalFields": {
-          "q": "={{ 'Zoho-ID: ' + $json.request_id }}",
+          "externalId": "={{ $json.request_id }}",
           "limit": 5
         }
       },
@@ -130,7 +130,7 @@
       "typeVersion": 1,
       "position": [500, 120],
       "id": "soloops-vertragsnotiz-finden",
-      "name": "SoloOps: Vertragsnotiz finden",
+      "name": "SoloOps: Vertrag finden",
       "credentials": {
         "soloopsApi": {
           "id": "lUK2wsDgumSh7D5P",
@@ -141,7 +141,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Aus der Versand-Notiz holen, was der Rückweg braucht.\nconst event = $('Event normalisieren').first().json;\nconst notes = $input.all().map(i => i.json).filter(n => n && n.id);\n\nif (!notes.length) {\n  throw new Error(\n    `Keine [VERTRAG]-Notiz zur Zoho-ID ${event.request_id} gefunden. ` +\n    'Entweder kam der Webhook zu einem Vertrag, der nicht aus SoloOps verschickt wurde, ' +\n    'oder die Notiz wurde gelöscht.'\n  );\n}\n\nconst note = notes[0];\nconst titel = (note.title.split(/\\s+[–—-]\\s+/)[0] || '').replace(/^\\[VERTRAG\\]\\s*/, '').trim();\nconst taskId = (/Aufgabe:\\s*(\\S+)/.exec(note.body || '') || [])[1] || null;\n\n// Dateiname: ein Pfad pro Kunde, der Dateiname trägt Datum und Request-ID,\n// damit zwei Verträge gleichen Namens sich nicht überschreiben.\nconst stamp = new Date().toISOString().slice(0, 10);\nconst safe = titel.replace(/[^\\w\\s-]/g, '').replace(/\\s+/g, '-').toLowerCase() || 'vertrag';\n// Flach, mit der Kunden-ID im Dateinamen: n8ns Write-Node legt fehlende\n// Verzeichnisse nicht an (öffnet die Datei direkt mit O_CREAT), ein Ordner\n// pro Kunde wäre beim ersten Vertrag jedes Kunden ein ENOENT.\nconst relPfad = `${note.clientId}-${stamp}-${safe}-${event.request_id}.pdf`;\n\nreturn [{ json: {\n  request_id: event.request_id,\n  titel,\n  clientId: note.clientId,\n  taskId,\n  notizId: note.id,\n  relPfad,\n  zielPfad: `/data/vertraege/signiert/${relPfad}`\n} }];\n"
+        "jsCode": "// Aus dem Vertragsdatensatz holen, was der Rückweg braucht.\nconst event = $('Event normalisieren').first().json;\nconst vertraege = $input.all().map(i => i.json).filter(v => v && v.id);\n\nif (!vertraege.length) {\n  throw new Error(\n    `Kein Vertrag zur Zoho-ID ${event.request_id} gefunden. ` +\n    'Entweder kam der Webhook zu einem Vertrag, der nicht aus SoloOps verschickt wurde, ' +\n    'oder der Datensatz wurde gelöscht.'\n  );\n}\n\nconst vertrag = vertraege[0];\n\n// Den Dateinamen gibt SoloOps vor — die Regel steht in services/contracts.ts\n// und wird hier bewusst nicht nachgebaut; „Vertrag signiert\" gibt genau\n// diesen Namen zurück. Er ist flach, denn n8ns Write-Node legt fehlende\n// Verzeichnisse nicht an (öffnet die Datei direkt mit O_CREAT).\nconst relPfad = vertrag.fileName;\n\nreturn [{ json: {\n  request_id: event.request_id,\n  vertragId: vertrag.id,\n  titel: vertrag.title,\n  clientId: vertrag.clientId,\n  relPfad,\n  zielPfad: `/data/vertraege/signiert/${relPfad}`\n} }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -163,67 +163,16 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $('Kontext bauen').first().json.taskId }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [1300, 120],
-      "id": "gibt-es-eine-aufgabe",
-      "name": "Aufgabe vorhanden?"
-    },
-    {
-      "parameters": {
-        "resource": "task",
-        "operation": "complete",
-        "taskId": "={{ $('Kontext bauen').first().json.taskId }}"
-      },
-      "type": "CUSTOM.soloops",
-      "typeVersion": 1,
-      "position": [1500, 40],
-      "id": "soloops-aufgabe-abhaken",
-      "name": "SoloOps: Aufgabe abhaken",
-      "credentials": {
-        "soloopsApi": {
-          "id": "lUK2wsDgumSh7D5P",
-          "name": "soloops account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "resource": "note",
-        "operation": "create",
-        "title": "=[VERTRAG] {{ $('Kontext bauen').first().json.titel }} – signiert {{ $now.toFormat('dd.LL.yyyy') }} – Zoho-ID: {{ $('Kontext bauen').first().json.request_id }} – Datei: {{ $('Kontext bauen').first().json.relPfad }}",
-        "body": "=Von beiden Seiten unterschrieben. Signiertes PDF liegt unter {{ $('Kontext bauen').first().json.relPfad }} und ist in SoloOps unter Verträge abrufbar.",
-        "additionalFields": {
-          "clientId": "={{ $('Kontext bauen').first().json.clientId }}"
-        }
+        "resource": "contract",
+        "operation": "markSigned",
+        "contractId": "={{ $('Kontext bauen').first().json.vertragId }}",
+        "file": "={{ $('Kontext bauen').first().json.relPfad }}"
       },
       "type": "CUSTOM.soloops",
       "typeVersion": 1,
       "position": [1700, 120],
       "id": "soloops-notiz-signiert",
-      "name": "SoloOps: Notiz signiert",
+      "name": "SoloOps: Vertrag signiert",
       "credentials": {
         "soloopsApi": {
           "id": "lUK2wsDgumSh7D5P",
@@ -259,7 +208,7 @@
       "main": [
         [
           {
-            "node": "SoloOps: Vertragsnotiz finden",
+            "node": "SoloOps: Vertrag finden",
             "type": "main",
             "index": 0
           }
@@ -295,7 +244,7 @@
         ]
       ]
     },
-    "SoloOps: Vertragsnotiz finden": {
+    "SoloOps: Vertrag finden": {
       "main": [
         [
           {
@@ -321,36 +270,7 @@
       "main": [
         [
           {
-            "node": "Aufgabe vorhanden?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aufgabe vorhanden?": {
-      "main": [
-        [
-          {
-            "node": "SoloOps: Aufgabe abhaken",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "SoloOps: Notiz signiert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "SoloOps: Aufgabe abhaken": {
-      "main": [
-        [
-          {
-            "node": "SoloOps: Notiz signiert",
+            "node": "SoloOps: Vertrag signiert",
             "type": "main",
             "index": 0
           }
