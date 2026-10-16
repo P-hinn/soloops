@@ -71,12 +71,37 @@ function empty() {
   }
 }
 
-/** The state as the overview shows it, plus how long it still runs. */
+const money = (cents: number) =>
+  (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+
+const date = (value: string | null) =>
+  value ? new Date(value).toLocaleDateString('de-DE', { dateStyle: 'medium' }) : ''
+
+/**
+ * The state as the overview shows it, and the line under the title.
+ *
+ * Built here rather than in the template: every part of it is conditional,
+ * and a template that joins conditionals with separators ends up printing a
+ * leading dot on the one contract that has neither date nor amount.
+ */
 const rows = computed(() =>
   contracts.value.map((contract) => {
     const state = contractState(contract, now)
     const left = contractDaysLeft(contract.endsOn, now)
-    return { ...contract, state, label: CONTRACT_STATE_LABELS[state], left }
+
+    const meta: string[] = []
+    if (contract.signedOn) meta.push(`unterschrieben ${date(contract.signedOn)}`)
+    if (contract.endsOn) {
+      meta.push(
+        `bis ${date(contract.endsOn)}${left !== null && left >= 0 ? ` (${left} Tage)` : ''}`,
+      )
+    }
+    if (contract.amountCents) meta.push(money(contract.amountCents))
+    if (contract.project) meta.push(contract.project.key)
+    if (contract.task && !contract.task.done) meta.push('Signatur ausstehend')
+    if (!contract.file) meta.push('kein PDF')
+
+    return { ...contract, state, label: CONTRACT_STATE_LABELS[state], meta }
   }),
 )
 
@@ -235,12 +260,6 @@ async function archive(contract: Contract) {
   }
 }
 
-const money = (cents: number) =>
-  (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
-
-const date = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('de-DE', { dateStyle: 'medium' }) : ''
-
 defineExpose({ startNew })
 onMounted(load)
 </script>
@@ -270,17 +289,7 @@ onMounted(load)
           >
             {{ c.label }}
           </span>
-          <span class="block text-xs text-soft">
-            <template v-if="c.signedOn">unterschrieben {{ date(c.signedOn) }}</template>
-            <template v-if="c.endsOn">
-              · bis {{ date(c.endsOn) }}
-              <template v-if="c.left !== null && c.left >= 0">({{ c.left }} Tage)</template>
-            </template>
-            <template v-if="c.amountCents"> · {{ money(c.amountCents) }}</template>
-            <template v-if="c.project"> · {{ c.project.key }}</template>
-            <template v-if="c.task && !c.task.done"> · Signatur ausstehend</template>
-            <template v-if="!c.file"> · kein PDF</template>
-          </span>
+          <span v-if="c.meta.length" class="block text-xs text-soft">{{ c.meta.join(' · ') }}</span>
           <span v-if="c.notes" class="block text-xs text-muted">{{ c.notes }}</span>
         </span>
 
