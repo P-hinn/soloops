@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
+import { companyDetails, serviceKeys } from '@soloops/core/settings.js'
 
 /**
  * Setup progress — derived from what is actually there.
@@ -71,12 +72,16 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
     // Invoices need a complete sender address — without one the PDF is
     // formally useless. Either a tax number *or* a VAT id will do.
+    // Read through the settings layer, so filling the form in the app ticks
+    // this off — it used to be the only essential step with no action, and it
+    // blocks the first invoice.
+    const company = await companyDetails()
     const companyComplete =
-      !!env.COMPANY_STREET &&
-      !!env.COMPANY_ZIP &&
-      !!env.COMPANY_CITY &&
-      !!(env.COMPANY_VAT_ID || env.COMPANY_TAX_NUMBER) &&
-      !!env.COMPANY_IBAN
+      !!company.street &&
+      !!company.zip &&
+      !!company.city &&
+      !!(company.vatId || company.taxNumber) &&
+      !!company.iban
 
     const steps: Step[] = [
       {
@@ -85,8 +90,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
         why: 'Ohne Adresse, Steuernummer und IBAN ist eine Rechnung formal unvollständig.',
         done: companyComplete,
         essential: true,
-        action: null,
-        hint: 'COMPANY_STREET, COMPANY_ZIP, COMPANY_CITY, COMPANY_TAX_NUMBER (oder COMPANY_VAT_ID) und COMPANY_IBAN in der .env, danach `docker compose up -d`.',
+        action: { label: 'Absenderdaten', url: '/settings' },
+        hint: 'Adresse, Steuernummer und IBAN unter Einstellungen → Absenderdaten. Werte aus der .env gelten weiter, bis hier etwas eingetragen wird.',
       },
       {
         id: 'client',
@@ -124,10 +129,10 @@ const routes: FastifyPluginAsyncZod = async (app) => {
         id: 'ai',
         title: 'Anthropic-Schlüssel hinterlegen',
         why: 'Schaltet Schnelleingabe, Projekt-Lageberichte und Meeting-Zusammenfassungen frei.',
-        done: !!env.ANTHROPIC_API_KEY,
+        done: !!(await serviceKeys()).anthropic,
         essential: false,
-        action: null,
-        hint: 'ANTHROPIC_API_KEY in der .env setzen.',
+        action: { label: 'Dienste', url: '/settings' },
+        hint: 'Schlüssel unter Einstellungen → Angebundene Dienste eintragen.',
       },
       {
         id: 'calendar',

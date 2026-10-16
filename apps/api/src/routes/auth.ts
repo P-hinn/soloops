@@ -3,6 +3,12 @@ import { loginInput, passwordInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { hashPassword, verifyPassword } from '@soloops/core/passwords.js'
 import { env } from '@soloops/core/env.js'
+import {
+  companyDetails,
+  invoiceDefaults,
+  serviceKeys,
+  videoSettings,
+} from '@soloops/core/settings.js'
 
 const routes: FastifyPluginAsyncZod = async (app) => {
   app.post('/login', { schema: { body: loginInput } }, async (req, reply) => {
@@ -43,24 +49,39 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     },
   )
 
-  app.get('/config', async () => ({
-    companyName: env.COMPANY_NAME,
-    currency: 'EUR',
-    smallBusiness: env.INVOICE_SMALL_BUSINESS,
-    defaultTaxRate: env.INVOICE_DEFAULT_TAX_RATE,
-    defaultHourlyRateCents: env.INVOICE_DEFAULT_HOURLY_RATE_CENTS,
-    videoProvider: env.VIDEO_PROVIDER,
-    features: {
-      ai: !!env.ANTHROPIC_API_KEY,
-      uptime: !!env.UPTIMEROBOT_API_KEY,
-      github: !!env.GITHUB_TOKEN,
-      gitlab: !!env.GITLAB_TOKEN,
-      lexoffice: !!env.LEXOFFICE_API_KEY,
-      google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-      apple: true, // CalDAV braucht keine Server-Konfiguration
-      video: env.VIDEO_PROVIDER !== 'CUSTOM' || !!env.VIDEO_CUSTOM_URL,
-    },
-  }))
+  /**
+   * What the interface needs to know before it renders anything.
+   *
+   * Read through the settings layer, not straight out of `env`: once a value
+   * has been set in the interface the database is the answer, and the badges
+   * under "Angebundene Dienste" have to switch over without a container
+   * restart. The two that stay in `env` are Google's OAuth pair — the
+   * redirect URI has to match what is registered in the Google console, and
+   * a field that can disagree with that is a new class of failure.
+   */
+  app.get('/config', async () => {
+    const invoice = await invoiceDefaults()
+    const keys = await serviceKeys()
+    const video = await videoSettings()
+    return {
+      companyName: (await companyDetails()).name,
+      currency: 'EUR',
+      smallBusiness: invoice.smallBusiness,
+      defaultTaxRate: invoice.taxRate,
+      defaultHourlyRateCents: invoice.hourlyRateCents,
+      videoProvider: video.provider,
+      features: {
+        ai: !!keys.anthropic,
+        uptime: !!keys.uptimerobot,
+        github: !!keys.github,
+        gitlab: !!keys.gitlab,
+        lexoffice: !!keys.lexoffice,
+        google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+        apple: true, // CalDAV braucht keine Server-Konfiguration
+        video: video.provider !== 'CUSTOM' || !!video.customUrl,
+      },
+    }
+  })
 }
 
 export default routes

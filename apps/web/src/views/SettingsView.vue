@@ -7,6 +7,7 @@ import MailAccounts from '@/components/MailAccounts.vue'
 import ClaudeConnection from '@/components/ClaudeConnection.vue'
 import DeviceSync from '@/components/DeviceSync.vue'
 import { useAuth } from '@/stores/auth'
+import SettingsForm from '@/components/SettingsForm.vue'
 import { useOnboarding } from '@/stores/onboarding'
 
 const auth = useAuth()
@@ -80,6 +81,13 @@ const featureLabels: Record<string, string> = {
 
     <MailAccounts class="mb-4" />
 
+    <SettingsForm
+      group="company."
+      title="Absenderdaten"
+      note="Stehen auf jeder Rechnung. Ohne Adresse, Steuernummer und IBAN ist eine Rechnung formal unvollständig."
+      @saved="auth.load()"
+    />
+
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card">
         <h2 class="eyebrow mb-3">Angebundene Dienste</h2>
@@ -104,27 +112,12 @@ const featureLabels: Record<string, string> = {
         </ul>
       </section>
 
-      <section class="card">
-        <h2 class="eyebrow mb-3">Rechnungsstellung</h2>
-        <dl class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <dt class="text-muted">Firmenname</dt>
-            <dd>{{ auth.config?.companyName }}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-muted">Kleinunternehmer §19</dt>
-            <dd>{{ auth.config?.smallBusiness ? 'ja' : 'nein' }}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-muted">Standard-USt</dt>
-            <dd>{{ auth.config?.defaultTaxRate }} %</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-muted">Standard-Stundensatz</dt>
-            <dd>{{ ((auth.config?.defaultHourlyRateCents ?? 0) / 100).toFixed(2) }} €</dd>
-          </div>
-        </dl>
-      </section>
+      <SettingsForm
+        group="invoice."
+        title="Rechnungsstellung"
+        note="Gelten, wenn Kunde und Projekt nichts eigenes sagen."
+        @saved="auth.load()"
+      />
 
       <section class="card">
         <h2 class="eyebrow mb-3">Passwort ändern</h2>

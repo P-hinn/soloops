@@ -363,3 +363,13 @@ export async function cronSettings() {
     automations: text('cron.automations', env.AUTOMATION_POLL_CRON),
   }
 }
+
+/** Which video room a new meeting gets. */
+export async function videoSettings() {
+  const all = await getSettings()
+  return {
+    provider: (all['video.provider'] as 'JITSI' | 'GOOGLE_MEET' | 'CUSTOM') ?? env.VIDEO_PROVIDER,
+    jitsiBaseUrl: (all['video.jitsiBaseUrl'] as string | undefined) ?? env.JITSI_BASE_URL,
+    customUrl: (all['video.customUrl'] as string | undefined) ?? env.VIDEO_CUSTOM_URL ?? '',
+  }
+}
