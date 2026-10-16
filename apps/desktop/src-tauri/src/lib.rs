@@ -32,6 +32,7 @@ mod backup;
 mod claude;
 mod followups;
 mod http;
+mod project;
 mod sync;
 mod tracker;
 
@@ -98,14 +99,45 @@ struct Runtime {
 
 // --- Project and ports ------------------------------------------------------
 
-/// Where the repository lives. A .app has no working directory, so the path
-/// is baked in at build time; SOLOOPS_DIR overrides it should the directory
-/// move later on.
+/// Where the repository lives.
+///
+/// A `.app` has no working directory, and the path used to be baked in at
+/// build time. That works for the machine that compiled it and for no other:
+/// an app built on a CI runner would point at `/Users/runner/work/...`, and
+/// on the Mac that downloads it there is no `.env`, no `data/` and no stack
+/// behind that path. So it is looked for — see project.rs — and the last
+/// resort is asking once and remembering the answer.
 fn project_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("SOLOOPS_DIR") {
-        return PathBuf::from(dir);
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default();
+    let baked = concat!(env!("CARGO_MANIFEST_DIR"), "/../../..");
+    let from_env = std::env::var("SOLOOPS_DIR").ok();
+
+    let places = project::candidates(&home, Some(baked), from_env.as_deref());
+    if let Some(found) = project::first_project(&places, |path| project::is_project(path)) {
+        eprintln!("[projekt] {}", found.display());
+        return found;
     }
-    PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.."))
+
+    // Nothing found. Ask, check the answer, and keep it — so this happens on
+    // a fresh install and not on every start.
+    if let Some(chosen) = project::ask() {
+        if project::is_project(&chosen) {
+            project::remember(&home, &chosen);
+            eprintln!("[projekt] gemerkt: {}", chosen.display());
+            return chosen;
+        }
+        eprintln!(
+            "[projekt] {} sieht nicht wie das Repository aus (docker-compose.yml und package.json mit \"soloops\")",
+            chosen.display()
+        );
+    }
+
+    // Still nothing: fall back to the baked path so the app can at least
+    // start and say what it is missing, rather than panicking here.
+    eprintln!("[projekt] kein Repository gefunden — SOLOOPS_DIR setzen oder die App neu starten");
+    PathBuf::from(baked)
 }
 
 /// One value from the .env. Not a full parser — line, equals sign, rest,

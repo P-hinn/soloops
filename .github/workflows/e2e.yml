@@ -28,18 +28,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # `npm install` and not `npm ci`, on purpose.
+      #
+      # The lock file only carries the platform binaries of the machine that
+      # wrote it (npm/cli#4828), and this one is written on an arm64 Mac. The
+      # dev server needs three of them on Linux — rolldown for vite 8,
+      # @tailwindcss/oxide, and lightningcss in two different versions — and
+      # `npm ci` installs exactly what the lock file says, so it cannot fill
+      # holes the lock file does not know about. That is why every run of this
+      # workflow failed from the vite 8 upgrade onwards: "Cannot find native
+      # binding", and Playwright never got a server.
+      #
+      # `npm install` resolves optional dependencies for the platform it runs
+      # on. It costs the exactness of `ci`, which these browser tests do not
+      # depend on; the check workflow next door keeps `npm ci`.
+      - run: npm install --no-audit --no-fund
         working-directory: .
-      # npm/cli#4828: the lock file only carries the platform binaries of the
-      # machine it was written on, and this one is written on an arm64 Mac.
-      # vite 8 builds with rolldown, whose binding is a platform binary, so on
-      # a Linux runner the dev server cannot start — which is why every run of
-      # this workflow failed from the vite 8 upgrade onwards.
-      - name: Linux-Binaries nachziehen
-        working-directory: .
-        run: |
-          version=$(node -p "require('rolldown/package.json').version")
-          npm install --no-save --no-audit --no-fund "@rolldown/binding-linux-x64-gnu@$version"
       - name: Install browsers
         run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run tests
