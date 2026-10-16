@@ -2,17 +2,18 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
-import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
-import { clearFollowUp, completeFollowUp } from '@soloops/core/services/leads.js'
 import { readLinkState } from '@soloops/core/services/taskLinkState.js'
 import { parseTaskLink } from '@soloops/core/services/taskLinks.js'
+import { BOARD_COLUMNS } from '@soloops/core/services/tasks.js'
 import {
-  BOARD_COLUMNS,
-  columnPatch,
-  isFollowUpTask,
-  spreadPositions,
-} from '@soloops/core/services/tasks.js'
-import { createTask, endOfColumn } from '@soloops/core/services/taskWrite.js'
+  createTask,
+  deleteTask,
+  getTask,
+  listTasks,
+  reorderColumn,
+  taskIncludes,
+  updateTask,
+} from '@soloops/core/services/taskWrite.js'
 
 /**
  * Tasks — the to-do list, the board, and what hangs off a ticket.
@@ -55,84 +56,6 @@ const providerAccess = () => ({
   gitlabHost: env.GITLAB_HOST,
 })
 
-const listed = {
-  project: { select: { id: true, key: true, name: true, color: true } },
-  client: { select: { id: true, name: true } },
-  meeting: { select: { id: true, title: true } },
-  lead: { select: { id: true, title: true, stage: true } },
-  links: { orderBy: { createdAt: 'asc' } },
-} as const
-
-/**
- * Hours booked per task, in one query for the whole list.
- *
- * The board shows it on every card, so doing it per row would be a query per
- * card. Tasks without time are simply absent from the result and read as 0.
- */
-async function trackedSecByTask(ids: string[]): Promise<Record<string, number>> {
-  if (ids.length === 0) return {}
-  const grouped = await prisma.timeEntry.groupBy({
-    by: ['actionItemId'],
-    where: { actionItemId: { in: ids } },
-    _sum: { durationSec: true },
-  })
-  return Object.fromEntries(
-    grouped.map((row) => [row.actionItemId!, row._sum.durationSec ?? 0]),
-  ) as Record<string, number>
-}
-
-/**
- * A ticket that was just closed, and what that means elsewhere.
- *
- * A follow-up's own ticket (see services/leadTasks.ts) closes the follow-up
- * with it: ticking the card off on the board is the same act as saying you
- * chased the lead up, and the two must not end up disagreeing. Everything
- * else only emits the event.
- */
-async function onTaskClosed(
-  task: {
-    id: string
-    title: string
-    assignee: string | null
-    dueOn: Date | null
-    projectId: string | null
-    clientId: string | null
-    meetingId: string | null
-    leadId: string | null
-    source: string
-  },
-  app: { log: { warn: (message: string) => void } },
-): Promise<void> {
-  await emitAutomationEvent({
-    event: 'TASK_COMPLETED',
-    projectId: task.projectId,
-    path: task.leadId
-      ? `/leads/${task.leadId}`
-      : task.projectId
-        ? `/projects/${task.projectId}`
-        : null,
-    data: {
-      id: task.id,
-      title: task.title,
-      assignee: task.assignee,
-      dueOn: task.dueOn,
-      projectId: task.projectId,
-      clientId: task.clientId,
-      meetingId: task.meetingId,
-      leadId: task.leadId,
-    },
-  })
-
-  if (!isFollowUpTask(task)) return
-  // The lead side writes its own history entry ("Nachgefasst"), which is the
-  // point: a follow-up ticked off on the board still counts as contact and
-  // resets the staleness counter. It cannot close this ticket back, because
-  // it only looks for open ones.
-  await completeFollowUp(task.leadId!).catch((err: Error) =>
-    app.log.warn(`[tasks] Wiedervorlage ${task.leadId}: ${err.message}`),
-  )
-}
-
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
@@ -151,142 +74,40 @@ const routes: FastifyPluginAsync = async (app) => {
         take: z.coerce.number().max(500).default(200),
       })
       .parse(req.query)
-
-    const items = await prisma.actionItem.findMany({
-      where: {
-        ...(q.open ? { done: false } : {}),
-        ...(q.status ? { status: q.status } : {}),
-        ...(q.projectId ? { projectId: q.projectId } : {}),
-        ...(q.clientId ? { clientId: q.clientId } : {}),
-        ...(q.meetingId ? { meetingId: q.meetingId } : {}),
-        ...(q.leadId ? { leadId: q.leadId } : {}),
-        ...(q.overdue ? { done: false, dueOn: { lt: new Date() } } : {}),
-        ...(q.q ? { title: { contains: q.q, mode: 'insensitive' } } : {}),
-      },
-      orderBy: [{ done: 'asc' }, { position: 'asc' }, { dueOn: 'asc' }, { createdAt: 'asc' }],
-      take: q.take,
-      include: listed,
-    })
-
-    const tracked = await trackedSecByTask(items.map((item) => item.id))
-    return items.map((item) => ({ ...item, trackedSec: tracked[item.id] ?? 0 }))
+    return listTasks(q)
   })
 
   /** One task with everything the detail panel shows. */
   app.get('/:id', async (req) => {
     const { id } = idParam.parse(req.params)
-    const item = await prisma.actionItem.findUniqueOrThrow({
-      where: { id },
-      include: {
-        ...listed,
-        timeEntries: {
-          orderBy: { startedAt: 'desc' },
-          take: 50,
-          include: { project: { select: { id: true, key: true, name: true } } },
-        },
-      },
-    })
-    const tracked = await trackedSecByTask([id])
-    return { ...item, trackedSec: tracked[id] ?? 0 }
+    return getTask(id)
   })
 
   app.post('/', async (req, reply) => {
     const data = itemInput.parse(req.body)
     // Project, client and position are decided in one place for every caller
     // — see services/taskWrite.ts.
-    const created = await createTask(data, listed)
+    const created = await createTask(data, taskIncludes)
     return reply.code(201).send({ ...created, trackedSec: 0 })
   })
 
   app.patch('/:id', async (req) => {
     const { id } = idParam.parse(req.params)
     const data = itemInput.partial().parse(req.body)
-    // The previous state decides whether this is an event: ticking an item
-    // that was already done is a no-op, and a workflow should not see it.
-    const before = await prisma.actionItem.findUniqueOrThrow({
-      where: { id },
-      select: { done: true, status: true },
-    })
-    // A card moved into another column by any route other than a drag has no
-    // position of its own yet; without this it keeps the rank it had in the
-    // old column and lands somewhere in the middle of the new one.
-    const movesColumn =
-      (data.status !== undefined && data.status !== before.status) ||
-      (data.done !== undefined && data.done !== before.done)
-    const position =
-      data.position ??
-      (movesColumn
-        ? await endOfColumn((data.done ?? before.done) ? null : (data.status ?? before.status))
-        : undefined)
-
-    const updated = await prisma.actionItem.update({
-      where: { id },
-      data: { ...data, ...(position === undefined ? {} : { position }) },
-      include: listed,
-    })
-
-    if (!before.done && updated.done) await onTaskClosed(updated, app)
-
-    const tracked = await trackedSecByTask([id])
-    return { ...updated, trackedSec: tracked[id] ?? 0 }
+    return updateTask(id, data, (message) => app.log.warn(message))
   })
 
-  /**
-   * A column after a drag: the ids in the order they now have.
-   *
-   * The whole column rather than the one card that moved — see
-   * services/tasks.ts. Deliberately not in a transaction: every write is an
-   * op in the sync log, and ops for a write that rolled back would be worse
-   * than a column that is briefly sorted halfway.
-   */
+  /** A column after a drag: the ids in the order they now have. */
   app.post('/order', async (req) => {
     const body = z
       .object({ column: z.enum(BOARD_COLUMNS), ids: z.array(z.string()).max(500) })
       .parse(req.body)
-
-    const patch = columnPatch(body.column)
-    const positions = spreadPositions(body.ids.length)
-
-    // Read before writing: which of these were still open is what decides
-    // whether a drop into "Erledigt" is an event. Afterwards they all look
-    // closed, and re-sorting the done column would fire the event again for
-    // every card in it.
-    const before = await prisma.actionItem.findMany({
-      where: { id: { in: body.ids } },
-      select: { id: true, done: true },
-    })
-    const wasOpen = new Set(before.filter((item) => !item.done).map((item) => item.id))
-
-    for (const [index, id] of body.ids.entries()) {
-      await prisma.actionItem.update({
-        where: { id },
-        data: { ...patch, position: positions[index]! },
-      })
-    }
-
-    // Moving into "Erledigt" closes tasks, and a workflow listening for that
-    // has to see it however it happened.
-    if (body.column === 'DONE' && wasOpen.size > 0) {
-      const closed = await prisma.actionItem.findMany({ where: { id: { in: [...wasOpen] } } })
-      for (const item of closed) await onTaskClosed(item, app)
-    }
-
-    return { ok: true, moved: body.ids.length }
+    return reorderColumn(body.column, body.ids, (message) => app.log.warn(message))
   })
 
   app.delete('/:id', async (req, reply) => {
     const { id } = idParam.parse(req.params)
-    const task = await prisma.actionItem.findUniqueOrThrow({ where: { id } })
-
-    // Throwing away a follow-up's own ticket says the follow-up was wrong,
-    // not that the lead needs no chasing on a date nobody can see any more.
-    // `clearFollowUp` takes the date off and deletes this row on its way.
-    if (isFollowUpTask(task) && !task.done) {
-      await clearFollowUp(task.leadId!)
-      return reply.code(204).send()
-    }
-
-    await prisma.actionItem.delete({ where: { id } })
+    await deleteTask(id)
     return reply.code(204).send()
   })
 

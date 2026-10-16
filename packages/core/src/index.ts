@@ -17,4 +17,5 @@
  */
 export { dbRaw, ensureSearchIndexes, initSync, prisma } from './db.js'
 export { env, type Env } from './env.js'
+export { conflict, invalid, notFound, RuleError } from './rules.js'
 export * from './queue.js'

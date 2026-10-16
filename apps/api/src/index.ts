@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client'
 
 import { env } from '@soloops/core/env.js'
 import { ensureSearchIndexes, initSync, prisma } from '@soloops/core/db.js'
+import { RuleError } from '@soloops/core/rules.js'
 import { registerAuth } from './auth.js'
 
 import authRoutes from './routes/auth.js'
@@ -46,6 +47,11 @@ await app.register(jwt, { secret: env.JWT_SECRET, sign: { expiresIn: '30d' } })
 registerAuth(app)
 
 app.setErrorHandler((error: FastifyError, _req: FastifyRequest, reply: FastifyReply) => {
+  // A rule from the service layer. It carries the status it means, so the
+  // routes do not have to translate between "not allowed" and a number.
+  if (error instanceof RuleError) {
+    return reply.code(error.status).send({ error: error.message })
+  }
   if (error instanceof ZodError) {
     return reply.code(422).send({ error: 'Validierung fehlgeschlagen', issues: error.issues })
   }
