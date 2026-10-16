@@ -9,8 +9,10 @@ apps/ios/**/.build
 apps/desktop/src-tauri/target
 apps/desktop/src-tauri/gen
 
-# Generated, and its generator is the only thing allowed to format it.
-# Prettier puts short arrays on one line, exportSyncRegistry.ts writes them
-# over several, and with both touching the file `sync:registry` followed by
-# `git diff --exit-code` could never be green.
+# Generated, and their generators are the only things allowed to format them.
+# Prettier puts short arrays on one line and both generators write them over
+# several, so with Prettier in the mix `npm run openapi` or `sync:registry`
+# followed by `git diff --exit-code` could never be green — and that diff is
+# exactly how CI notices a description nobody regenerated.
 apps/ios/SoloopsKit/Tests/SoloopsKitTests/Fixtures/registry.json
+docs/openapi.json

@@ -1,0 +1,114 @@
+# Format, lint, types and every test suite — the gate that was only ever
+# local. The e2e workflow next door runs Playwright against a mocked API; this
+# one runs everything that needs the real code.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        # The integration tests refuse to run against anything whose database
+        # name does not say "test" — see packages/core/test/sync.integration.ts.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: synctest
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d synctest"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # Enough to satisfy env.ts; nothing here reaches a real service.
+      JWT_SECRET: github-actions-secret-0123456789
+      SERVICE_TOKEN: github-actions-token
+      TZ: Europe/Berlin
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Prisma-Client erzeugen
+        run: npx prisma generate --schema packages/core/prisma/schema.prisma
+
+      - name: Format, Lint, Typecheck und Tests
+        run: npm run check
+
+      # The description is committed, so a route change that nobody regenerated
+      # has to be visible here and not in a drifting contract test.
+      - name: OpenAPI ist aktuell
+        run: |
+          npm run openapi
+          git diff --exit-code docs/openapi.json
+
+      # Two databases, because the two integration tests each insist on a name
+      # of their own before they empty a single table. The service above
+      # creates synctest; this adds the other.
+      - name: Zweite Datenbank anlegen
+        run: psql "postgresql://test:test@localhost:5432/postgres" -c 'CREATE DATABASE invoicetest'
+
+      - name: Schema anwenden
+        run: |
+          npx prisma migrate deploy --schema packages/core/prisma/schema.prisma
+          DATABASE_URL="postgresql://test:test@localhost:5432/invoicetest?schema=public" \
+            npx prisma migrate deploy --schema packages/core/prisma/schema.prisma
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/synctest?schema=public
+
+      - name: Sync gegen eine echte Datenbank
+        run: npm -w @soloops/core run test:sync
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/synctest?schema=public
+
+      - name: Rechnungsnummern unter Gleichzeitigkeit
+        run: npm -w @soloops/core run test:invoices
+        env:
+          # Its own guard wants "invoicetest" in the name, and it empties
+          # tables — so it gets its own database rather than sharing one.
+          DATABASE_URL: postgresql://test:test@localhost:5432/invoicetest?schema=public
+
+  ios:
+    # The sync engine of the phone app, and the registry it shares with the
+    # API. Needs the Swift toolchain, so it cannot ride along above.
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Registry nachziehen
+        run: npm -w @soloops/core run sync:registry
+
+      # The Swift side keeps a hand-written copy of the synced fields. If the
+      # generator produces something else than what is committed, the copy is
+      # one commit behind — and that drift is invisible at runtime, because a
+      # field the phone does not know is simply dropped on arrival.
+      - name: Registry ist aktuell
+        run: git diff --exit-code apps/ios/SoloopsKit/Tests/SoloopsKitTests/Fixtures/registry.json
+
+      - name: Swift-Tests
+        run: bash scripts/ios-test.sh

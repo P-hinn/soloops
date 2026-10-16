@@ -43,7 +43,10 @@
                     "minLength": 1
                   }
                 },
-                "required": ["email", "password"],
+                "required": [
+                  "email",
+                  "password"
+                ],
                 "additionalProperties": false
               }
             }
@@ -82,7 +85,10 @@
                     "minLength": 10
                   }
                 },
-                "required": ["current", "next"],
+                "required": [
+                  "current",
+                  "next"
+                ],
                 "additionalProperties": false
               }
             }
@@ -155,7 +161,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -207,7 +215,9 @@
                     "default": false
                   }
                 },
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false
               }
             }
@@ -270,7 +280,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -428,7 +440,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -452,7 +466,10 @@
                     "type": "string"
                   }
                 },
-                "required": ["name", "clientId"],
+                "required": [
+                  "name",
+                  "clientId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -515,7 +532,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -584,7 +603,13 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["LEAD", "ACTIVE", "PAUSED", "DONE", "ARCHIVED"]
+              "enum": [
+                "LEAD",
+                "ACTIVE",
+                "PAUSED",
+                "DONE",
+                "ARCHIVED"
+              ]
             },
             "in": "query",
             "name": "status",
@@ -621,7 +646,13 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["LEAD", "ACTIVE", "PAUSED", "DONE", "ARCHIVED"],
+                    "enum": [
+                      "LEAD",
+                      "ACTIVE",
+                      "PAUSED",
+                      "DONE",
+                      "ARCHIVED"
+                    ],
                     "default": "ACTIVE"
                   },
                   "color": {
@@ -669,7 +700,10 @@
                     "nullable": true
                   }
                 },
-                "required": ["key", "name"],
+                "required": [
+                  "key",
+                  "name"
+                ],
                 "additionalProperties": false
               }
             }
@@ -724,7 +758,13 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["LEAD", "ACTIVE", "PAUSED", "DONE", "ARCHIVED"],
+                    "enum": [
+                      "LEAD",
+                      "ACTIVE",
+                      "PAUSED",
+                      "DONE",
+                      "ARCHIVED"
+                    ],
                     "default": "ACTIVE"
                   },
                   "color": {
@@ -961,7 +1001,13 @@
                   },
                   "kind": {
                     "type": "string",
-                    "enum": ["FOCUS", "MEETING", "ADMIN", "PERSONAL", "TRAVEL"],
+                    "enum": [
+                      "FOCUS",
+                      "MEETING",
+                      "ADMIN",
+                      "PERSONAL",
+                      "TRAVEL"
+                    ],
                     "default": "FOCUS"
                   },
                   "projectId": {
@@ -980,7 +1026,11 @@
                     "nullable": true
                   }
                 },
-                "required": ["title", "startsAt", "endsAt"],
+                "required": [
+                  "title",
+                  "startsAt",
+                  "endsAt"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1044,7 +1094,13 @@
                   },
                   "kind": {
                     "type": "string",
-                    "enum": ["FOCUS", "MEETING", "ADMIN", "PERSONAL", "TRAVEL"],
+                    "enum": [
+                      "FOCUS",
+                      "MEETING",
+                      "ADMIN",
+                      "PERSONAL",
+                      "TRAVEL"
+                    ],
                     "default": "FOCUS"
                   },
                   "projectId": {
@@ -1125,7 +1181,9 @@
                     "pattern": "^#[0-9a-fA-F]{6}$"
                   }
                 },
-                "required": ["color"],
+                "required": [
+                  "color"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1260,7 +1318,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["PLANNED", "RUNNING", "DONE"],
+                    "enum": [
+                      "PLANNED",
+                      "RUNNING",
+                      "DONE"
+                    ],
                     "default": "PLANNED"
                   },
                   "startsAt": {
@@ -1324,7 +1386,10 @@
                     "nullable": true
                   }
                 },
-                "required": ["title", "startsAt"],
+                "required": [
+                  "title",
+                  "startsAt"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1369,7 +1434,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["PLANNED", "RUNNING", "DONE"],
+                    "enum": [
+                      "PLANNED",
+                      "RUNNING",
+                      "DONE"
+                    ],
                     "default": "PLANNED"
                   },
                   "startsAt": {
@@ -1549,7 +1618,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1664,7 +1735,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1789,7 +1862,12 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["true", "false", "1", "0"],
+              "enum": [
+                "true",
+                "false",
+                "1",
+                "0"
+              ],
               "default": "true"
             },
             "in": "query",
@@ -1799,7 +1877,11 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["TODO", "DOING", "BLOCKED"]
+              "enum": [
+                "TODO",
+                "DOING",
+                "BLOCKED"
+              ]
             },
             "in": "query",
             "name": "status",
@@ -1840,7 +1922,12 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["true", "false", "1", "0"]
+              "enum": [
+                "true",
+                "false",
+                "1",
+                "0"
+              ]
             },
             "in": "query",
             "name": "overdue",
@@ -1888,7 +1975,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["TODO", "DOING", "BLOCKED"]
+                    "enum": [
+                      "TODO",
+                      "DOING",
+                      "BLOCKED"
+                    ]
                   },
                   "dueOn": {
                     "type": "string",
@@ -1920,11 +2011,17 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["MANUAL", "AI", "MCP"],
+                    "enum": [
+                      "MANUAL",
+                      "AI",
+                      "MCP"
+                    ],
                     "default": "MANUAL"
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -1972,7 +2069,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["TODO", "DOING", "BLOCKED"]
+                    "enum": [
+                      "TODO",
+                      "DOING",
+                      "BLOCKED"
+                    ]
                   },
                   "dueOn": {
                     "type": "string",
@@ -2004,7 +2105,11 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["MANUAL", "AI", "MCP"],
+                    "enum": [
+                      "MANUAL",
+                      "AI",
+                      "MCP"
+                    ],
                     "default": "MANUAL"
                   }
                 },
@@ -2058,7 +2163,12 @@
                 "properties": {
                   "column": {
                     "type": "string",
-                    "enum": ["TODO", "DOING", "BLOCKED", "DONE"]
+                    "enum": [
+                      "TODO",
+                      "DOING",
+                      "BLOCKED",
+                      "DONE"
+                    ]
                   },
                   "ids": {
                     "type": "array",
@@ -2068,7 +2178,10 @@
                     "maxItems": 500
                   }
                 },
-                "required": ["column", "ids"],
+                "required": [
+                  "column",
+                  "ids"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2095,7 +2208,9 @@
                     "minLength": 1
                   }
                 },
-                "required": ["url"],
+                "required": [
+                  "url"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2235,7 +2350,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["projectId"],
+                "required": [
+                  "projectId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2276,7 +2393,10 @@
                 "properties": {
                   "provider": {
                     "type": "string",
-                    "enum": ["GITHUB", "GITLAB"]
+                    "enum": [
+                      "GITHUB",
+                      "GITLAB"
+                    ]
                   },
                   "slug": {
                     "type": "string",
@@ -2295,7 +2415,10 @@
                     "default": true
                   }
                 },
-                "required": ["provider", "slug"],
+                "required": [
+                  "provider",
+                  "slug"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2319,7 +2442,10 @@
                 "properties": {
                   "provider": {
                     "type": "string",
-                    "enum": ["GITHUB", "GITLAB"]
+                    "enum": [
+                      "GITHUB",
+                      "GITLAB"
+                    ]
                   },
                   "slug": {
                     "type": "string",
@@ -2537,7 +2663,11 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["TIMER", "MANUAL", "MCP"],
+                    "enum": [
+                      "TIMER",
+                      "MANUAL",
+                      "MCP"
+                    ],
                     "default": "TIMER"
                   }
                 },
@@ -2715,7 +2845,11 @@
                     "default": []
                   }
                 },
-                "required": ["projectId", "startedAt", "endedAt"],
+                "required": [
+                  "projectId",
+                  "startedAt",
+                  "endedAt"
+                ],
                 "additionalProperties": false
               }
             }
@@ -2970,13 +3104,17 @@
                           "default": 0
                         }
                       },
-                      "required": ["atMs"],
+                      "required": [
+                        "atMs"
+                      ],
                       "additionalProperties": false
                     },
                     "maxItems": 1000
                   }
                 },
-                "required": ["samples"],
+                "required": [
+                  "samples"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3165,13 +3303,19 @@
                           "type": "integer"
                         }
                       },
-                      "required": ["description", "quantity", "unitPriceCents"],
+                      "required": [
+                        "description",
+                        "quantity",
+                        "unitPriceCents"
+                      ],
                       "additionalProperties": false
                     },
                     "default": []
                   }
                 },
-                "required": ["clientId"],
+                "required": [
+                  "clientId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3279,7 +3423,11 @@
                           "type": "integer"
                         }
                       },
-                      "required": ["description", "quantity", "unitPriceCents"],
+                      "required": [
+                        "description",
+                        "quantity",
+                        "unitPriceCents"
+                      ],
                       "additionalProperties": false
                     },
                     "default": []
@@ -3369,7 +3517,11 @@
                     "default": true
                   }
                 },
-                "required": ["clientId", "from", "to"],
+                "required": [
+                  "clientId",
+                  "from",
+                  "to"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3393,10 +3545,18 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "enum": ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"]
+                    "enum": [
+                      "DRAFT",
+                      "SENT",
+                      "PAID",
+                      "OVERDUE",
+                      "CANCELLED"
+                    ]
                   }
                 },
-                "required": ["status"],
+                "required": [
+                  "status"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3568,7 +3728,14 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+              "enum": [
+                "NEW",
+                "QUALIFIED",
+                "PROPOSAL",
+                "NEGOTIATION",
+                "WON",
+                "LOST"
+              ]
             },
             "in": "query",
             "name": "stage",
@@ -3612,11 +3779,25 @@
                   },
                   "stage": {
                     "type": "string",
-                    "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+                    "enum": [
+                      "NEW",
+                      "QUALIFIED",
+                      "PROPOSAL",
+                      "NEGOTIATION",
+                      "WON",
+                      "LOST"
+                    ]
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["REFERRAL", "WEBSITE", "OUTBOUND", "NETWORK", "EVENT", "OTHER"]
+                    "enum": [
+                      "REFERRAL",
+                      "WEBSITE",
+                      "OUTBOUND",
+                      "NETWORK",
+                      "EVENT",
+                      "OTHER"
+                    ]
                   },
                   "contactName": {
                     "type": "string",
@@ -3638,7 +3819,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -3691,7 +3874,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3736,11 +3921,25 @@
                   },
                   "stage": {
                     "type": "string",
-                    "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+                    "enum": [
+                      "NEW",
+                      "QUALIFIED",
+                      "PROPOSAL",
+                      "NEGOTIATION",
+                      "WON",
+                      "LOST"
+                    ]
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["REFERRAL", "WEBSITE", "OUTBOUND", "NETWORK", "EVENT", "OTHER"]
+                    "enum": [
+                      "REFERRAL",
+                      "WEBSITE",
+                      "OUTBOUND",
+                      "NETWORK",
+                      "EVENT",
+                      "OTHER"
+                    ]
                   },
                   "contactName": {
                     "type": "string",
@@ -3762,7 +3961,9 @@
                       },
                       {
                         "type": "string",
-                        "enum": [""]
+                        "enum": [
+                          ""
+                        ]
                       }
                     ]
                   },
@@ -3865,13 +4066,22 @@
                 "properties": {
                   "stage": {
                     "type": "string",
-                    "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+                    "enum": [
+                      "NEW",
+                      "QUALIFIED",
+                      "PROPOSAL",
+                      "NEGOTIATION",
+                      "WON",
+                      "LOST"
+                    ]
                   },
                   "note": {
                     "type": "string"
                   }
                 },
-                "required": ["stage"],
+                "required": [
+                  "stage"
+                ],
                 "additionalProperties": false
               }
             }
@@ -3943,7 +4153,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["on"],
+                "required": [
+                  "on"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4029,7 +4241,14 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["NOTE", "CALL", "MAIL", "MEETING", "OFFER", "STAGE_CHANGE"],
+                    "enum": [
+                      "NOTE",
+                      "CALL",
+                      "MAIL",
+                      "MEETING",
+                      "OFFER",
+                      "STAGE_CHANGE"
+                    ],
                     "default": "NOTE"
                   },
                   "body": {
@@ -4041,7 +4260,9 @@
                     "format": "date-time"
                   }
                 },
-                "required": ["body"],
+                "required": [
+                  "body"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4091,7 +4312,13 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"]
+                    "enum": [
+                      "DRAFT",
+                      "SENT",
+                      "ACCEPTED",
+                      "REJECTED",
+                      "EXPIRED"
+                    ]
                   },
                   "scope": {
                     "type": "string",
@@ -4116,7 +4343,10 @@
                     "nullable": true
                   }
                 },
-                "required": ["title", "amountCents"],
+                "required": [
+                  "title",
+                  "amountCents"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4166,7 +4396,13 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"]
+                    "enum": [
+                      "DRAFT",
+                      "SENT",
+                      "ACCEPTED",
+                      "REJECTED",
+                      "EXPIRED"
+                    ]
                   },
                   "scope": {
                     "type": "string",
@@ -4316,7 +4552,13 @@
                     }
                   }
                 },
-                "required": ["label", "email", "imapHost", "imapUser", "password"],
+                "required": [
+                  "label",
+                  "email",
+                  "imapHost",
+                  "imapUser",
+                  "password"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4446,7 +4688,13 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["LEAD", "PROJECT", "INVOICE", "ADMIN", "OTHER"]
+              "enum": [
+                "LEAD",
+                "PROJECT",
+                "INVOICE",
+                "ADMIN",
+                "OTHER"
+              ]
             },
             "in": "query",
             "name": "category",
@@ -4522,7 +4770,13 @@
                 "properties": {
                   "category": {
                     "type": "string",
-                    "enum": ["LEAD", "PROJECT", "INVOICE", "ADMIN", "OTHER"]
+                    "enum": [
+                      "LEAD",
+                      "PROJECT",
+                      "INVOICE",
+                      "ADMIN",
+                      "OTHER"
+                    ]
                   },
                   "leadId": {
                     "type": "string",
@@ -4656,7 +4910,10 @@
                     "default": "https://caldav.icloud.com"
                   }
                 },
-                "required": ["username", "password"],
+                "required": [
+                  "username",
+                  "password"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4700,11 +4957,19 @@
                   },
                   "direction": {
                     "type": "string",
-                    "enum": ["PULL", "PUSH", "BOTH"],
+                    "enum": [
+                      "PULL",
+                      "PUSH",
+                      "BOTH"
+                    ],
                     "default": "BOTH"
                   }
                 },
-                "required": ["username", "password", "calendarHref"],
+                "required": [
+                  "username",
+                  "password",
+                  "calendarHref"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4728,7 +4993,11 @@
                 "properties": {
                   "direction": {
                     "type": "string",
-                    "enum": ["PULL", "PUSH", "BOTH"]
+                    "enum": [
+                      "PULL",
+                      "PUSH",
+                      "BOTH"
+                    ]
                   },
                   "enabled": {
                     "type": "boolean"
@@ -4844,7 +5113,9 @@
                     "maxLength": 2000
                   }
                 },
-                "required": ["text"],
+                "required": [
+                  "text"
+                ],
                 "additionalProperties": false
               }
             }
@@ -4871,7 +5142,11 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "enum": ["use", "create", "none"]
+                        "enum": [
+                          "use",
+                          "create",
+                          "none"
+                        ]
                       },
                       "id": {
                         "type": "string",
@@ -4890,7 +5165,9 @@
                         "nullable": true
                       }
                     },
-                    "required": ["action"],
+                    "required": [
+                      "action"
+                    ],
                     "additionalProperties": false
                   },
                   "project": {
@@ -4898,7 +5175,11 @@
                     "properties": {
                       "action": {
                         "type": "string",
-                        "enum": ["use", "create", "none"]
+                        "enum": [
+                          "use",
+                          "create",
+                          "none"
+                        ]
                       },
                       "id": {
                         "type": "string",
@@ -4917,7 +5198,9 @@
                         "nullable": true
                       }
                     },
-                    "required": ["action"],
+                    "required": [
+                      "action"
+                    ],
                     "additionalProperties": false
                   },
                   "event": {
@@ -4940,7 +5223,13 @@
                       },
                       "kind": {
                         "type": "string",
-                        "enum": ["FOCUS", "MEETING", "ADMIN", "PERSONAL", "TRAVEL"],
+                        "enum": [
+                          "FOCUS",
+                          "MEETING",
+                          "ADMIN",
+                          "PERSONAL",
+                          "TRAVEL"
+                        ],
                         "default": "FOCUS"
                       },
                       "location": {
@@ -4952,7 +5241,9 @@
                         "default": false
                       }
                     },
-                    "required": ["create"],
+                    "required": [
+                      "create"
+                    ],
                     "additionalProperties": false
                   },
                   "meeting": {
@@ -4977,7 +5268,9 @@
                         "nullable": true
                       }
                     },
-                    "required": ["create"],
+                    "required": [
+                      "create"
+                    ],
                     "additionalProperties": false
                   },
                   "note": {
@@ -5002,7 +5295,9 @@
                         "default": []
                       }
                     },
-                    "required": ["create"],
+                    "required": [
+                      "create"
+                    ],
                     "additionalProperties": false
                   },
                   "actionItems": {
@@ -5018,7 +5313,9 @@
                           "nullable": true
                         }
                       },
-                      "required": ["title"],
+                      "required": [
+                        "title"
+                      ],
                       "additionalProperties": false
                     },
                     "default": []
@@ -5034,11 +5331,20 @@
                         "nullable": true
                       }
                     },
-                    "required": ["start"],
+                    "required": [
+                      "start"
+                    ],
                     "additionalProperties": false
                   }
                 },
-                "required": ["client", "project", "event", "meeting", "note", "timer"],
+                "required": [
+                  "client",
+                  "project",
+                  "event",
+                  "meeting",
+                  "note",
+                  "timer"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5135,7 +5441,9 @@
                     "minLength": 10
                   }
                 },
-                "required": ["apiKey"],
+                "required": [
+                  "apiKey"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5173,7 +5481,10 @@
                     "minLength": 1
                   }
                 },
-                "required": ["email", "password"],
+                "required": [
+                  "email",
+                  "password"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5225,7 +5536,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["projectId"],
+                "required": [
+                  "projectId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5278,7 +5591,9 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["active"],
+                "required": [
+                  "active"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5317,7 +5632,15 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["NEW", "RUNNING", "WAITING", "SUCCESS", "ERROR", "CANCELED", "UNKNOWN"]
+              "enum": [
+                "NEW",
+                "RUNNING",
+                "WAITING",
+                "SUCCESS",
+                "ERROR",
+                "CANCELED",
+                "UNKNOWN"
+              ]
             },
             "in": "query",
             "name": "status",
@@ -5522,12 +5845,20 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": ["read", "write"]
+                      "enum": [
+                        "read",
+                        "write"
+                      ]
                     },
-                    "default": ["read", "write"]
+                    "default": [
+                      "read",
+                      "write"
+                    ]
                   }
                 },
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5612,7 +5943,10 @@
                     "nullable": true
                   }
                 },
-                "required": ["event", "webhookUrl"],
+                "required": [
+                  "event",
+                  "webhookUrl"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5685,7 +6019,14 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+              "enum": [
+                "NEW",
+                "QUALIFIED",
+                "PROPOSAL",
+                "NEGOTIATION",
+                "WON",
+                "LOST"
+              ]
             },
             "in": "query",
             "name": "stage",
@@ -5738,11 +6079,25 @@
                   },
                   "stage": {
                     "type": "string",
-                    "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+                    "enum": [
+                      "NEW",
+                      "QUALIFIED",
+                      "PROPOSAL",
+                      "NEGOTIATION",
+                      "WON",
+                      "LOST"
+                    ]
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["REFERRAL", "WEBSITE", "OUTBOUND", "NETWORK", "EVENT", "OTHER"]
+                    "enum": [
+                      "REFERRAL",
+                      "WEBSITE",
+                      "OUTBOUND",
+                      "NETWORK",
+                      "EVENT",
+                      "OTHER"
+                    ]
                   },
                   "contactName": {
                     "type": "string",
@@ -5789,7 +6144,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5866,7 +6223,14 @@
                   },
                   "source": {
                     "type": "string",
-                    "enum": ["REFERRAL", "WEBSITE", "OUTBOUND", "NETWORK", "EVENT", "OTHER"]
+                    "enum": [
+                      "REFERRAL",
+                      "WEBSITE",
+                      "OUTBOUND",
+                      "NETWORK",
+                      "EVENT",
+                      "OTHER"
+                    ]
                   },
                   "clientId": {
                     "type": "string",
@@ -5914,13 +6278,22 @@
                 "properties": {
                   "stage": {
                     "type": "string",
-                    "enum": ["NEW", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"]
+                    "enum": [
+                      "NEW",
+                      "QUALIFIED",
+                      "PROPOSAL",
+                      "NEGOTIATION",
+                      "WON",
+                      "LOST"
+                    ]
                   },
                   "note": {
                     "type": "string"
                   }
                 },
-                "required": ["stage"],
+                "required": [
+                  "stage"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5954,7 +6327,14 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["NOTE", "CALL", "MAIL", "MEETING", "OFFER", "STAGE_CHANGE"],
+                    "enum": [
+                      "NOTE",
+                      "CALL",
+                      "MAIL",
+                      "MEETING",
+                      "OFFER",
+                      "STAGE_CHANGE"
+                    ],
                     "default": "NOTE"
                   },
                   "body": {
@@ -5966,7 +6346,9 @@
                     "format": "date-time"
                   }
                 },
-                "required": ["body"],
+                "required": [
+                  "body"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6052,7 +6434,12 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["ACTIVE", "PAUSED", "DONE", "ARCHIVED"]
+              "enum": [
+                "ACTIVE",
+                "PAUSED",
+                "DONE",
+                "ARCHIVED"
+              ]
             },
             "in": "query",
             "name": "status",
@@ -6111,7 +6498,10 @@
                     "nullable": true
                   }
                 },
-                "required": ["name", "key"],
+                "required": [
+                  "name",
+                  "key"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6214,7 +6604,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6283,7 +6675,10 @@
                     "default": []
                   }
                 },
-                "required": ["projectId", "minutes"],
+                "required": [
+                  "projectId",
+                  "minutes"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6372,7 +6767,9 @@
                     "nullable": true
                   }
                 },
-                "required": ["title"],
+                "required": [
+                  "title"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6396,7 +6793,12 @@
                 "properties": {
                   "vertrag": {
                     "type": "string",
-                    "enum": ["nda", "werkvertrag", "dienstvertrag", "freie-mitarbeit"]
+                    "enum": [
+                      "nda",
+                      "werkvertrag",
+                      "dienstvertrag",
+                      "freie-mitarbeit"
+                    ]
                   },
                   "clientId": {
                     "type": "string"
@@ -6409,7 +6811,10 @@
                     "default": {}
                   }
                 },
-                "required": ["vertrag", "clientId"],
+                "required": [
+                  "vertrag",
+                  "clientId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6538,10 +6943,17 @@
                   },
                   "platform": {
                     "type": "string",
-                    "enum": ["ios", "macos"]
+                    "enum": [
+                      "ios",
+                      "macos"
+                    ]
                   }
                 },
-                "required": ["code", "name", "platform"],
+                "required": [
+                  "code",
+                  "name",
+                  "platform"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6622,11 +7034,21 @@
                         },
                         "op": {
                           "type": "string",
-                          "enum": ["upsert", "delete"]
+                          "enum": [
+                            "upsert",
+                            "delete"
+                          ]
                         },
                         "patch": {}
                       },
-                      "required": ["deviceId", "seq", "hlc", "entity", "entityId", "op"],
+                      "required": [
+                        "deviceId",
+                        "seq",
+                        "hlc",
+                        "entity",
+                        "entityId",
+                        "op"
+                      ],
                       "additionalProperties": false
                     },
                     "maxItems": 1000
@@ -6635,7 +7057,9 @@
                     "type": "string"
                   }
                 },
-                "required": ["ops"],
+                "required": [
+                  "ops"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6681,7 +7105,9 @@
                     "default": 500
                   }
                 },
-                "required": ["deviceId"],
+                "required": [
+                  "deviceId"
+                ],
                 "additionalProperties": false
               }
             }
@@ -6734,11 +7160,21 @@
                         },
                         "op": {
                           "type": "string",
-                          "enum": ["upsert", "delete"]
+                          "enum": [
+                            "upsert",
+                            "delete"
+                          ]
                         },
                         "patch": {}
                       },
-                      "required": ["deviceId", "seq", "hlc", "entity", "entityId", "op"],
+                      "required": [
+                        "deviceId",
+                        "seq",
+                        "hlc",
+                        "entity",
+                        "entityId",
+                        "op"
+                      ],
                       "additionalProperties": false
                     },
                     "maxItems": 1000
@@ -6747,7 +7183,10 @@
                     "type": "string"
                   }
                 },
-                "required": ["deviceId", "ops"],
+                "required": [
+                  "deviceId",
+                  "ops"
+                ],
                 "additionalProperties": false
               }
             }
