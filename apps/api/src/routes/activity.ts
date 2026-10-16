@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { activitySampleBatch } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { buildRuns } from '../services/activity.js'
-import { partsInZone, zonedToUtc } from '../services/tz.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { buildRuns } from '@soloops/core/services/activity.js'
+import { partsInZone, zonedToUtc } from '@soloops/core/services/tz.js'
 
 /**
  * Rohe Stichproben vom Mac.

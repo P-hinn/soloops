@@ -1,20 +1,21 @@
 import { Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
 
-// The worker shares the Prisma client and the service layer with the API —
-// one monorepo, one source of truth.
-import { env } from '../../api/src/env.js'
-import { initSync, prisma } from '../../api/src/db.js'
-import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
-import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
-import { syncAllRepoCommits, syncRepoCommits } from '../../api/src/services/repoCommits.js'
-import { enrichPendingTimeEntries, enrichTimeEntry } from '../../api/src/services/timeEnrich.js'
-import { buildProjectDigest } from '../../api/src/ai/digest.js'
-import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
-import { syncMailAccount, syncAllMailAccounts } from '../../api/src/services/mailSync.js'
-import { scoreOpenLeads } from '../../api/src/ai/leadScore.js'
-import { syncAutomations } from '../../api/src/services/automations.js'
-import { deliver, type DeliveryJob } from '../../api/src/services/automationDelivery.js'
+// The worker and the API are two processes over one set of rules, and the
+// rules live in @soloops/core — including the Prisma client, so that the
+// sync log sees the worker's writes too.
+import { env } from '@soloops/core/env.js'
+import { initSync, prisma } from '@soloops/core/db.js'
+import { syncUptimeRobot } from '@soloops/core/services/uptimerobot.js'
+import { syncAllRepos, syncRepo } from '@soloops/core/services/pipelines.js'
+import { syncAllRepoCommits, syncRepoCommits } from '@soloops/core/services/repoCommits.js'
+import { enrichPendingTimeEntries, enrichTimeEntry } from '@soloops/core/services/timeEnrich.js'
+import { buildProjectDigest } from '@soloops/core/ai/digest.js'
+import { syncAccount, syncAllAccounts } from '@soloops/core/services/calendarSync.js'
+import { syncMailAccount, syncAllMailAccounts } from '@soloops/core/services/mailSync.js'
+import { scoreOpenLeads } from '@soloops/core/ai/leadScore.js'
+import { syncAutomations } from '@soloops/core/services/automations.js'
+import { deliver, type DeliveryJob } from '@soloops/core/services/automationDelivery.js'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 const log = (scope: string, msg: string) => console.log(`[${scope}] ${msg}`)

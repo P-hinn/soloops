@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { repoInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { commitQueue, pipelineQueue } from '../queue.js'
-import { syncRepo } from '../services/pipelines.js'
-import { projectCommits, syncRepoCommits } from '../services/repoCommits.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { commitQueue, pipelineQueue } from '@soloops/core/queue.js'
+import { syncRepo } from '@soloops/core/services/pipelines.js'
+import { projectCommits, syncRepoCommits } from '@soloops/core/services/repoCommits.js'
 
 const idParam = z.object({ id: z.string() })
 

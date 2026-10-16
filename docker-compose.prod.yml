@@ -96,7 +96,7 @@ services:
   migrate:
     <<: *node
     restart: 'no'
-    command: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+    command: npx prisma migrate deploy --schema packages/core/prisma/schema.prisma
     environment:
       NODE_ENV: production
     mem_limit: 256m

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
+import { prisma } from '@soloops/core/db.js'
 import {
   changeStage,
   claimDueNotifications,
@@ -14,10 +14,10 @@ import {
   stalenessDays,
   touchLead,
   weightedCents,
-} from '../services/leads.js'
-import { dropFollowUpTask } from '../services/leadTasks.js'
-import { scoreLead } from '../ai/leadScore.js'
-import { emitAutomationEvent } from '../services/automationDelivery.js'
+} from '@soloops/core/services/leads.js'
+import { dropFollowUpTask } from '@soloops/core/services/leadTasks.js'
+import { scoreLead } from '@soloops/core/ai/leadScore.js'
+import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
 const stage = z.enum(['NEW', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'])
 const source = z.enum(['REFERRAL', 'WEBSITE', 'OUTBOUND', 'NETWORK', 'EVENT', 'OTHER'])

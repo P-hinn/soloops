@@ -1,12 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { seal } from '../services/secretbox.js'
-import { testConnection } from '../services/imap.js'
-import { leadFromMail, syncMailAccount, syncAllMailAccounts } from '../services/mailSync.js'
-import { touchLead } from '../services/leads.js'
-import { syncWindowStart } from '../services/mailRules.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { seal } from '@soloops/core/services/secretbox.js'
+import { testConnection } from '@soloops/core/services/imap.js'
+import {
+  leadFromMail,
+  syncMailAccount,
+  syncAllMailAccounts,
+} from '@soloops/core/services/mailSync.js'
+import { touchLead } from '@soloops/core/services/leads.js'
+import { syncWindowStart } from '@soloops/core/services/mailRules.js'
 
 const accountInput = z.object({
   label: z.string().min(1),

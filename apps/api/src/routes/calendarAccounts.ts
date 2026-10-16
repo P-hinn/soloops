@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { seal } from '../services/secretbox.js'
-import * as google from '../services/google.js'
-import { discoverCalendars } from '../services/caldav.js'
-import { syncAccount, syncAllAccounts } from '../services/calendarSync.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { seal } from '@soloops/core/services/secretbox.js'
+import * as google from '@soloops/core/services/google.js'
+import { discoverCalendars } from '@soloops/core/services/caldav.js'
+import { syncAccount, syncAllAccounts } from '@soloops/core/services/calendarSync.js'
 
 const idParam = z.object({ id: z.string() })
 

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
 
 /**
  * Setup progress — derived from what is actually there.

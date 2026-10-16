@@ -2,10 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { invoiceFromTimeInput, invoiceInput, secondsToBillableHours } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { renderInvoicePdf } from '../services/invoicePdf.js'
-import { nextInvoiceNumber } from '../services/invoices.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { renderInvoicePdf } from '@soloops/core/services/invoicePdf.js'
+import { nextInvoiceNumber } from '@soloops/core/services/invoices.js'
 
 const idParam = z.object({ id: z.string() })
 

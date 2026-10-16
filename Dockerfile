@@ -19,7 +19,9 @@ WORKDIR /app
 # Copy the manifests only -> the npm layer stays cached
 COPY package.json ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/core/package.json packages/core/
 COPY packages/e2e/package.json packages/e2e/
+COPY packages/n8n-nodes-soloops/package.json packages/n8n-nodes-soloops/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
@@ -30,7 +32,7 @@ RUN npm install && npm cache clean --force
 
 COPY . .
 
-RUN npx prisma generate --schema apps/api/prisma/schema.prisma
+RUN npx prisma generate --schema packages/core/prisma/schema.prisma
 
 ENV NODE_ENV=development
 EXPOSE 3000 5173

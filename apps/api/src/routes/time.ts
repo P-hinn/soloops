@@ -1,11 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { timeEntryInput, timerStartInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { commitQueue } from '../queue.js'
-import { enrichPendingTimeEntries, enrichTimeEntry, windowCommits } from '../services/timeEnrich.js'
-import { syncAllRepoCommits } from '../services/repoCommits.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { commitQueue } from '@soloops/core/queue.js'
+import {
+  enrichPendingTimeEntries,
+  enrichTimeEntry,
+  windowCommits,
+} from '@soloops/core/services/timeEnrich.js'
+import { syncAllRepoCommits } from '@soloops/core/services/repoCommits.js'
 
 const idParam = z.object({ id: z.string() })
 

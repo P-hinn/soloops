@@ -1,27 +1,5 @@
-import { randomBytes, scrypt as _scrypt, timingSafeEqual } from 'node:crypto'
-import { promisify } from 'node:util'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { env } from './env.js'
-
-const scrypt = promisify(_scrypt) as (
-  password: string,
-  salt: Buffer,
-  keylen: number,
-) => Promise<Buffer>
-
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16)
-  const key = await scrypt(password, salt, 64)
-  return `scrypt$${salt.toString('base64')}$${key.toString('base64')}`
-}
-
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const [scheme, saltB64, keyB64] = stored.split('$')
-  if (scheme !== 'scrypt' || !saltB64 || !keyB64) return false
-  const expected = Buffer.from(keyB64, 'base64')
-  const actual = await scrypt(password, Buffer.from(saltB64, 'base64'), expected.length)
-  return actual.length === expected.length && timingSafeEqual(actual, expected)
-}
+import { env } from '@soloops/core/env.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -57,7 +35,7 @@ async function noteServiceAccess(client: string): Promise<void> {
   const now = Date.now()
   if (now - (seenWrittenAt.get(key) ?? 0) < 60_000) return
   seenWrittenAt.set(key, now)
-  const { prisma } = await import('./db.js')
+  const { prisma } = await import('@soloops/core/db.js')
   const value = new Date().toISOString()
   await prisma.appSetting
     .upsert({ where: { key }, create: { key, value }, update: { value } })
@@ -86,7 +64,7 @@ async function resolvePrincipal(req: FastifyRequest, reply: FastifyReply): Promi
     // Only tokens carrying the automation prefix reach the database — a JWT
     // should not cost a lookup on its way past.
     if (token.startsWith('slp_')) {
-      const { resolveToken } = await import('./services/automationTokens.js')
+      const { resolveToken } = await import('@soloops/core/services/automationTokens.js')
       const principal = await resolveToken(token)
       if (principal) {
         req.principal = { type: 'automation', ...principal }

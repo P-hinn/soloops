@@ -51,6 +51,47 @@ export default [
     },
   },
 
+  /**
+   * No app reaches into another app's source.
+   *
+   * The worker used to import a dozen modules out of `apps/api/src` with
+   * relative paths, without declaring the API as a dependency — it resolved
+   * only because npm hoists everything into one node_modules, and the worker
+   * was missing half the packages that code needed. What the two share is
+   * `@soloops/core`, and that is the only way in.
+   */
+  {
+    files: ['apps/**/*.ts', 'apps/**/*.vue'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/api/src/**', '**/worker/src/**', '../../api/*', '../../worker/*'],
+              message:
+                'Nicht quer in eine andere App greifen — gemeinsamer Code gehoert in @soloops/core.',
+            },
+          ],
+        },
+      ],
+      /**
+       * The same rule for `await import(...)`, which `no-restricted-imports`
+       * does not see. That is not hypothetical: apps/api/src/auth.ts imports
+       * the database lazily on purpose, so a JWT costs no lookup — exactly
+       * the shape the static rule would wave through.
+       */
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression > Literal[value=/(api|worker)\\u002Fsrc\\u002F/]',
+          message:
+            'Nicht quer in eine andere App greifen — gemeinsamer Code gehoert in @soloops/core.',
+        },
+      ],
+    },
+  },
+
   // Vue files need the TS parser inside <script setup lang="ts">
   {
     files: ['**/*.vue'],

@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { planFromText } from '../ai/assistant.js'
-import { createVideoRoom } from '../services/video.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { planFromText } from '@soloops/core/ai/assistant.js'
+import { createVideoRoom } from '@soloops/core/services/video.js'
 
 /**
  * Two endpoints, deliberately separate:

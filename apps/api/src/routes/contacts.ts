@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { contactInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { withCleanEmail } from '../services/writeFields.js'
+import { prisma } from '@soloops/core/db.js'
+import { withCleanEmail } from '@soloops/core/services/writeFields.js'
 
 const idParam = z.object({ id: z.string() })
 

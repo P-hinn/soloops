@@ -1,6 +1,6 @@
 import { randomBytes, randomInt } from 'node:crypto'
 import { networkInterfaces } from 'node:os'
-import { hashPassword, verifyPassword } from '../auth.js'
+import { hashPassword, verifyPassword } from '../passwords.js'
 import { dbRaw } from '../db.js'
 import { env } from '../env.js'
 

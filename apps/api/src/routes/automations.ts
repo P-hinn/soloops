@@ -1,11 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { health, importTemplate, listTemplates, syncAutomations } from '../services/automations.js'
-import { EVENT_LABEL, EVENT_WIRE } from '../services/automationEvents.js'
-import { FAIL_STREAK_LIMIT } from '../services/automationDelivery.js'
-import { createToken } from '../services/automationTokens.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import {
+  health,
+  importTemplate,
+  listTemplates,
+  syncAutomations,
+} from '@soloops/core/services/automations.js'
+import { EVENT_LABEL, EVENT_WIRE } from '@soloops/core/services/automationEvents.js'
+import { FAIL_STREAK_LIMIT } from '@soloops/core/services/automationDelivery.js'
+import { createToken } from '@soloops/core/services/automationTokens.js'
 import {
   N8N_COOKIE,
   N8nError,
@@ -18,7 +23,7 @@ import {
   setApiKey,
   setLogin,
   setWorkflowActive,
-} from '../services/n8n.js'
+} from '@soloops/core/services/n8n.js'
 
 const idParam = z.object({ id: z.string() })
 

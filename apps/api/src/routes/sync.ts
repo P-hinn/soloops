@@ -1,10 +1,15 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { dbRaw, prisma } from '../db.js'
-import { encodeRow } from '../services/syncCodec.js'
-import { SYNC_ENTITY_NAMES, byRankAsc, specOf, type SyncEntity } from '../services/syncEntities.js'
-import { applyOps } from '../services/syncApply.js'
-import type { IncomingOp } from '../services/syncMerge.js'
+import { dbRaw, prisma } from '@soloops/core/db.js'
+import { encodeRow } from '@soloops/core/services/syncCodec.js'
+import {
+  SYNC_ENTITY_NAMES,
+  byRankAsc,
+  specOf,
+  type SyncEntity,
+} from '@soloops/core/services/syncEntities.js'
+import { applyOps } from '@soloops/core/services/syncApply.js'
+import type { IncomingOp } from '@soloops/core/services/syncMerge.js'
 import {
   authenticateDevice,
   cancelPairing,
@@ -15,9 +20,9 @@ import {
   relayableDevices,
   startPairing,
   type AuthedDevice,
-} from '../services/syncPairing.js'
-import { hostDevice } from '../services/syncLog.js'
-import { env } from '../env.js'
+} from '@soloops/core/services/syncPairing.js'
+import { hostDevice } from '@soloops/core/services/syncLog.js'
+import { env } from '@soloops/core/env.js'
 
 /**
  * The sync endpoints.

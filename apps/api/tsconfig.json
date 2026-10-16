@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@soloops/shared": ["../../packages/shared/src/index.ts"]
+      "@soloops/shared": ["../../packages/shared/src/index.ts"],
+      "@soloops/core": ["../../packages/core/src/index.ts"],
+      "@soloops/core/*": ["../../packages/core/src/*"]
     }
   },
   "include": ["src/**/*.ts", "prisma/**/*.ts"]

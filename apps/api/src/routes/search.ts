@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
+import { prisma } from '@soloops/core/db.js'
 
 type Hit = {
   type: 'note' | 'meeting' | 'project' | 'client' | 'invoice' | 'lead' | 'mail'

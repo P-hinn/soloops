@@ -1,13 +1,18 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { emitAutomationEvent } from '../services/automationDelivery.js'
-import { clearFollowUp, completeFollowUp } from '../services/leads.js'
-import { readLinkState } from '../services/taskLinkState.js'
-import { parseTaskLink } from '../services/taskLinks.js'
-import { BOARD_COLUMNS, columnPatch, isFollowUpTask, spreadPositions } from '../services/tasks.js'
-import { createTask, endOfColumn } from '../services/taskWrite.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
+import { clearFollowUp, completeFollowUp } from '@soloops/core/services/leads.js'
+import { readLinkState } from '@soloops/core/services/taskLinkState.js'
+import { parseTaskLink } from '@soloops/core/services/taskLinks.js'
+import {
+  BOARD_COLUMNS,
+  columnPatch,
+  isFollowUpTask,
+  spreadPositions,
+} from '@soloops/core/services/tasks.js'
+import { createTask, endOfColumn } from '@soloops/core/services/taskWrite.js'
 
 /**
  * Tasks — the to-do list, the board, and what hangs off a ticket.

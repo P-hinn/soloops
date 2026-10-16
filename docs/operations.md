@@ -36,7 +36,7 @@ must be marked as applied **once** instead of being run:
 
 ```bash
 docker compose run --rm migrate npx prisma migrate resolve --applied 0_init \
-  --schema apps/api/prisma/schema.prisma
+  --schema packages/core/prisma/schema.prisma
 ```
 
 Without this, `migrate deploy` tries to create tables that exist and stops.
@@ -47,7 +47,7 @@ backup window of the macOS app does it in one click, see
 ## Configuration
 
 Every environment variable is documented in
-[`.env.example`](../.env.example); [`apps/api/src/env.ts`](../apps/api/src/env.ts) is
+[`.env.example`](../.env.example); [`packages/core/src/env.ts`](../packages/core/src/env.ts) is
 the authoritative source with types and defaults. If something required is
 missing, the API refuses to start and says what.
 

@@ -1,12 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { meetingInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { summarizeMeeting } from '../ai/digest.js'
-import { createVideoRoom } from '../services/video.js'
-import { tombstoneEvent } from '../services/calendarSync.js'
-import { emitAutomationEvent } from '../services/automationDelivery.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { summarizeMeeting } from '@soloops/core/ai/digest.js'
+import { createVideoRoom } from '@soloops/core/services/video.js'
+import { tombstoneEvent } from '@soloops/core/services/calendarSync.js'
+import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 

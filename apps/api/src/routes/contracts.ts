@@ -2,15 +2,15 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
 import {
   buildContractRows,
   CONTRACT_PREFIX,
   CONTRACT_TYPES,
   resolveSignedPath,
-} from '../services/contracts.js'
-import { getExecution, listExecutions, listWorkflows } from '../services/n8n.js'
+} from '@soloops/core/services/contracts.js'
+import { getExecution, listExecutions, listWorkflows } from '@soloops/core/services/n8n.js'
 
 /**
  * Sending a contract, and seeing what came of it.

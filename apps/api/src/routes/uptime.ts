@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { env } from '../env.js'
-import { uptimeQueue } from '../queue.js'
-import { syncUptimeRobot } from '../services/uptimerobot.js'
+import { prisma } from '@soloops/core/db.js'
+import { env } from '@soloops/core/env.js'
+import { uptimeQueue } from '@soloops/core/queue.js'
+import { syncUptimeRobot } from '@soloops/core/services/uptimerobot.js'
 
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)

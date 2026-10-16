@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { prisma } from '../db.js'
+import { prisma } from '@soloops/core/db.js'
 
 /**
  * The part of the Claude connection the interface cannot see for itself.

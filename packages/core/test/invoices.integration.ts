@@ -14,7 +14,7 @@
  *       -e POSTGRES_USER=test -e POSTGRES_DB=invoicetest -p 55433:5432 postgres:17-alpine
  *     DATABASE_URL="postgresql://test:test@localhost:55433/invoicetest?schema=public" \
  *       npx prisma migrate deploy --schema prisma/schema.prisma
- *     npm -w @soloops/api run test:invoices
+ *     npm -w @soloops/core run test:invoices
  */
 import { dbRaw, prisma } from '../src/db.js'
 import { nextInvoiceNumber } from '../src/services/invoices.js'

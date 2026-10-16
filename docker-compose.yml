@@ -59,7 +59,7 @@ services:
   migrate:
     <<: *node
     restart: 'no'
-    command: sh -c "npx prisma generate --schema apps/api/prisma/schema.prisma && npx prisma migrate deploy --schema apps/api/prisma/schema.prisma"
+    command: sh -c "npx prisma generate --schema packages/core/prisma/schema.prisma && npx prisma migrate deploy --schema packages/core/prisma/schema.prisma"
 
   api:
     <<: *node

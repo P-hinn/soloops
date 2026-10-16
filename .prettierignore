@@ -2,8 +2,15 @@ node_modules
 dist
 data
 package-lock.json
-apps/api/prisma/schema.prisma
+packages/core/prisma/schema.prisma
+packages/core/prisma/migrations
 apps/web/public/fonts
 apps/ios/**/.build
 apps/desktop/src-tauri/target
 apps/desktop/src-tauri/gen
+
+# Generated, and its generator is the only thing allowed to format it.
+# Prettier puts short arrays on one line, exportSyncRegistry.ts writes them
+# over several, and with both touching the file `sync:registry` followed by
+# `git diff --exit-code` could never be green.
+apps/ios/SoloopsKit/Tests/SoloopsKitTests/Fixtures/registry.json

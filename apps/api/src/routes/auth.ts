@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { loginInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { hashPassword, verifyPassword } from '../auth.js'
-import { env } from '../env.js'
+import { prisma } from '@soloops/core/db.js'
+import { hashPassword, verifyPassword } from '@soloops/core/passwords.js'
+import { env } from '@soloops/core/env.js'
 
 const routes: FastifyPluginAsync = async (app) => {
   app.post('/login', async (req, reply) => {

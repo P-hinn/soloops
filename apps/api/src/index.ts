@@ -4,8 +4,8 @@ import jwt from '@fastify/jwt'
 import { ZodError } from 'zod'
 import { Prisma } from '@prisma/client'
 
-import { env } from './env.js'
-import { ensureSearchIndexes, initSync, prisma } from './db.js'
+import { env } from '@soloops/core/env.js'
+import { ensureSearchIndexes, initSync, prisma } from '@soloops/core/db.js'
 import { registerAuth } from './auth.js'
 
 import authRoutes from './routes/auth.js'

@@ -1,11 +1,20 @@
 import type { AutomationEvent } from '@prisma/client'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../db.js'
-import { changeStage, leadValueCents, touchLead, weightedCents } from '../services/leads.js'
-import { emitAutomationEvent, newSecret, sealSecret } from '../services/automationDelivery.js'
-import { eventFromWire } from '../services/automationEvents.js'
-import { createTask } from '../services/taskWrite.js'
+import { prisma } from '@soloops/core/db.js'
+import {
+  changeStage,
+  leadValueCents,
+  touchLead,
+  weightedCents,
+} from '@soloops/core/services/leads.js'
+import {
+  emitAutomationEvent,
+  newSecret,
+  sealSecret,
+} from '@soloops/core/services/automationDelivery.js'
+import { eventFromWire } from '@soloops/core/services/automationEvents.js'
+import { createTask } from '@soloops/core/services/taskWrite.js'
 
 /**
  * What an n8n workflow may do to soloops.

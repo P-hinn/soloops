@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { projectInput, ProjectStatus } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { digestQueue } from '../queue.js'
-import { buildProjectDigest } from '../ai/digest.js'
-import { env } from '../env.js'
-import { emitAutomationEvent } from '../services/automationDelivery.js'
+import { prisma } from '@soloops/core/db.js'
+import { digestQueue } from '@soloops/core/queue.js'
+import { buildProjectDigest } from '@soloops/core/ai/digest.js'
+import { env } from '@soloops/core/env.js'
+import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 

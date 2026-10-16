@@ -117,6 +117,6 @@ So the API writes its registry to a fixture and the Swift tests hold their copy
 against it:
 
 ```bash
-npm -w @soloops/api run sync:registry   # after changing SYNC_ENTITIES
+npm -w @soloops/core run sync:registry   # after changing SYNC_ENTITIES
 bash scripts/ios-test.sh                # fails if the two no longer agree
 ```

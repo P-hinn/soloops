@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { noteInput } from '@soloops/shared'
-import { prisma } from '../db.js'
-import { emitAutomationEvent } from '../services/automationDelivery.js'
+import { prisma } from '@soloops/core/db.js'
+import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
 const idParam = z.object({ id: z.string() })
 
