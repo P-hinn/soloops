@@ -85,6 +85,7 @@ public enum SyncEntities {
                 ("paymentTermDays", .int), ("notes", .string), ("archived", .bool),
             ],
             sideEffects: [
+                SideEffect(kind: .delete, entity: "Contact", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "Project", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "CalendarEvent", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "Meeting", fk: "clientId"),
@@ -92,6 +93,15 @@ public enum SyncEntities {
                 SideEffect(kind: .clear, entity: "Lead", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "TimeEntry", fk: "clientId"),
                 SideEffect(kind: .clear, entity: "ActionItem", fk: "clientId"),
+            ]
+        ),
+        EntitySpec(
+            "Contact",
+            rank: 1,
+            required: ["clientId", "name"],
+            fields: [
+                ("clientId", .string), ("name", .string), ("role", .string), ("email", .string),
+                ("phone", .string), ("notes", .string), ("primary", .bool), ("archived", .bool),
             ]
         ),
         EntitySpec(

@@ -7,6 +7,7 @@ export const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: nul
 export const QUEUE_NAMES = {
   uptime: 'uptime',
   pipelines: 'pipelines',
+  commits: 'commits',
   digest: 'digest',
   calendar: 'calendar',
   automations: 'automations',
@@ -14,6 +15,13 @@ export const QUEUE_NAMES = {
 
 export const uptimeQueue = new Queue(QUEUE_NAMES.uptime, { connection })
 export const pipelineQueue = new Queue(QUEUE_NAMES.pipelines, { connection })
+/**
+ * The commit mirror and the text it gives a booking. Two job kinds: `sync`
+ * mirrors every repository and then enriches whatever is pending,
+ * `enrich-entry` looks at one booking — delayed, because the push that
+ * belongs to the last hour usually happens after the clock has stopped.
+ */
+export const commitQueue = new Queue(QUEUE_NAMES.commits, { connection })
 export const digestQueue = new Queue(QUEUE_NAMES.digest, { connection })
 export const calendarQueue = new Queue(QUEUE_NAMES.calendar, { connection })
 /**

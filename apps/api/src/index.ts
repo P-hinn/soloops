@@ -10,6 +10,7 @@ import { registerAuth } from './auth.js'
 
 import authRoutes from './routes/auth.js'
 import clientRoutes from './routes/clients.js'
+import contactRoutes from './routes/contacts.js'
 import projectRoutes from './routes/projects.js'
 import calendarRoutes from './routes/calendar.js'
 import meetingRoutes from './routes/meetings.js'
@@ -75,6 +76,7 @@ app.get('/health', async () => {
 
 await app.register(authRoutes, { prefix: '/api/auth' })
 await app.register(clientRoutes, { prefix: '/api/clients' })
+await app.register(contactRoutes, { prefix: '/api/contacts' })
 await app.register(projectRoutes, { prefix: '/api/projects' })
 await app.register(calendarRoutes, { prefix: '/api/calendar' })
 await app.register(meetingRoutes, { prefix: '/api/meetings' })

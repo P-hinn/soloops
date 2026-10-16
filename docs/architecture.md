@@ -3,8 +3,9 @@
 ```
 apps/
   api/        Fastify + Prisma + Postgres — REST API, PDF rendering, AI calls
-  worker/     BullMQ — calendar and mail sync, uptime, CI/CD, digests, lead
-              scores, the n8n mirror and outbound event delivery
+  worker/     BullMQ — calendar and mail sync, uptime, CI/CD, the commit
+              mirror behind the time entries, digests, lead scores, the n8n
+              mirror and outbound event delivery
   web/        Vue 3 + Vite + Tailwind — the interface
   mcp/        MCP server (stdio) for Claude Code / Claude Desktop
   desktop/    Tauri — the same interface as a macOS app, with menu and tray

@@ -48,6 +48,21 @@ export const clientInput = z.object({
   archived: z.boolean().default(false),
 })
 
+/**
+ * A person at a client. `clientId` is not in here: on create it comes from
+ * the path, and moving a contact to another customer is its own route, so a
+ * stray field in a patch body cannot quietly re-file somebody.
+ */
+export const contactInput = z.object({
+  name: z.string().min(1),
+  role: z.string().nullish(),
+  email: z.string().email().nullish().or(z.literal('')),
+  phone: z.string().nullish(),
+  notes: z.string().nullish(),
+  primary: z.boolean().default(false),
+  archived: z.boolean().default(false),
+})
+
 // ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
@@ -232,6 +247,7 @@ export const repoInput = z.object({
 
 export type LoginInput = z.infer<typeof loginInput>
 export type ClientInput = z.infer<typeof clientInput>
+export type ContactInput = z.infer<typeof contactInput>
 export type ProjectInput = z.infer<typeof projectInput>
 export type EventInput = z.infer<typeof eventInput>
 export type MeetingInput = z.infer<typeof meetingInput>

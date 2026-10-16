@@ -44,6 +44,7 @@ model Client {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  contacts    Contact[]
   projects    Project[]
   invoices    Invoice[]
   timeEntries TimeEntry[]
@@ -53,6 +54,36 @@ model Client {
   leads       Lead[]
   mails       MailMessage[]
   actionItems ActionItem[]
+}
+
+/// A person at a client.
+///
+/// A client is who gets invoiced; a contact is who gets written to. Most
+/// clients are a company with several of them — the one who signs, the one
+/// who answers questions, the one in accounting who pays. Keeping them here
+/// instead of in `Client.name` is what makes "who do I ask about this" a
+/// question with an answer.
+model Contact {
+  id       String  @id @default(cuid())
+  clientId String
+  name     String
+  /// What they do there, in their own words: "Geschaeftsfuehrung", "IT".
+  role     String?
+  email    String?
+  phone    String?
+  notes    String?
+
+  /// Whom to reach by default. At most one per client — setting it on one
+  /// takes it off the others, see routes/contacts.ts.
+  primary Boolean @default(false)
+
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, archived])
 }
 
 enum ProjectStatus {
@@ -492,6 +523,7 @@ model PipelineRepo {
 
   project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   runs    PipelineRun[]
+  commits RepoCommit[]
 
   @@unique([provider, slug])
 }
@@ -515,6 +547,49 @@ model PipelineRun {
 
   @@unique([repoId, externalId])
   @@index([startedAt])
+}
+
+/// A commit, mirrored from GitHub or GitLab.
+///
+/// The repository already hangs off a project (`PipelineRepo.projectId`), so
+/// a commit knows which project it belongs to without a second mapping. What
+/// it is here for is the other direction: a finished time entry asks "what
+/// happened in this window", and the answer has to survive the moment —
+/// reading it from the provider at invoicing time would mean a token, a
+/// network and a rate limit between a draft and its line items.
+///
+/// Only the subject is kept, not the diff. A client reads "Rechnungslauf
+/// gegen lexoffice gestellt", never a patch.
+model RepoCommit {
+  id     String @id @default(cuid())
+  repoId String
+
+  /// The full sha. Shortened only for display.
+  sha     String
+  /// First line of the message.
+  subject String
+  /// Everything after the first line, trailers included. Kept because a
+  /// commit body is sometimes the only place the reason was written down.
+  body    String @default("")
+
+  authorName  String @default("")
+  authorEmail String @default("")
+  url         String
+  /// The branch it was read from — the mirror follows `PipelineRepo.branch`.
+  branch      String @default("")
+
+  /// Committer date, not author date: a rebased commit was written when it
+  /// landed, and that is the moment a time entry can be matched against.
+  committedAt DateTime
+  createdAt   DateTime @default(now())
+
+  repo        PipelineRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  /// Which bookings this commit ended up in. Many-to-many because one commit
+  /// can fall into a split window, and one booking usually holds several.
+  timeEntries TimeEntry[]  @relation("TimeEntryCommits")
+
+  @@unique([repoId, sha])
+  @@index([committedAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -544,6 +619,15 @@ model TimeEntry {
   /// against the project alone, and a ticket without a project cannot carry
   /// time at all (`projectId` is non-null).
   actionItemId  String?
+  /// What the commits in this window say was done, composed from their
+  /// subjects. Its own column rather than part of `description`: the typed
+  /// text belongs to whoever typed it, and an automation that overwrites it
+  /// is an automation nobody turns on twice. The invoice falls back to this
+  /// one when the description is empty.
+  autoSummary   String?
+  /// When commits were last matched against this entry. Null means never —
+  /// a running timer, or a window the mirror had not caught up with yet.
+  enrichedAt    DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -551,6 +635,9 @@ model TimeEntry {
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
   invoiceItem InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
   actionItem  ActionItem?  @relation(fields: [actionItemId], references: [id], onDelete: SetNull)
+  /// Does not travel to the phone — see services/syncEntities.ts. Reading a
+  /// commit list is not something that happens in the car.
+  commits     RepoCommit[] @relation("TimeEntryCommits")
 
   @@index([startedAt])
   @@index([projectId, billable, invoiceItemId])

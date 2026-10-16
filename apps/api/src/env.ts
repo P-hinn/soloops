@@ -37,6 +37,21 @@ const schema = z.object({
   GITLAB_TOKEN: z.string().optional(),
   GITLAB_HOST: z.string().default('https://gitlab.com'),
   PIPELINE_POLL_CRON: z.string().default('*/3 * * * *'),
+  /// How often commits are mirrored and finished time entries get their
+  /// text. Slower than the pipeline poll: a commit that arrives ten minutes
+  /// late changes nothing, a rate limit does.
+  COMMIT_POLL_CRON: z.string().default('*/10 * * * *'),
+  /// How far back the mirror reads on every run. Enough to survive a weekend
+  /// with the machine off, not an archive import.
+  COMMIT_LOOKBACK_DAYS: z.coerce.number().default(14),
+  /// Whose commits count as work. Comma separated, matched against author
+  /// and committer mail. Empty means everyone — which is right for a repo
+  /// nobody else pushes to and wrong for one with contributors.
+  COMMIT_AUTHOR_EMAILS: z.string().default(''),
+  /// How far outside a booking a commit still belongs to it. The push comes
+  /// after the timer stops, and a commit written two minutes before the
+  /// clock started is part of the same stretch of work.
+  TIME_COMMIT_TOLERANCE_MIN: z.coerce.number().default(10),
 
   /// Where the "Vertrag versenden" workflow listens. Inside the compose
   /// network, so the browser never sees it — see routes/contracts.ts.

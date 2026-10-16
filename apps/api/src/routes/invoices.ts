@@ -179,7 +179,12 @@ const routes: FastifyPluginAsync = async (app) => {
         const seconds = list.reduce((s, e) => s + e.durationSec, 0)
         const rate = list[0]?.rateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
         const project = list[0]?.project
-        const descriptions = [...new Set(list.map((e) => e.description).filter(Boolean))]
+        // The typed text first, the commits of that window second: a line
+        // item without a service description is a line item that gets asked
+        // about.
+        const descriptions = [
+          ...new Set(list.map((e) => e.description || e.autoSummary).filter(Boolean)),
+        ]
         drafts.push({
           description: [
             `${project?.name ?? 'Projekt'} (${project?.key ?? '-'})`,
@@ -196,7 +201,7 @@ const routes: FastifyPluginAsync = async (app) => {
     } else {
       for (const e of entries) {
         drafts.push({
-          description: `${e.project.key}: ${e.description || 'Leistung'} (${e.startedAt.toLocaleDateString('de-DE')})`,
+          description: `${e.project.key}: ${e.description || e.autoSummary || 'Leistung'} (${e.startedAt.toLocaleDateString('de-DE')})`,
           quantity: secondsToBillableHours(e.durationSec),
           unit: 'Std.',
           unitPriceCents: e.rateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS,

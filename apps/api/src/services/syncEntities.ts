@@ -51,6 +51,22 @@ export const SYNC_ENTITIES = {
       archived: 'bool',
     },
   },
+  Contact: {
+    model: 'contact',
+    // Rank 1 like Project: it hangs off a client and nothing hangs off it.
+    rank: 1,
+    required: ['clientId', 'name'],
+    fields: {
+      clientId: 'string',
+      name: 'string',
+      role: 'string',
+      email: 'string',
+      phone: 'string',
+      notes: 'string',
+      primary: 'bool',
+      archived: 'bool',
+    },
+  },
   Project: {
     model: 'project',
     rank: 1,
@@ -225,6 +241,8 @@ export type SideEffect =
 
 export const DELETE_SIDE_EFFECTS: Readonly<Record<SyncEntity, readonly SideEffect[]>> = {
   Client: [
+    // Contact.clientId is non-null — the people go with the company.
+    { kind: 'delete', entity: 'Contact', fk: 'clientId' },
     { kind: 'clear', entity: 'Project', fk: 'clientId' },
     { kind: 'clear', entity: 'CalendarEvent', fk: 'clientId' },
     { kind: 'clear', entity: 'Meeting', fk: 'clientId' },
@@ -251,6 +269,7 @@ export const DELETE_SIDE_EFFECTS: Readonly<Record<SyncEntity, readonly SideEffec
   // those sync — the ticket does, and it survives its lead with the reference
   // cleared, because it may already carry booked time.
   Lead: [{ kind: 'clear', entity: 'ActionItem', fk: 'leadId' }],
+  Contact: [],
   TimeEntry: [],
   // The booking survives the task it was made on: the hours were worked and
   // are possibly invoiced, so only the reference goes.

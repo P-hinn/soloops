@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { repoInput } from '@soloops/shared'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
-import { pipelineQueue } from '../queue.js'
+import { commitQueue, pipelineQueue } from '../queue.js'
 import { syncRepo } from '../services/pipelines.js'
+import { projectCommits, syncRepoCommits } from '../services/repoCommits.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -53,6 +54,27 @@ const routes: FastifyPluginAsync = async (app) => {
     return syncRepo(id)
   })
 
+  /** Mirror one repository's commits now. */
+  app.post('/repos/:id/commits/sync', async (req) => {
+    const { id } = idParam.parse(req.params)
+    return syncRepoCommits(id)
+  })
+
+  /**
+   * The mirrored commits of a project in a window. What the time view shows
+   * next to a booking, and what answers "was anything else done here".
+   */
+  app.get('/commits', async (req) => {
+    const q = z
+      .object({
+        projectId: z.string(),
+        from: z.string(),
+        to: z.string(),
+      })
+      .parse(req.query)
+    return projectCommits(q.projectId, new Date(q.from), new Date(q.to))
+  })
+
   app.get('/runs', async (req) => {
     const q = z
       .object({
@@ -75,6 +97,9 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/sync', async () => {
     await pipelineQueue.add('sync-all', {}, { removeOnComplete: 20 })
+    // The commit mirror rides along: both read the same repositories, and a
+    // manual sync is meant to bring everything up to date, not half of it.
+    await commitQueue.add('sync', {}, { removeOnComplete: 20 })
     return { queued: true }
   })
 }

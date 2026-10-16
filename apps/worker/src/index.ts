@@ -7,6 +7,8 @@ import { env } from '../../api/src/env.js'
 import { initSync, prisma } from '../../api/src/db.js'
 import { syncUptimeRobot } from '../../api/src/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '../../api/src/services/pipelines.js'
+import { syncAllRepoCommits, syncRepoCommits } from '../../api/src/services/repoCommits.js'
+import { enrichPendingTimeEntries, enrichTimeEntry } from '../../api/src/services/timeEnrich.js'
 import { buildProjectDigest } from '../../api/src/ai/digest.js'
 import { syncAccount, syncAllAccounts } from '../../api/src/services/calendarSync.js'
 import { syncMailAccount, syncAllMailAccounts } from '../../api/src/services/mailSync.js'
@@ -49,6 +51,42 @@ new Worker(
   },
   { connection, concurrency: 2 },
 ).on('failed', (_job, err) => console.error('[pipelines]', err.message))
+
+// ---------------------------------------------------------------------------
+// Commits -> bookings
+// ---------------------------------------------------------------------------
+
+new Worker(
+  'commits',
+  async (job) => {
+    // One booking, usually three minutes after its timer stopped.
+    if (job.name === 'enrich-entry') {
+      const { timeEntryId } = job.data as { timeEntryId: string }
+      const result = await enrichTimeEntry(timeEntryId)
+      if (result.commits) log('commits', `${result.commits} Commit(s): ${result.summary}`)
+      return result
+    }
+    if (job.name === 'sync-repo') {
+      const { repoId } = job.data as { repoId: string }
+      return syncRepoCommits(repoId)
+    }
+
+    // The beat: mirror everything, then give every finished booking that is
+    // still missing one its text.
+    const mirrored = await syncAllRepoCommits()
+    const enriched = await enrichPendingTimeEntries()
+    if (mirrored.commits || enriched.enriched) {
+      log(
+        'commits',
+        `${mirrored.commits} Commit(s) aus ${mirrored.repos} Repo(s), ${enriched.enriched} von ${enriched.looked} Zeiteintraegen zugeordnet`,
+      )
+    }
+    return { ...mirrored, ...enriched }
+  },
+  // One at a time: the provider has a rate limit, and nothing in here is
+  // urgent enough to spend it twice over.
+  { connection, concurrency: 1 },
+).on('failed', (_job, err) => console.error('[commits]', err.message))
 
 // ---------------------------------------------------------------------------
 // AI digests
@@ -236,6 +274,7 @@ new Worker(
 
 const uptimeQueue = new Queue('uptime', { connection })
 const pipelineQueue = new Queue('pipelines', { connection })
+const commitQueue = new Queue('commits', { connection })
 const digestQueue = new Queue('digest', { connection })
 const calendarQueue = new Queue('calendar', { connection })
 const mailQueue = new Queue('mail', { connection })
@@ -275,6 +314,14 @@ async function scheduleRepeatables() {
       'pipeline-sync',
       { pattern: env.PIPELINE_POLL_CRON },
       { name: 'sync-all', opts: { removeOnComplete: 10, removeOnFail: 20 } },
+    )
+    // Slower than the pipelines: a commit that lands in the mirror ten
+    // minutes late changes no booking, a spent rate limit changes all of
+    // them.
+    await commitQueue.upsertJobScheduler(
+      'commit-sync',
+      { pattern: env.COMMIT_POLL_CRON },
+      { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
   if (env.ANTHROPIC_API_KEY) {

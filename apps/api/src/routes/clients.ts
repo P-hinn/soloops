@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { clientInput } from '@soloops/shared'
 import { prisma } from '../db.js'
+import { withCleanEmail } from '../services/writeFields.js'
 
 const routes: FastifyPluginAsync = async (app) => {
   app.addHook('onRequest', app.authenticate)
@@ -11,7 +12,7 @@ const routes: FastifyPluginAsync = async (app) => {
     return prisma.client.findMany({
       where: q.includeArchived ? {} : { archived: false },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { projects: true, invoices: true } } },
+      include: { _count: { select: { projects: true, invoices: true, contacts: true } } },
     })
   })
 
@@ -20,6 +21,10 @@ const routes: FastifyPluginAsync = async (app) => {
     const client = await prisma.client.findUnique({
       where: { id },
       include: {
+        contacts: {
+          where: { archived: false },
+          orderBy: [{ primary: 'desc' }, { name: 'asc' }],
+        },
         projects: { orderBy: { name: 'asc' } },
         invoices: { orderBy: { issueDate: 'desc' }, take: 20 },
       },
@@ -30,16 +35,14 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post('/', async (req, reply) => {
     const data = clientInput.parse(req.body)
-    const created = await prisma.client.create({
-      data: { ...data, email: data.email || null },
-    })
+    const created = await prisma.client.create({ data: withCleanEmail(data) })
     return reply.code(201).send(created)
   })
 
   app.patch('/:id', async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params)
     const data = clientInput.partial().parse(req.body)
-    return prisma.client.update({ where: { id }, data: { ...data, email: data.email || null } })
+    return prisma.client.update({ where: { id }, data: withCleanEmail(data) })
   })
 
   app.delete('/:id', async (req, reply) => {

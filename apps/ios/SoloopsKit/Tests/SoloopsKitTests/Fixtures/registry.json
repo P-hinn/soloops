@@ -33,6 +33,11 @@
           "fk": "clientId"
         },
         {
+          "kind": "delete",
+          "entity": "Contact",
+          "fk": "clientId"
+        },
+        {
           "kind": "clear",
           "entity": "Lead",
           "fk": "clientId"
@@ -58,6 +63,22 @@
           "fk": "clientId"
         }
       ]
+    },
+    {
+      "name": "Contact",
+      "rank": 1,
+      "required": ["clientId", "name"],
+      "fields": {
+        "archived": "bool",
+        "clientId": "string",
+        "email": "string",
+        "name": "string",
+        "notes": "string",
+        "phone": "string",
+        "primary": "bool",
+        "role": "string"
+      },
+      "sideEffects": []
     },
     {
       "name": "Project",

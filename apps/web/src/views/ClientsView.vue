@@ -4,6 +4,7 @@ import { api } from '@/api'
 import { formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import ContractDialog from '@/components/contracts/ContractDialog.vue'
+import ContactList from '@/components/clients/ContactList.vue'
 import { useAuth } from '@/stores/auth'
 
 type Client = {
@@ -20,11 +21,14 @@ type Client = {
   paymentTermDays: number
   lexofficeContactId: string | null
   archived: boolean
-  _count: { projects: number; invoices: number }
+  _count: { projects: number; invoices: number; contacts: number }
 }
 
 const auth = useAuth()
 const clients = ref<Client[]>([])
+/** The customer whose people are unfolded. One at a time: the row below
+ * the table is wide, and two of them open at once read as a mistake. */
+const showContacts = ref<string | null>(null)
 /** The customer a contract is being sent to, while the dialog is open. */
 const contractFor = ref<Client | null>(null)
 const showForm = ref(false)
@@ -193,6 +197,7 @@ onMounted(load)
           <tr>
             <th>Kunde</th>
             <th>Kontakt</th>
+            <th class="text-right">Personen</th>
             <th class="text-right">Satz</th>
             <th class="text-right">Projekte</th>
             <th class="text-right">Rechnungen</th>
@@ -201,43 +206,59 @@ onMounted(load)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in clients" :key="c.id" class="hover:bg-ink/[0.035]">
-            <td>
-              <div>{{ c.company ?? c.name }}</div>
-              <div v-if="c.company" class="text-xs text-muted">{{ c.name }}</div>
-            </td>
-            <td class="text-xs text-soft">
-              {{ c.email ?? '—' }}<br />{{ [c.zip, c.city].filter(Boolean).join(' ') }}
-            </td>
-            <td class="text-right tabular-nums">
-              {{ c.hourlyRateCents ? formatMoney(c.hourlyRateCents) : '—' }}
-            </td>
-            <td class="text-right tabular-nums">{{ c._count.projects }}</td>
-            <td class="text-right tabular-nums">{{ c._count.invoices }}</td>
-            <td>
-              <span v-if="c.lexofficeContactId" class="text-xs text-good">✓</span>
-              <button
-                v-else-if="auth.config?.features.lexoffice"
-                class="text-xs text-blue hover:underline"
-                @click="syncLexoffice(c)"
-              >
-                anlegen
-              </button>
-              <span v-else class="text-xs text-muted">—</span>
-            </td>
-            <td class="text-right">
-              <button
-                class="btn-xs"
-                title="Vertrag erzeugen und zur Signatur verschicken"
-                @click="contractFor = c"
-              >
-                Vertrag
-              </button>
-              <button class="btn-xs ml-1" @click="edit(c)">✎</button>
-            </td>
-          </tr>
+          <template v-for="c in clients" :key="c.id">
+            <tr class="hover:bg-ink/[0.035]">
+              <td>
+                <div>{{ c.company ?? c.name }}</div>
+                <div v-if="c.company" class="text-xs text-muted">{{ c.name }}</div>
+              </td>
+              <td class="text-xs text-soft">
+                {{ c.email ?? '—' }}<br />{{ [c.zip, c.city].filter(Boolean).join(' ') }}
+              </td>
+              <td class="text-right tabular-nums">
+                <button
+                  class="text-xs text-blue hover:underline"
+                  :title="showContacts === c.id ? 'Zuklappen' : 'Ansprechpartner zeigen'"
+                  @click="showContacts = showContacts === c.id ? null : c.id"
+                >
+                  {{ c._count.contacts || '+' }}
+                </button>
+              </td>
+              <td class="text-right tabular-nums">
+                {{ c.hourlyRateCents ? formatMoney(c.hourlyRateCents) : '—' }}
+              </td>
+              <td class="text-right tabular-nums">{{ c._count.projects }}</td>
+              <td class="text-right tabular-nums">{{ c._count.invoices }}</td>
+              <td>
+                <span v-if="c.lexofficeContactId" class="text-xs text-good">✓</span>
+                <button
+                  v-else-if="auth.config?.features.lexoffice"
+                  class="text-xs text-blue hover:underline"
+                  @click="syncLexoffice(c)"
+                >
+                  anlegen
+                </button>
+                <span v-else class="text-xs text-muted">—</span>
+              </td>
+              <td class="text-right">
+                <button
+                  class="btn-xs"
+                  title="Vertrag erzeugen und zur Signatur verschicken"
+                  @click="contractFor = c"
+                >
+                  Vertrag
+                </button>
+                <button class="btn-xs ml-1" @click="edit(c)">✎</button>
+              </td>
+            </tr>
+            <tr v-if="showContacts === c.id" class="bg-ink/[0.02]">
+              <td colspan="8" class="p-0">
+                <ContactList :client-id="c.id" @changed="load" />
+              </td>
+            </tr>
+          </template>
           <tr v-if="!clients.length">
-            <td colspan="7" class="py-8 text-center text-muted">Noch keine Kunden.</td>
+            <td colspan="8" class="py-8 text-center text-muted">Noch keine Kunden.</td>
           </tr>
         </tbody>
       </table>

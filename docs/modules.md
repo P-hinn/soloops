@@ -21,6 +21,16 @@ the next two weeks as context — so it neither invents clients that already
 exist nor proposes times that collide. Whatever it guessed is listed under
 "Angenommen" (assumed).
 
+**Clients and the people at them.** A client is who gets invoiced; a contact is
+who gets written to. Every client can carry as many people as it has — the one
+who signs, the one who answers questions, the one in accounting — each with
+function, address and phone number, one of them marked as the main contact
+(marking one takes the mark off the others). The list unfolds inside the
+customer row; a person can be moved to another client, and somebody who has
+left is archived rather than deleted, because they are on old meetings and
+mails. Over MCP: `soloops_list_contacts`, `soloops_create_contact`,
+`soloops_update_contact`, `soloops_delete_contact` — see [MCP server](mcp.md).
+
 **Calendar.** Week view, events with project references, free-slot
 calculation, an ICS feed to subscribe to
 (`/api/calendar/feed.ics?token=<SERVICE_TOKEN>`) — and real two-way sync with
@@ -125,14 +135,30 @@ There is deliberately no password manager — that is what 1Password is for.
 soloops only stores the credentials it needs for its own syncing (calendar
 tokens, encrypted at rest).
 
+**Commits as the service description.** A repository linked to a project (Ops
+
+> CI/CD) is mirrored commit by commit, and a finished booking takes the
+> commits of its window as its text: subjects without their
+> conventional-commit type, merge commits dropped, several repositories
+> prefixed by name. It lands in `autoSummary` and never in `description` — what
+> was typed by hand belongs to whoever typed it, and the invoice falls back to
+> the automatic line only when nothing was typed. A commit belongs to exactly
+> one booking, so the same work cannot appear on two line items.
+
+The push usually happens after the clock stops, so the text is fetched three
+minutes later and may change for another two hours; after that, and as soon
+as the entry is on an invoice, it is settled. _Zeiten_ shows how many commits
+a booking holds, and "Commits zuordnen" does the round now instead of on the
+next beat. Set `COMMIT_AUTHOR_EMAILS` for a repository other people push to.
+
 **Activity.** The day band at the bottom of _Zeiten_: what ran on the Mac, as
 stripes over an hour axis, with the segments spelled out underneath. Mapping to
 projects is the next stage — for now this is the raw material. See
 [Activity](activity.md).
 
 **Invoices.** "Create from time" takes all open, billable entries of a client
-in the period, groups them per project and links the time entries firmly to the
-line item — so nothing lands on two invoices. The PDF is rendered server-side
+in the period, groups them per project, uses the typed description or else the
+commits of that window, and links the time entries firmly to the line item — so nothing lands on two invoices. The PDF is rendered server-side
 with pdfkit (close to DIN 5008, with the §19 UStG note if configured).
 Sequential numbering per year. Issued invoices are locked and can only be
 cancelled.

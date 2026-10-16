@@ -93,8 +93,9 @@ it is immediate; iCloud otherwise because it is the only thing left.
 
 ## What syncs
 
-Clients, projects, calendar events, leads, time entries, meetings, action items
-(including which lead's follow-up one belongs to) and notes. `Project` is in there because `TimeEntry.projectId` is non-null — a
+Clients and the people at them, projects, calendar events, leads, time entries,
+meetings, action items (including which lead's follow-up one belongs to) and
+notes. `Project` is in there because `TimeEntry.projectId` is non-null — a
 phone that cannot see projects cannot log time against one.
 
 Host-local columns deliberately stay put: `lastPushedAt` belongs to this

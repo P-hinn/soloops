@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { timeEntryInput, timerStartInput } from '@soloops/shared'
 import { prisma } from '../db.js'
 import { env } from '../env.js'
+import { commitQueue } from '../queue.js'
+import { enrichPendingTimeEntries, enrichTimeEntry, windowCommits } from '../services/timeEnrich.js'
+import { syncAllRepoCommits } from '../services/repoCommits.js'
 
 const idParam = z.object({ id: z.string() })
 
@@ -82,7 +85,21 @@ const routes: FastifyPluginAsync = async (app) => {
       ? await prisma.timeEntry.findUnique({ where: { id: body.id } })
       : await prisma.timeEntry.findFirst({ where: { endedAt: null } })
     if (!running) return reply.code(404).send({ error: 'Kein laufender Timer' })
-    return stopEntry(running.id)
+    const stopped = await stopEntry(running.id)
+
+    // The commits of the last hour are usually pushed after the clock has
+    // stopped, so the text is fetched with a delay rather than right now.
+    // Redis being down must not cost the stop — the periodic run would pick
+    // the entry up anyway.
+    await commitQueue
+      .add(
+        'enrich-entry',
+        { timeEntryId: stopped.id },
+        { delay: 180_000, removeOnComplete: 50, removeOnFail: 50 },
+      )
+      .catch((err) => app.log.warn(`[commits] Nachtrag nicht eingeplant: ${err.message}`))
+
+    return stopped
   })
 
   app.get('/', async (req) => {
@@ -121,6 +138,12 @@ const routes: FastifyPluginAsync = async (app) => {
         project: { select: { id: true, key: true, name: true, color: true } },
         client: { select: { id: true, name: true } },
         actionItem: { select: { id: true, title: true } },
+        // What the window says was done. Subject and link only — the body is
+        // for the repository, not for a list of bookings.
+        commits: {
+          select: { sha: true, subject: true, url: true, committedAt: true },
+          orderBy: { committedAt: 'asc' },
+        },
       },
     })
   })
@@ -181,6 +204,43 @@ const routes: FastifyPluginAsync = async (app) => {
     }
     await prisma.timeEntry.delete({ where: { id } })
     return reply.code(204).send()
+  })
+
+  /**
+   * Give one entry its text: the commits of its window, as one line.
+   *
+   * Mirrors that project's repositories first by default — right after
+   * stopping the clock the worker's next beat is minutes away, and the point
+   * of the button is to see the result now.
+   */
+  app.post('/:id/enrich', async (req, reply) => {
+    const { id } = idParam.parse(req.params)
+    const body = z.object({ sync: z.boolean().default(true) }).parse(req.body ?? {})
+    try {
+      return await enrichTimeEntry(id, body.sync)
+    } catch (err) {
+      return reply.code(422).send({ error: (err as Error).message })
+    }
+  })
+
+  /**
+   * The commits that fall into this booking's window. For a running timer
+   * the window ends now, which is what the overlay shows while it counts.
+   */
+  app.get('/:id/commits', async (req, reply) => {
+    const { id } = idParam.parse(req.params)
+    try {
+      return await windowCommits(id)
+    } catch (err) {
+      return reply.code(404).send({ error: (err as Error).message })
+    }
+  })
+
+  /** Every finished entry that still wants one. Mirror first, then match. */
+  app.post('/enrich-pending', async () => {
+    const mirrored = await syncAllRepoCommits()
+    const result = await enrichPendingTimeEntries()
+    return { ...result, repos: mirrored.repos, commits: mirrored.commits }
   })
 
   /** Weekly/monthly report, grouped by project. */

@@ -9,10 +9,14 @@ import StatCard from '@/components/StatCard.vue'
 import TimerControl from '@/components/TimerControl.vue'
 import ActivityBand from '@/components/ActivityBand.vue'
 
+type Commit = { sha: string; subject: string; url: string; committedAt: string }
 type Entry = {
   id: string
   projectId: string
   description: string
+  /** What the commits of this window say was done. Never typed by hand. */
+  autoSummary: string | null
+  enrichedAt: string | null
   startedAt: string
   endedAt: string | null
   durationSec: number
@@ -20,6 +24,7 @@ type Entry = {
   rateCents: number | null
   invoiceItemId: string | null
   project: { id: string; key: string; name: string; color: string }
+  commits: Commit[]
 }
 type Project = { id: string; key: string; name: string }
 type Report = {
@@ -92,6 +97,24 @@ async function addManual() {
   await load()
 }
 
+/**
+ * Fetch the commits and give every finished entry its text.
+ *
+ * Happens on a beat in the worker as well; the button is for the moment
+ * right after a push, when waiting ten minutes to see the line is the one
+ * thing nobody wants to do.
+ */
+const enriching = ref(false)
+async function enrich() {
+  enriching.value = true
+  try {
+    await api.post('/api/time/enrich-pending', {})
+    await load()
+  } finally {
+    enriching.value = false
+  }
+}
+
 async function remove(entry: Entry) {
   if (!confirm('Eintrag löschen?')) return
   await api.del(`/api/time/${entry.id}`)
@@ -112,6 +135,9 @@ onMounted(async () => {
   <div>
     <PageHeader title="Zeiten" subtitle="Stoppuhr, Nachträge und Auswertung">
       <template #actions>
+        <button class="btn-ghost" :disabled="enriching" @click="enrich">
+          {{ enriching ? 'liest Commits …' : 'Commits zuordnen' }}
+        </button>
         <button class="btn-ghost" @click="showManual = !showManual">
           {{ showManual ? 'Nachtrag schließen' : 'Zeit nachtragen' }}
         </button>
@@ -196,7 +222,18 @@ onMounted(async () => {
                 </span>
               </td>
               <td>
-                {{ e.description || '—' }}
+                <!-- Typed text first; without one the commits of that window
+                     speak, which is also what the invoice would use. -->
+                <span v-if="e.description">{{ e.description }}</span>
+                <span v-else-if="e.autoSummary" class="text-soft">{{ e.autoSummary }}</span>
+                <span v-else>—</span>
+                <span
+                  v-if="e.commits.length"
+                  class="ml-1 badge badge-blue"
+                  :title="e.commits.map((c) => c.subject).join('\n')"
+                >
+                  {{ e.commits.length }} Commit{{ e.commits.length === 1 ? '' : 's' }}
+                </span>
                 <span v-if="e.invoiceItemId" class="ml-1 badge bg-paper-2 text-muted"
                   >fakturiert</span
                 >
