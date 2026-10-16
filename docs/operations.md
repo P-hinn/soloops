@@ -155,3 +155,14 @@ around it.
 7. **The `.env` still works.** Nothing has to be moved. But as soon as a value
    is set under _Einstellungen_, the database wins and the file stops having
    an effect for that one value.
+
+8. **Re-import both contract workflows** in n8n — _Automatisierungen_ →
+   _Vorlagen_, "Vertrag versenden" and "Vertrag signiert". Contracts are a
+   table now, not notes with a `[VERTRAG]` title, and the copy running in n8n
+   still writes notes: the send would file the contract twice and the signed
+   PDF would never reach it. The import needs the updated soloops node, which
+   comes with the image.
+
+   Existing `[VERTRAG]` notes are left alone — nothing reads them any more, so
+   anything still in flight is filed by hand under the customer, where the
+   PDF can be uploaded with it.
