@@ -1,0 +1,100 @@
+# The macOS app as a downloadable installer.
+#
+# Tag a version and the .dmg shows up under Releases. Ad-hoc signed, which is
+# what a build without an Apple Developer certificate can be — the release
+# notes say what that means on first launch.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag, der veröffentlicht werden soll (z. B. v0.1.0)'
+        required: true
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # The Rust build is the long part; without this every release pays for
+      # the whole dependency tree again.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - run: npm ci
+
+      - name: App bauen
+        run: npm run app:build
+
+      # Named so a download is identifiable away from the release page.
+      - name: Artefakt benennen
+        id: dmg
+        run: |
+          src=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          tag="${{ inputs.tag || github.ref_name }}"
+          out="soloops-${tag}-aarch64.dmg"
+          cp "$src" "$out"
+          echo "path=$out" >> "$GITHUB_OUTPUT"
+          echo "$out: $(du -h "$out" | cut -f1)"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: ${{ steps.dmg.outputs.path }}
+          fail_on_unmatched_files: true
+          body: |
+            ## Installieren
+
+            1. Das `.dmg` öffnen und **soloops** nach *Programme* ziehen.
+            2. Beim ersten Start **Rechtsklick → Öffnen** (nicht Doppelklick).
+
+            Schritt 2 ist nötig, weil die App ad-hoc signiert ist: sie trägt
+            kein Developer-ID-Zertifikat, und macOS verlangt für so eine App
+            einmalig die ausdrückliche Zustimmung. Falls der Finder sie als
+            „beschädigt" meldet, nimmt
+
+            ```
+            xattr -d com.apple.quarantine /Applications/soloops.app
+            ```
+
+            das Quarantäne-Merkmal ab, das der Download angehängt hat.
+
+            ## Beim ersten Start
+
+            Die App ist die Hülle um den Stack, nicht der Stack selbst — sie
+            braucht das Repository mit `docker-compose.yml` und der `.env`.
+            Sie sucht es an den üblichen Stellen (`~/Desktop/PNSE/soloops`,
+            `~/soloops`, `~/Developer/soloops`, `~/Projects/soloops`) und
+            fragt sonst einmal per Ordnerdialog. Die Antwort wird gemerkt.
+
+            Wer den Pfad lieber selbst setzt: `SOLOOPS_DIR` in der Umgebung
+            gewinnt über alles andere.
+
+            ## Was drin ist
+
+            Zeit-Widget, Backup nach iCloud, Tray, Menü, Portübersicht und der
+            Claude-Anschluss. Details in
+            [docs/macos-app.md](https://github.com/P-hinn/soloops/blob/main/docs/macos-app.md).

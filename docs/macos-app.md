@@ -126,9 +126,44 @@ event, wherever the menu sits, so a second handler on the tray icon would run
 each click twice — which for the two check marks is the difference between
 switching and not switching.
 
-Building requires the Rust toolchain ([rustup](https://rustup.rs)) and the
-Xcode command line tools. The path to the repository is baked in at build time;
-if the directory moves, either rebuild the app or start it with `SOLOOPS_DIR`.
+## Installing it
+
+Tag a version and `.github/workflows/release.yml` builds the `.dmg` and
+attaches it to the release — `git tag v0.1.1 && git push --tags`, or run the
+workflow by hand with a tag as input.
+
+The build is **ad-hoc signed**: there is no Developer-ID certificate in CI, so
+macOS asks once. Right-click → Open on first launch, or take the download's
+quarantine mark off with
+`xattr -d com.apple.quarantine /Applications/soloops.app`. The release notes
+say so too, because that is where somebody reads it.
+
+## How it finds the repository
+
+The app is the frame around a stack that lives in a directory — the compose
+file, the `.env`, `data/`. That path used to be baked in at build time, which
+works for the machine that compiled it and for no other: an app built on a CI
+runner would point at `/Users/runner/work/…`, and on the Mac that downloads it
+nothing is behind that path.
+
+So it looks, in this order (see
+[`src/project.rs`](../apps/desktop/src-tauri/src/project.rs)):
+
+1. `SOLOOPS_DIR` from the environment — if somebody says so, that wins
+2. the path remembered from a previous answer, under
+   `~/Library/Application Support/com.philippniestroj.soloops/dir`
+3. the path baked in at build time, **but only if it exists** — the
+   development build stays as convenient as it was
+4. `~/Desktop/PNSE/soloops`, `~/soloops`, `~/Developer/soloops`,
+   `~/Projects/soloops`
+5. otherwise it asks once, with a folder dialog, and remembers the answer
+
+A directory counts as the repository when it holds **both** a
+`docker-compose.yml` and a `package.json` whose name is `soloops`. One mark
+alone is any project with containers, or any npm project.
+
+Building locally requires the Rust toolchain ([rustup](https://rustup.rs)) and
+the Xcode command line tools.
 
 The loaded interface gets as good as **no** access to Tauri APIs (see
 [`capabilities/default.json`](../apps/desktop/src-tauri/capabilities/default.json)):

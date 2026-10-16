@@ -115,7 +115,7 @@ fn project_dir() -> PathBuf {
     let from_env = std::env::var("SOLOOPS_DIR").ok();
 
     let places = project::candidates(&home, Some(baked), from_env.as_deref());
-    if let Some(found) = project::first_project(&places, |path| project::is_project(path)) {
+    if let Some(found) = project::first_project(&places, project::is_project) {
         eprintln!("[projekt] {}", found.display());
         return found;
     }
