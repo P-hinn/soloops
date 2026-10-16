@@ -1,6 +1,13 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { timeEntryInput, timerStartInput } from '@soloops/shared'
+import {
+  idParam,
+  timeEntryInput,
+  timeQuery,
+  timeReportQuery,
+  timerStartInput,
+  timerStopInput,
+} from '@soloops/shared'
 import { commitQueue } from '@soloops/core/queue.js'
 import {
   deleteTime,
@@ -19,32 +26,18 @@ import {
 } from '@soloops/core/services/timeEnrich.js'
 import { syncAllRepoCommits } from '@soloops/core/services/repoCommits.js'
 
-const idParam = z.object({ id: z.string() })
-
-const listQuery = z.object({
-  projectId: z.string().optional(),
-  clientId: z.string().optional(),
-  actionItemId: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  billable: z.coerce.boolean().optional(),
-  unbilledOnly: z.coerce.boolean().default(false),
-  take: z.coerce.number().max(500).default(200),
-})
-
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/running', async () => runningEntry())
 
-  app.post('/start', async (req, reply) => {
-    const data = timerStartInput.parse(req.body)
+  app.post('/start', { schema: { body: timerStartInput } }, async (req, reply) => {
+    const data = req.body
     return reply.code(201).send(await startTimer(data))
   })
 
-  app.post('/stop', async (req) => {
-    const body = z.object({ id: z.string().optional() }).parse(req.body ?? {})
-    const stopped = await stopTimer(body.id)
+  app.post('/stop', { schema: { body: timerStopInput } }, async (req) => {
+    const stopped = await stopTimer(req.body.id)
 
     // The commits of the last hour are usually pushed after the clock has
     // stopped, so the text is fetched with a delay rather than right now.
@@ -61,20 +54,19 @@ const routes: FastifyPluginAsync = async (app) => {
     return stopped
   })
 
-  app.get('/', async (req) => listTime(listQuery.parse(req.query)))
+  app.get('/', { schema: { querystring: timeQuery } }, async (req) => listTime(req.query))
 
-  app.post('/', async (req, reply) => {
-    const data = timeEntryInput.parse(req.body)
+  app.post('/', { schema: { body: timeEntryInput } }, async (req, reply) => {
+    const data = req.body
     return reply.code(201).send(await logTime(data))
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    return updateTime(id, timeEntryInput.partial().parse(req.body))
-  })
+  app.patch('/:id', { schema: { params: idParam, body: timeEntryInput.partial() } }, async (req) =>
+    updateTime(req.params.id, req.body),
+  )
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await deleteTime(id)
     return reply.code(204).send()
   })
@@ -86,22 +78,26 @@ const routes: FastifyPluginAsync = async (app) => {
    * stopping the clock the worker's next beat is minutes away, and the point
    * of the button is to see the result now.
    */
-  app.post('/:id/enrich', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
-    const body = z.object({ sync: z.boolean().default(true) }).parse(req.body ?? {})
-    try {
-      return await enrichTimeEntry(id, body.sync)
-    } catch (err) {
-      return reply.code(422).send({ error: (err as Error).message })
-    }
-  })
+  app.post(
+    '/:id/enrich',
+    { schema: { params: idParam, body: z.object({ sync: z.boolean().default(true) }) } },
+    async (req, reply) => {
+      const { id } = req.params
+      const body = req.body
+      try {
+        return await enrichTimeEntry(id, body.sync)
+      } catch (err) {
+        return reply.code(422).send({ error: (err as Error).message })
+      }
+    },
+  )
 
   /**
    * The commits that fall into this booking's window. For a running timer
    * the window ends now, which is what the overlay shows while it counts.
    */
-  app.get('/:id/commits', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id/commits', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     try {
       return await windowCommits(id)
     } catch (err) {
@@ -117,10 +113,8 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Weekly/monthly report, grouped by project. */
-  app.get('/report', async (req) => {
-    const q = z
-      .object({ from: z.string(), to: z.string(), billableOnly: z.coerce.boolean().default(false) })
-      .parse(req.query)
+  app.get('/report', { schema: { querystring: timeReportQuery } }, async (req) => {
+    const q = req.query
     return timeReport(q.from, q.to, q.billableOnly)
   })
 }

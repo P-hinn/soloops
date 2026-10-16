@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -61,7 +61,7 @@ async function lastWorkflowError(): Promise<string | null> {
   }
 }
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   /**
@@ -72,66 +72,73 @@ const routes: FastifyPluginAsync = async (app) => {
    * is deliberately not repeated here. This only knows that the webhook takes
    * `{ vertrag, client_id, felder }` and that its answer is worth showing.
    */
-  app.post('/send', async (req, reply) => {
-    const body = z
-      .object({
-        vertrag: z.enum(CONTRACT_TYPES),
-        clientId: z.string(),
-        felder: z.record(z.string(), z.string()).default({}),
-      })
-      .parse(req.body)
-
-    if (!env.N8N_CONTRACT_WEBHOOK) {
-      return reply.code(503).send({
-        error:
-          'N8N_CONTRACT_WEBHOOK ist nicht gesetzt — ohne die Webhook-URL weiß soloops nicht, wohin der Auftrag geht',
-      })
-    }
-
-    const client = await prisma.client.findUniqueOrThrow({ where: { id: body.clientId } })
-    if (!client.email) {
-      return reply.code(422).send({
-        error: `${client.name} hat keine E-Mail-Adresse — ohne sie kann Zoho Sign nichts zustellen`,
-      })
-    }
-
-    let res: Response
-    try {
-      res = await fetch(env.N8N_CONTRACT_WEBHOOK, {
-        method: 'POST',
-        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
-        headers: {
-          'Content-Type': 'application/json',
-          // The webhook is open to whoever can reach n8n, and this one sends
-          // documents and costs money per call. The workflow checks it.
-          'X-Soloops-Contract-Secret': env.N8N_CONTRACT_WEBHOOK_SECRET,
-        },
-        body: JSON.stringify({
-          vertrag: body.vertrag,
-          client_id: body.clientId,
-          felder: body.felder,
+  app.post(
+    '/send',
+    {
+      schema: {
+        body: z.object({
+          vertrag: z.enum(CONTRACT_TYPES),
+          clientId: z.string(),
+          felder: z.record(z.string(), z.string()).default({}),
         }),
-      })
-    } catch (err) {
-      const message =
-        (err as Error).name === 'TimeoutError'
-          ? `Der Workflow hat nach ${SEND_TIMEOUT_MS / 1000} Sekunden nicht geantwortet — in n8n unter Ausführungen nachsehen, der Vertrag kann trotzdem rausgegangen sein`
-          : `n8n nicht erreichbar: ${(err as Error).message}`
-      return reply.code(502).send({ error: message })
-    }
+      },
+    },
+    async (req, reply) => {
+      const body = req.body
 
-    const text = await res.text()
-    const payload = safeJson(text)
+      if (!env.N8N_CONTRACT_WEBHOOK) {
+        return reply.code(503).send({
+          error:
+            'N8N_CONTRACT_WEBHOOK ist nicht gesetzt — ohne die Webhook-URL weiß soloops nicht, wohin der Auftrag geht',
+        })
+      }
 
-    if (!res.ok) {
-      const generic =
-        (payload as { message?: string } | null)?.message ?? (text.slice(0, 400) || res.statusText)
-      const detail = (await lastWorkflowError()) ?? generic
-      return reply.code(502).send({ error: `Vertrag nicht verschickt: ${detail}` })
-    }
+      const client = await prisma.client.findUniqueOrThrow({ where: { id: body.clientId } })
+      if (!client.email) {
+        return reply.code(422).send({
+          error: `${client.name} hat keine E-Mail-Adresse — ohne sie kann Zoho Sign nichts zustellen`,
+        })
+      }
 
-    return payload ?? { status: 'versendet' }
-  })
+      let res: Response
+      try {
+        res = await fetch(env.N8N_CONTRACT_WEBHOOK, {
+          method: 'POST',
+          signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+          headers: {
+            'Content-Type': 'application/json',
+            // The webhook is open to whoever can reach n8n, and this one sends
+            // documents and costs money per call. The workflow checks it.
+            'X-Soloops-Contract-Secret': env.N8N_CONTRACT_WEBHOOK_SECRET,
+          },
+          body: JSON.stringify({
+            vertrag: body.vertrag,
+            client_id: body.clientId,
+            felder: body.felder,
+          }),
+        })
+      } catch (err) {
+        const message =
+          (err as Error).name === 'TimeoutError'
+            ? `Der Workflow hat nach ${SEND_TIMEOUT_MS / 1000} Sekunden nicht geantwortet — in n8n unter Ausführungen nachsehen, der Vertrag kann trotzdem rausgegangen sein`
+            : `n8n nicht erreichbar: ${(err as Error).message}`
+        return reply.code(502).send({ error: message })
+      }
+
+      const text = await res.text()
+      const payload = safeJson(text)
+
+      if (!res.ok) {
+        const generic =
+          (payload as { message?: string } | null)?.message ??
+          (text.slice(0, 400) || res.statusText)
+        const detail = (await lastWorkflowError()) ?? generic
+        return reply.code(502).send({ error: `Vertrag nicht verschickt: ${detail}` })
+      }
+
+      return payload ?? { status: 'versendet' }
+    },
+  )
 
   /**
    * Who has which contract in what state.
@@ -141,33 +148,42 @@ const routes: FastifyPluginAsync = async (app) => {
    * open tasks, so a contract that was never signed keeps showing up as work
    * rather than as a line in a list nobody opens.
    */
-  app.get('/', async (req) => {
-    const q = z
-      .object({ clientId: z.string().optional(), take: z.coerce.number().max(500).default(200) })
-      .parse(req.query)
-
-    const notes = await prisma.note.findMany({
-      where: {
-        title: { startsWith: CONTRACT_PREFIX },
-        ...(q.clientId ? { clientId: q.clientId } : {}),
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          clientId: z.string().optional(),
+          take: z.coerce.number().max(500).default(200),
+        }),
       },
-      orderBy: { createdAt: 'desc' },
-      take: q.take,
-      include: { client: { select: { id: true, name: true, company: true } } },
-    })
+    },
+    async (req) => {
+      const q = req.query
 
-    const openTasks = await prisma.actionItem.findMany({
-      where: { done: false, title: { startsWith: 'Signatur ausstehend' } },
-      select: { id: true, title: true, dueOn: true, clientId: true },
-    })
+      const notes = await prisma.note.findMany({
+        where: {
+          title: { startsWith: CONTRACT_PREFIX },
+          ...(q.clientId ? { clientId: q.clientId } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: q.take,
+        include: { client: { select: { id: true, name: true, company: true } } },
+      })
 
-    const rows = buildContractRows(notes, openTasks)
+      const openTasks = await prisma.actionItem.findMany({
+        where: { done: false, title: { startsWith: 'Signatur ausstehend' } },
+        select: { id: true, title: true, dueOn: true, clientId: true },
+      })
 
-    return {
-      rows,
-      openCount: rows.filter((row) => row.status === 'versendet').length,
-    }
-  })
+      const rows = buildContractRows(notes, openTasks)
+
+      return {
+        rows,
+        openCount: rows.filter((row) => row.status === 'versendet').length,
+      }
+    },
+  )
 
   /**
    * The signed PDF.
@@ -177,25 +193,29 @@ const routes: FastifyPluginAsync = async (app) => {
    * note is editable, and `Datei: ../../etc/passwd` must not be a way to read
    * the disk.
    */
-  app.get('/file', async (req, reply) => {
-    const { path } = z.object({ path: z.string().min(1) }).parse(req.query)
+  app.get(
+    '/file',
+    { schema: { querystring: z.object({ path: z.string().min(1) }) } },
+    async (req, reply) => {
+      const { path } = req.query
 
-    const full = resolveSignedPath(path)
-    if (!full) {
-      return reply.code(400).send({ error: 'Kein zulässiger Pfad in der Vertragsablage' })
-    }
+      const full = resolveSignedPath(path)
+      if (!full) {
+        return reply.code(400).send({ error: 'Kein zulässiger Pfad in der Vertragsablage' })
+      }
 
-    try {
-      await stat(full)
-    } catch {
-      return reply.code(404).send({ error: 'Datei nicht gefunden' })
-    }
+      try {
+        await stat(full)
+      } catch {
+        return reply.code(404).send({ error: 'Datei nicht gefunden' })
+      }
 
-    return reply
-      .type('application/pdf')
-      .header('Content-Disposition', `inline; filename="${full.split('/').pop()}"`)
-      .send(createReadStream(full))
-  })
+      return reply
+        .type('application/pdf')
+        .header('Content-Disposition', `inline; filename="${full.split('/').pop()}"`)
+        .send(createReadStream(full))
+    },
+  )
 }
 
 function safeJson(text: string): unknown {

@@ -1,11 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
 import { uptimeQueue } from '@soloops/core/queue.js'
 import { syncUptimeRobot } from '@soloops/core/services/uptimerobot.js'
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/', async () => {
@@ -23,14 +23,18 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  app.get('/incidents', async (req) => {
-    const q = z.object({ take: z.coerce.number().max(200).default(50) }).parse(req.query)
-    return prisma.incident.findMany({
-      orderBy: { startedAt: 'desc' },
-      take: q.take,
-      include: { monitor: { select: { friendlyName: true, url: true, projectId: true } } },
-    })
-  })
+  app.get(
+    '/incidents',
+    { schema: { querystring: z.object({ take: z.coerce.number().max(200).default(50) }) } },
+    async (req) => {
+      const q = req.query
+      return prisma.incident.findMany({
+        orderBy: { startedAt: 'desc' },
+        take: q.take,
+        include: { monitor: { select: { friendlyName: true, url: true, projectId: true } } },
+      })
+    },
+  )
 
   /** Sync right now (otherwise the worker does it on a schedule). */
   app.post('/sync', async (_req, reply) => {
@@ -46,11 +50,20 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Assign a monitor to a project — connects operations to the project view. */
-  app.patch('/:id', async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    const body = z.object({ projectId: z.string().nullable() }).parse(req.body)
-    return prisma.monitor.update({ where: { id }, data: { projectId: body.projectId } })
-  })
+  app.patch(
+    '/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: z.object({ projectId: z.string().nullable() }),
+      },
+    },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+      return prisma.monitor.update({ where: { id }, data: { projectId: body.projectId } })
+    },
+  )
 }
 
 export default routes

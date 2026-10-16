@@ -1,13 +1,12 @@
-import type { FastifyPluginAsync } from 'fastify'
-import { z } from 'zod'
-import { loginInput } from '@soloops/shared'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { loginInput, passwordInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { hashPassword, verifyPassword } from '@soloops/core/passwords.js'
 import { env } from '@soloops/core/env.js'
 
-const routes: FastifyPluginAsync = async (app) => {
-  app.post('/login', async (req, reply) => {
-    const { email, password } = loginInput.parse(req.body)
+const routes: FastifyPluginAsyncZod = async (app) => {
+  app.post('/login', { schema: { body: loginInput } }, async (req, reply) => {
+    const { email, password } = req.body
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       return reply.code(401).send({ error: 'E-Mail oder Passwort falsch' })
@@ -26,19 +25,23 @@ const routes: FastifyPluginAsync = async (app) => {
     return { id: user.id, email: user.email, name: user.name }
   })
 
-  app.post('/password', { onRequest: [app.authenticate] }, async (req, reply) => {
-    if (req.principal?.type !== 'user') return reply.code(403).send({ error: 'Nur für Nutzer' })
-    const body = z.object({ current: z.string(), next: z.string().min(10) }).parse(req.body)
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.principal.userId } })
-    if (!(await verifyPassword(body.current, user.passwordHash))) {
-      return reply.code(403).send({ error: 'Aktuelles Passwort falsch' })
-    }
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash: await hashPassword(body.next) },
-    })
-    return { ok: true }
-  })
+  app.post(
+    '/password',
+    { onRequest: [app.authenticate], schema: { body: passwordInput } },
+    async (req, reply) => {
+      if (req.principal?.type !== 'user') return reply.code(403).send({ error: 'Nur für Nutzer' })
+      const body = req.body
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: req.principal.userId } })
+      if (!(await verifyPassword(body.current, user.passwordHash))) {
+        return reply.code(403).send({ error: 'Aktuelles Passwort falsch' })
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: await hashPassword(body.next) },
+      })
+      return { ok: true }
+    },
+  )
 
   app.get('/config', async () => ({
     companyName: env.COMPANY_NAME,

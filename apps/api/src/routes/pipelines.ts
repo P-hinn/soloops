@@ -1,15 +1,13 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { repoInput } from '@soloops/shared'
+import { idParam, repoInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
 import { commitQueue, pipelineQueue } from '@soloops/core/queue.js'
 import { syncRepo } from '@soloops/core/services/pipelines.js'
 import { projectCommits, syncRepoCommits } from '@soloops/core/services/repoCommits.js'
 
-const idParam = z.object({ id: z.string() })
-
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/repos', async () => {
@@ -26,8 +24,8 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  app.post('/repos', async (req, reply) => {
-    const data = repoInput.parse(req.body)
+  app.post('/repos', { schema: { body: repoInput } }, async (req, reply) => {
+    const data = req.body
     const repo = await prisma.pipelineRepo.upsert({
       where: { provider_slug: { provider: data.provider, slug: data.slug } },
       create: data,
@@ -37,26 +35,30 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(repo)
   })
 
-  app.patch('/repos/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const data = repoInput.partial().parse(req.body)
-    return prisma.pipelineRepo.update({ where: { id }, data })
-  })
+  app.patch(
+    '/repos/:id',
+    { schema: { params: idParam, body: repoInput.partial() } },
+    async (req) => {
+      const { id } = req.params
+      const data = req.body
+      return prisma.pipelineRepo.update({ where: { id }, data })
+    },
+  )
 
-  app.delete('/repos/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/repos/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await prisma.pipelineRepo.delete({ where: { id } })
     return reply.code(204).send()
   })
 
-  app.post('/repos/:id/sync', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.post('/repos/:id/sync', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return syncRepo(id)
   })
 
   /** Mirror one repository's commits now. */
-  app.post('/repos/:id/commits/sync', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.post('/repos/:id/commits/sync', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return syncRepoCommits(id)
   })
 
@@ -64,36 +66,48 @@ const routes: FastifyPluginAsync = async (app) => {
    * The mirrored commits of a project in a window. What the time view shows
    * next to a booking, and what answers "was anything else done here".
    */
-  app.get('/commits', async (req) => {
-    const q = z
-      .object({
-        projectId: z.string(),
-        from: z.string(),
-        to: z.string(),
-      })
-      .parse(req.query)
-    return projectCommits(q.projectId, new Date(q.from), new Date(q.to))
-  })
-
-  app.get('/runs', async (req) => {
-    const q = z
-      .object({
-        projectId: z.string().optional(),
-        status: z.string().optional(),
-        take: z.coerce.number().max(200).default(50),
-      })
-      .parse(req.query)
-
-    return prisma.pipelineRun.findMany({
-      where: {
-        ...(q.projectId ? { repo: { projectId: q.projectId } } : {}),
-        ...(q.status ? { status: q.status as never } : {}),
+  app.get(
+    '/commits',
+    {
+      schema: {
+        querystring: z.object({
+          projectId: z.string(),
+          from: z.string(),
+          to: z.string(),
+        }),
       },
-      orderBy: { startedAt: 'desc' },
-      take: q.take,
-      include: { repo: { select: { slug: true, provider: true, projectId: true } } },
-    })
-  })
+    },
+    async (req) => {
+      const q = req.query
+      return projectCommits(q.projectId, new Date(q.from), new Date(q.to))
+    },
+  )
+
+  app.get(
+    '/runs',
+    {
+      schema: {
+        querystring: z.object({
+          projectId: z.string().optional(),
+          status: z.string().optional(),
+          take: z.coerce.number().max(200).default(50),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+
+      return prisma.pipelineRun.findMany({
+        where: {
+          ...(q.projectId ? { repo: { projectId: q.projectId } } : {}),
+          ...(q.status ? { status: q.status as never } : {}),
+        },
+        orderBy: { startedAt: 'desc' },
+        take: q.take,
+        include: { repo: { select: { slug: true, provider: true, projectId: true } } },
+      })
+    },
+  )
 
   app.post('/sync', async () => {
     await pipelineQueue.add('sync-all', {}, { removeOnComplete: 20 })

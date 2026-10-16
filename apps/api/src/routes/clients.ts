@@ -1,25 +1,23 @@
-import type { FastifyPluginAsync } from 'fastify'
-import { z } from 'zod'
-import { clientInput } from '@soloops/shared'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { clientInput, clientsQuery, idParam } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
+import { notFound } from '@soloops/core/rules.js'
 import { withCleanEmail } from '@soloops/core/services/writeFields.js'
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z.object({ includeArchived: z.coerce.boolean().default(false) }).parse(req.query)
+  app.get('/', { schema: { querystring: clientsQuery } }, async (req) => {
     return prisma.client.findMany({
-      where: q.includeArchived ? {} : { archived: false },
+      where: req.query.includeArchived ? {} : { archived: false },
       orderBy: { name: 'asc' },
       include: { _count: { select: { projects: true, invoices: true, contacts: true } } },
     })
   })
 
-  app.get('/:id', async (req, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
+  app.get('/:id', { schema: { params: idParam } }, async (req) => {
     const client = await prisma.client.findUnique({
-      where: { id },
+      where: { id: req.params.id },
       include: {
         contacts: {
           where: { archived: false },
@@ -29,24 +27,24 @@ const routes: FastifyPluginAsync = async (app) => {
         invoices: { orderBy: { issueDate: 'desc' }, take: 20 },
       },
     })
-    if (!client) return reply.code(404).send({ error: 'Kunde nicht gefunden' })
+    if (!client) throw notFound('Kunde nicht gefunden')
     return client
   })
 
-  app.post('/', async (req, reply) => {
-    const data = clientInput.parse(req.body)
-    const created = await prisma.client.create({ data: withCleanEmail(data) })
+  app.post('/', { schema: { body: clientInput } }, async (req, reply) => {
+    const created = await prisma.client.create({ data: withCleanEmail(req.body) })
     return reply.code(201).send(created)
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    const data = clientInput.partial().parse(req.body)
-    return prisma.client.update({ where: { id }, data: withCleanEmail(data) })
+  app.patch('/:id', { schema: { params: idParam, body: clientInput.partial() } }, async (req) => {
+    return prisma.client.update({
+      where: { id: req.params.id },
+      data: withCleanEmail(req.body),
+    })
   })
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     const invoices = await prisma.invoice.count({ where: { clientId: id } })
     if (invoices > 0) {
       // Invoices have to be retained by law — the client is only archived.

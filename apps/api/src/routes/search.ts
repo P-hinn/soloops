@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 
@@ -11,17 +11,25 @@ type Hit = {
 }
 
 /** Global search across all modules — also the backbone of the `search` MCP tool. */
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z
-      .object({ q: z.string().min(2), take: z.coerce.number().max(50).default(20) })
-      .parse(req.query)
-    const term = q.q
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          q: z.string().min(2),
+          take: z.coerce.number().max(50).default(20),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+      const term = q.q
 
-    const [notes, meetings, projects, clients, invoices, leads, mails] = await Promise.all([
-      prisma.$queryRaw<{ id: string; title: string; snippet: string }[]>`
+      const [notes, meetings, projects, clients, invoices, leads, mails] = await Promise.all([
+        prisma.$queryRaw<{ id: string; title: string; snippet: string }[]>`
         SELECT id, title,
                ts_headline('german', coalesce(body,''), websearch_to_tsquery('german', ${term}),
                            'MaxWords=25,MinWords=10,StartSel=«,StopSel=»') AS snippet
@@ -30,124 +38,125 @@ const routes: FastifyPluginAsync = async (app) => {
               @@ websearch_to_tsquery('german', ${term})
         ORDER BY "updatedAt" DESC LIMIT ${q.take}
       `,
-      prisma.meeting.findMany({
-        where: {
-          OR: [
-            { title: { contains: term, mode: 'insensitive' } },
-            { summary: { contains: term, mode: 'insensitive' } },
-            { minutes: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: q.take,
-        orderBy: { startsAt: 'desc' },
-      }),
-      prisma.project.findMany({
-        where: {
-          OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { key: { contains: term, mode: 'insensitive' } },
-            { description: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-      }),
-      prisma.client.findMany({
-        where: {
-          OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { company: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-      }),
-      prisma.invoice.findMany({
-        where: { number: { contains: term, mode: 'insensitive' } },
-        take: 10,
-        include: { client: { select: { name: true } } },
-      }),
-      prisma.lead.findMany({
-        where: {
-          archived: false,
-          OR: [
-            { title: { contains: term, mode: 'insensitive' } },
-            { company: { contains: term, mode: 'insensitive' } },
-            { contactName: { contains: term, mode: 'insensitive' } },
-            { notes: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-        orderBy: { lastActivityAt: 'desc' },
-        include: { offers: { select: { amountCents: true, status: true } } },
-      }),
-      prisma.mailMessage.findMany({
-        where: {
-          OR: [
-            { subject: { contains: term, mode: 'insensitive' } },
-            { bodyText: { contains: term, mode: 'insensitive' } },
-            { fromEmail: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: 10,
-        orderBy: { sentAt: 'desc' },
-        select: { id: true, subject: true, snippet: true, fromEmail: true, leadId: true },
-      }),
-    ])
+        prisma.meeting.findMany({
+          where: {
+            OR: [
+              { title: { contains: term, mode: 'insensitive' } },
+              { summary: { contains: term, mode: 'insensitive' } },
+              { minutes: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          take: q.take,
+          orderBy: { startsAt: 'desc' },
+        }),
+        prisma.project.findMany({
+          where: {
+            OR: [
+              { name: { contains: term, mode: 'insensitive' } },
+              { key: { contains: term, mode: 'insensitive' } },
+              { description: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          take: 10,
+        }),
+        prisma.client.findMany({
+          where: {
+            OR: [
+              { name: { contains: term, mode: 'insensitive' } },
+              { company: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          take: 10,
+        }),
+        prisma.invoice.findMany({
+          where: { number: { contains: term, mode: 'insensitive' } },
+          take: 10,
+          include: { client: { select: { name: true } } },
+        }),
+        prisma.lead.findMany({
+          where: {
+            archived: false,
+            OR: [
+              { title: { contains: term, mode: 'insensitive' } },
+              { company: { contains: term, mode: 'insensitive' } },
+              { contactName: { contains: term, mode: 'insensitive' } },
+              { notes: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          take: 10,
+          orderBy: { lastActivityAt: 'desc' },
+          include: { offers: { select: { amountCents: true, status: true } } },
+        }),
+        prisma.mailMessage.findMany({
+          where: {
+            OR: [
+              { subject: { contains: term, mode: 'insensitive' } },
+              { bodyText: { contains: term, mode: 'insensitive' } },
+              { fromEmail: { contains: term, mode: 'insensitive' } },
+            ],
+          },
+          take: 10,
+          orderBy: { sentAt: 'desc' },
+          select: { id: true, subject: true, snippet: true, fromEmail: true, leadId: true },
+        }),
+      ])
 
-    const hits: Hit[] = [
-      ...notes.map((n) => ({
-        type: 'note' as const,
-        id: n.id,
-        title: n.title,
-        snippet: n.snippet,
-        url: `/notes/${n.id}`,
-      })),
-      ...meetings.map((m) => ({
-        type: 'meeting' as const,
-        id: m.id,
-        title: m.title,
-        snippet: (m.summary ?? m.minutes ?? '').slice(0, 200),
-        url: `/meetings/${m.id}`,
-      })),
-      ...projects.map((p) => ({
-        type: 'project' as const,
-        id: p.id,
-        title: `${p.key} — ${p.name}`,
-        snippet: p.description?.slice(0, 200) ?? '',
-        url: `/projects/${p.id}`,
-      })),
-      ...clients.map((c) => ({
-        type: 'client' as const,
-        id: c.id,
-        title: c.company ? `${c.name} (${c.company})` : c.name,
-        snippet: c.notes?.slice(0, 200) ?? '',
-        url: `/clients/${c.id}`,
-      })),
-      ...leads.map((l) => ({
-        type: 'lead' as const,
-        id: l.id,
-        title: l.title,
-        snippet: [l.company, l.notes?.slice(0, 160)].filter(Boolean).join(' — '),
-        url: `/leads/${l.id}`,
-      })),
-      // Mail leads to the lead where there is one — that is where the context is.
-      ...mails.map((m) => ({
-        type: 'mail' as const,
-        id: m.id,
-        title: m.subject,
-        snippet: `${m.fromEmail} — ${m.snippet}`,
-        url: m.leadId ? `/leads/${m.leadId}` : '/inbox',
-      })),
-      ...invoices.map((i) => ({
-        type: 'invoice' as const,
-        id: i.id,
-        title: `${i.number} — ${i.client.name}`,
-        snippet: `${(i.totalCents / 100).toFixed(2)} ${i.currency} · ${i.status}`,
-        url: `/invoices/${i.id}`,
-      })),
-    ]
+      const hits: Hit[] = [
+        ...notes.map((n) => ({
+          type: 'note' as const,
+          id: n.id,
+          title: n.title,
+          snippet: n.snippet,
+          url: `/notes/${n.id}`,
+        })),
+        ...meetings.map((m) => ({
+          type: 'meeting' as const,
+          id: m.id,
+          title: m.title,
+          snippet: (m.summary ?? m.minutes ?? '').slice(0, 200),
+          url: `/meetings/${m.id}`,
+        })),
+        ...projects.map((p) => ({
+          type: 'project' as const,
+          id: p.id,
+          title: `${p.key} — ${p.name}`,
+          snippet: p.description?.slice(0, 200) ?? '',
+          url: `/projects/${p.id}`,
+        })),
+        ...clients.map((c) => ({
+          type: 'client' as const,
+          id: c.id,
+          title: c.company ? `${c.name} (${c.company})` : c.name,
+          snippet: c.notes?.slice(0, 200) ?? '',
+          url: `/clients/${c.id}`,
+        })),
+        ...leads.map((l) => ({
+          type: 'lead' as const,
+          id: l.id,
+          title: l.title,
+          snippet: [l.company, l.notes?.slice(0, 160)].filter(Boolean).join(' — '),
+          url: `/leads/${l.id}`,
+        })),
+        // Mail leads to the lead where there is one — that is where the context is.
+        ...mails.map((m) => ({
+          type: 'mail' as const,
+          id: m.id,
+          title: m.subject,
+          snippet: `${m.fromEmail} — ${m.snippet}`,
+          url: m.leadId ? `/leads/${m.leadId}` : '/inbox',
+        })),
+        ...invoices.map((i) => ({
+          type: 'invoice' as const,
+          id: i.id,
+          title: `${i.number} — ${i.client.name}`,
+          snippet: `${(i.totalCents / 100).toFixed(2)} ${i.currency} · ${i.status}`,
+          url: `/invoices/${i.id}`,
+        })),
+      ]
 
-    return { query: term, count: hits.length, hits }
-  })
+      return { query: term, count: hits.length, hits }
+    },
+  )
 }
 
 export default routes

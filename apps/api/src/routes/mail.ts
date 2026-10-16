@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -47,7 +47,7 @@ function backfillStart(): Date {
   )
 }
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   // --- Accounts ------------------------------------------------------------
@@ -56,8 +56,8 @@ const routes: FastifyPluginAsync = async (app) => {
     prisma.mailAccount.findMany({ select: publicAccount, orderBy: { createdAt: 'asc' } }),
   )
 
-  app.post('/accounts', async (req, reply) => {
-    const data = accountInput.parse(req.body)
+  app.post('/accounts', { schema: { body: accountInput } }, async (req, reply) => {
+    const data = req.body
     const email = data.email.toLowerCase()
 
     const credentials = {
@@ -93,62 +93,80 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send({ ...account, availableFolders: test.folders })
   })
 
-  app.patch('/accounts/:id', async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    const data = accountInput.partial().parse(req.body)
-    const { password, ...rest } = data
-    return prisma.mailAccount.update({
-      where: { id },
-      data: { ...rest, ...(password ? { imapPassEnc: seal(password) } : {}) },
-      select: publicAccount,
-    })
-  })
+  app.patch(
+    '/accounts/:id',
+    { schema: { params: z.object({ id: z.string() }), body: accountInput.partial() } },
+    async (req) => {
+      const { id } = req.params
+      const data = req.body
+      const { password, ...rest } = data
+      return prisma.mailAccount.update({
+        where: { id },
+        data: { ...rest, ...(password ? { imapPassEnc: seal(password) } : {}) },
+        select: publicAccount,
+      })
+    },
+  )
 
-  app.delete('/accounts/:id', async (req, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    await prisma.mailAccount.delete({ where: { id } })
-    return reply.code(204).send()
-  })
+  app.delete(
+    '/accounts/:id',
+    { schema: { params: z.object({ id: z.string() }) } },
+    async (req, reply) => {
+      const { id } = req.params
+      await prisma.mailAccount.delete({ where: { id } })
+      return reply.code(204).send()
+    },
+  )
 
-  app.post('/accounts/:id/sync', async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    return syncMailAccount(id)
-  })
+  app.post(
+    '/accounts/:id/sync',
+    { schema: { params: z.object({ id: z.string() }) } },
+    async (req) => {
+      const { id } = req.params
+      return syncMailAccount(id)
+    },
+  )
 
   app.post('/sync', async () => syncAllMailAccounts())
 
   // --- Inbox ---------------------------------------------------------------
 
-  app.get('/', async (req) => {
-    const q = z
-      .object({
-        category: z.enum(['LEAD', 'PROJECT', 'INVOICE', 'ADMIN', 'OTHER']).optional(),
-        leadId: z.string().optional(),
-        unassigned: z.coerce.boolean().optional(),
-        handled: z.coerce.boolean().optional(),
-        take: z.coerce.number().max(200).default(50),
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          category: z.enum(['LEAD', 'PROJECT', 'INVOICE', 'ADMIN', 'OTHER']).optional(),
+          leadId: z.string().optional(),
+          unassigned: z.coerce.boolean().optional(),
+          handled: z.coerce.boolean().optional(),
+          take: z.coerce.number().max(200).default(50),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+
+      return prisma.mailMessage.findMany({
+        where: {
+          ...(q.category ? { category: q.category } : {}),
+          ...(q.leadId ? { leadId: q.leadId } : {}),
+          ...(q.handled === undefined ? {} : { handled: q.handled }),
+          ...(q.unassigned ? { leadId: null, clientId: null, projectId: null } : {}),
+        },
+        orderBy: { sentAt: 'desc' },
+        take: q.take,
+        include: {
+          lead: { select: { id: true, title: true } },
+          client: { select: { id: true, name: true } },
+          project: { select: { id: true, key: true } },
+        },
       })
-      .parse(req.query)
+    },
+  )
 
-    return prisma.mailMessage.findMany({
-      where: {
-        ...(q.category ? { category: q.category } : {}),
-        ...(q.leadId ? { leadId: q.leadId } : {}),
-        ...(q.handled === undefined ? {} : { handled: q.handled }),
-        ...(q.unassigned ? { leadId: null, clientId: null, projectId: null } : {}),
-      },
-      orderBy: { sentAt: 'desc' },
-      take: q.take,
-      include: {
-        lead: { select: { id: true, title: true } },
-        client: { select: { id: true, name: true } },
-        project: { select: { id: true, key: true } },
-      },
-    })
-  })
-
-  app.get('/:id', async (req, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
+  app.get('/:id', { schema: { params: z.object({ id: z.string() }) } }, async (req, reply) => {
+    const { id } = req.params
     const mail = await prisma.mailMessage.findUnique({
       where: { id },
       include: {
@@ -162,39 +180,50 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Manual assignment. Permanently overrides any automatic one. */
-  app.patch('/:id', async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    const body = z
-      .object({
-        category: z.enum(['LEAD', 'PROJECT', 'INVOICE', 'ADMIN', 'OTHER']).optional(),
-        leadId: z.string().nullish(),
-        clientId: z.string().nullish(),
-        projectId: z.string().nullish(),
-        handled: z.boolean().optional(),
+  app.patch(
+    '/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: z.object({
+          category: z.enum(['LEAD', 'PROJECT', 'INVOICE', 'ADMIN', 'OTHER']).optional(),
+          leadId: z.string().nullish(),
+          clientId: z.string().nullish(),
+          projectId: z.string().nullish(),
+          handled: z.boolean().optional(),
+        }),
+      },
+    },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+
+      const mail = await prisma.mailMessage.update({
+        where: { id },
+        data: { ...body, assignedBy: 'MANUAL' },
       })
-      .parse(req.body)
 
-    const mail = await prisma.mailMessage.update({
-      where: { id },
-      data: { ...body, assignedBy: 'MANUAL' },
-    })
+      if (body.leadId) {
+        await touchLead(body.leadId, {
+          kind: 'MAIL',
+          body: `Von ${mail.fromEmail}: ${mail.subject}`,
+          occurredAt: mail.sentAt,
+          source: 'MANUAL',
+        })
+      }
+      return mail
+    },
+  )
 
-    if (body.leadId) {
-      await touchLead(body.leadId, {
-        kind: 'MAIL',
-        body: `Von ${mail.fromEmail}: ${mail.subject}`,
-        occurredAt: mail.sentAt,
-        source: 'MANUAL',
-      })
-    }
-    return mail
-  })
-
-  app.post('/:id/lead', async (req, reply) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    const lead = await leadFromMail(id)
-    return reply.code(201).send(lead)
-  })
+  app.post(
+    '/:id/lead',
+    { schema: { params: z.object({ id: z.string() }) } },
+    async (req, reply) => {
+      const { id } = req.params
+      const lead = await leadFromMail(id)
+      return reply.code(201).send(lead)
+    },
+  )
 }
 
 export default routes

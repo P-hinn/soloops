@@ -1,6 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify'
-import { z } from 'zod'
-import { invoiceFromTimeInput, invoiceInput } from '@soloops/shared'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import {
+  idParam,
+  invoiceFromTimeInput,
+  invoiceInput,
+  invoiceStatusInput,
+  invoicesQuery,
+} from '@soloops/shared'
 import { renderInvoicePdf } from '@soloops/core/services/invoicePdf.js'
 import {
   createInvoice,
@@ -13,29 +18,18 @@ import {
   updateInvoice,
 } from '@soloops/core/services/invoices.js'
 
-const idParam = z.object({ id: z.string() })
-
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z
-      .object({
-        status: z.string().optional(),
-        clientId: z.string().optional(),
-        year: z.coerce.number().optional(),
-      })
-      .parse(req.query)
-    return listInvoices(q)
-  })
+  app.get('/', { schema: { querystring: invoicesQuery } }, async (req) => listInvoices(req.query))
 
-  app.get('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return getInvoice(id)
   })
 
-  app.post('/', async (req, reply) => {
-    const data = invoiceInput.parse(req.body)
+  app.post('/', { schema: { body: invoiceInput } }, async (req, reply) => {
+    const data = req.body
     return reply.code(201).send(await createInvoice(data))
   })
 
@@ -44,26 +38,21 @@ const routes: FastifyPluginAsync = async (app) => {
    * period becomes a line item and is then linked firmly, so that none of it
    * can end up on a second invoice.
    */
-  app.post('/from-time', async (req, reply) => {
-    const data = invoiceFromTimeInput.parse(req.body)
+  app.post('/from-time', { schema: { body: invoiceFromTimeInput } }, async (req, reply) => {
+    const data = req.body
     return reply.code(201).send(await invoiceFromTime(data))
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    return updateInvoice(id, invoiceInput.partial().parse(req.body))
-  })
+  app.patch('/:id', { schema: { params: idParam, body: invoiceInput.partial() } }, async (req) =>
+    updateInvoice(req.params.id, req.body),
+  )
 
-  app.post('/:id/status', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const body = z
-      .object({ status: z.enum(['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED']) })
-      .parse(req.body)
-    return setInvoiceStatus(id, body.status)
-  })
+  app.post('/:id/status', { schema: { params: idParam, body: invoiceStatusInput } }, async (req) =>
+    setInvoiceStatus(req.params.id, req.body.status),
+  )
 
-  app.get('/:id/pdf', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id/pdf', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     const invoice = await invoiceForPdf(id)
     const pdf = await renderInvoicePdf(invoice)
     reply.header('Content-Type', 'application/pdf')
@@ -71,8 +60,8 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.send(pdf)
   })
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await deleteInvoice(id)
     return reply.code(204).send()
   })

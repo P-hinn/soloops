@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { activitySampleBatch } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
@@ -37,15 +37,15 @@ const rangeQuery = z.object({
   to: z.string().datetime({ offset: true }).or(z.string().datetime()),
 })
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   /**
    * Stichproben annehmen. Die Desktop-App sendet gepuffert und wiederholt den
    * Puffer, wenn die API weg war — Duplikate fängt der eindeutige Zeitpunkt ab.
    */
-  app.post('/samples', async (req, reply) => {
-    const { samples } = activitySampleBatch.parse(req.body)
+  app.post('/samples', { schema: { body: activitySampleBatch } }, async (req, reply) => {
+    const { samples } = req.body
     if (!samples.length) return { accepted: 0 }
 
     const { count } = await prisma.activitySample.createMany({
@@ -63,8 +63,8 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Ein Tag als Abschnitte, dazu die Summen je App. */
-  app.get('/day', async (req) => {
-    const { date } = dayQuery.parse(req.query)
+  app.get('/day', { schema: { querystring: dayQuery } }, async (req) => {
+    const { date } = req.query
     const today = partsInZone(new Date(), env.TZ)
     const day =
       date ?? `${today.y}-${String(today.mo).padStart(2, '0')}-${String(today.d).padStart(2, '0')}`
@@ -124,8 +124,8 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Zeitraum vergessen. Der schnellste Weg, etwas wieder loszuwerden. */
-  app.delete('/', async (req) => {
-    const { from, to } = rangeQuery.parse(req.query)
+  app.delete('/', { schema: { querystring: rangeQuery } }, async (req) => {
+    const { from, to } = req.query
     const { count } = await prisma.activitySample.deleteMany({
       where: { at: { gte: new Date(from), lte: new Date(to) } },
     })

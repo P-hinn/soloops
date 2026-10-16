@@ -16,6 +16,7 @@ only people who build the app need that. The same goes for the Swift ones:
 bash scripts/ios-test.sh              # the sync engine on the phone (104 cases)
 npm -w @soloops/core run test:sync     # the op log against a real Postgres
 npm -w @soloops/core run test:invoices # invoice numbers under concurrency
+npm run openapi                       # docs/openapi.json from the routes
 ```
 
 `scripts/ios-test.sh` exists rather than a bare `swift test` because building

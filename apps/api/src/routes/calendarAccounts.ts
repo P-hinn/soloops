@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod, ZodTypeProvider } from 'fastify-type-provider-zod'
+import { idParam } from '@soloops/shared'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -6,8 +7,6 @@ import { seal } from '@soloops/core/services/secretbox.js'
 import * as google from '@soloops/core/services/google.js'
 import { discoverCalendars } from '@soloops/core/services/caldav.js'
 import { syncAccount, syncAllAccounts } from '@soloops/core/services/calendarSync.js'
-
-const idParam = z.object({ id: z.string() })
 
 /**
  * Colour palette for connected calendars. Chosen for the paper background:
@@ -39,80 +38,89 @@ async function nextCalendarColor(): Promise<string> {
   )
 }
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   // -------------------------------------------------------------------------
   // Google callback: arrives as a browser redirect and cannot carry a header.
   // Secured through the signed `state` that we issued ourselves.
   // -------------------------------------------------------------------------
-  app.get('/google/callback', async (req, reply) => {
-    const q = z
-      .object({
-        code: z.string().optional(),
-        state: z.string().optional(),
-        error: z.string().optional(),
-      })
-      .parse(req.query)
+  app.get(
+    '/google/callback',
+    {
+      schema: {
+        querystring: z.object({
+          code: z.string().optional(),
+          state: z.string().optional(),
+          error: z.string().optional(),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const q = req.query
 
-    const back = (params: Record<string, string>) =>
-      reply.redirect(`${env.APP_URL}/settings?${new URLSearchParams(params)}`)
+      const back = (params: Record<string, string>) =>
+        reply.redirect(`${env.APP_URL}/settings?${new URLSearchParams(params)}`)
 
-    if (q.error) return back({ calendar: 'error', message: q.error })
-    if (!q.code || !q.state) return back({ calendar: 'error', message: 'Antwort unvollständig' })
+      if (q.error) return back({ calendar: 'error', message: q.error })
+      if (!q.code || !q.state) return back({ calendar: 'error', message: 'Antwort unvollständig' })
 
-    try {
-      await app.jwt.verify(q.state)
-    } catch {
-      return back({ calendar: 'error', message: 'state ungültig oder abgelaufen' })
-    }
+      try {
+        await app.jwt.verify(q.state)
+      } catch {
+        return back({ calendar: 'error', message: 'state ungültig oder abgelaufen' })
+      }
 
-    try {
-      const tokens = await google.exchangeCode(q.code)
-      const calendars = await google.listCalendars(tokens.accessToken)
-      const primary = calendars.find((c) => c.primary) ?? calendars[0]
-      if (!primary)
-        return back({ calendar: 'error', message: 'Kein schreibbarer Kalender gefunden' })
+      try {
+        const tokens = await google.exchangeCode(q.code)
+        const calendars = await google.listCalendars(tokens.accessToken)
+        const primary = calendars.find((c) => c.primary) ?? calendars[0]
+        if (!primary)
+          return back({ calendar: 'error', message: 'Kein schreibbarer Kalender gefunden' })
 
-      await prisma.calendarAccount.upsert({
-        where: {
-          provider_accountId_remoteCalendarId: {
+        await prisma.calendarAccount.upsert({
+          where: {
+            provider_accountId_remoteCalendarId: {
+              provider: 'GOOGLE',
+              accountId: primary.id,
+              remoteCalendarId: primary.id,
+            },
+          },
+          create: {
             provider: 'GOOGLE',
+            label: `Google · ${primary.summary}`,
             accountId: primary.id,
             remoteCalendarId: primary.id,
+            remoteCalendarName: primary.summary,
+            accessTokenEnc: seal(tokens.accessToken),
+            refreshTokenEnc: tokens.refreshToken ? seal(tokens.refreshToken) : null,
+            tokenExpiresAt: tokens.expiresAt,
+            color: await nextCalendarColor(),
+            isDefault: await shouldBeDefault(),
           },
-        },
-        create: {
-          provider: 'GOOGLE',
-          label: `Google · ${primary.summary}`,
-          accountId: primary.id,
-          remoteCalendarId: primary.id,
-          remoteCalendarName: primary.summary,
-          accessTokenEnc: seal(tokens.accessToken),
-          refreshTokenEnc: tokens.refreshToken ? seal(tokens.refreshToken) : null,
-          tokenExpiresAt: tokens.expiresAt,
-          color: await nextCalendarColor(),
-          isDefault: await shouldBeDefault(),
-        },
-        update: {
-          accessTokenEnc: seal(tokens.accessToken),
-          // On reconnect Google does not always send a refresh token — an
-          // existing one must not be overwritten with null.
-          ...(tokens.refreshToken ? { refreshTokenEnc: seal(tokens.refreshToken) } : {}),
-          tokenExpiresAt: tokens.expiresAt,
-          enabled: true,
-          lastError: null,
-        },
-      })
+          update: {
+            accessTokenEnc: seal(tokens.accessToken),
+            // On reconnect Google does not always send a refresh token — an
+            // existing one must not be overwritten with null.
+            ...(tokens.refreshToken ? { refreshTokenEnc: seal(tokens.refreshToken) } : {}),
+            tokenExpiresAt: tokens.expiresAt,
+            enabled: true,
+            lastError: null,
+          },
+        })
 
-      return back({ calendar: 'connected', provider: 'google' })
-    } catch (err) {
-      return back({ calendar: 'error', message: (err as Error).message.slice(0, 200) })
-    }
-  })
+        return back({ calendar: 'connected', provider: 'google' })
+      } catch (err) {
+        return back({ calendar: 'error', message: (err as Error).message.slice(0, 200) })
+      }
+    },
+  )
 
   // -------------------------------------------------------------------------
   // Everything else requires authentication
   // -------------------------------------------------------------------------
-  app.register(async (secured) => {
+  app.register(async (scope) => {
+    // A nested scope does not inherit the type provider, so it asks
+    // for it — without this `req.query` in here is `unknown`.
+    const secured = scope.withTypeProvider<ZodTypeProvider>()
     secured.addHook('onRequest', app.authenticate)
 
     secured.get('/', async () => {
@@ -164,99 +172,118 @@ const routes: FastifyPluginAsync = async (app) => {
      * iCloud needs an app-specific password
      * (appleid.apple.com -> Sign-In and Security -> App-Specific Passwords).
      */
-    secured.post('/apple/discover', async (req, reply) => {
-      const body = z
-        .object({
-          username: z.string().min(3),
-          password: z.string().min(6),
-          baseUrl: z.string().default(env.CALDAV_APPLE_URL),
-        })
-        .parse(req.body)
-      try {
-        const calendars = await discoverCalendars(body)
-        return {
-          calendars: calendars.map(({ href, displayName, supportsSyncCollection }) => ({
-            href,
-            displayName,
-            supportsSyncCollection,
-          })),
+    secured.post(
+      '/apple/discover',
+      {
+        schema: {
+          body: z.object({
+            username: z.string().min(3),
+            password: z.string().min(6),
+            baseUrl: z.string().default(env.CALDAV_APPLE_URL),
+          }),
+        },
+      },
+      async (req, reply) => {
+        const body = req.body
+        try {
+          const calendars = await discoverCalendars(body)
+          return {
+            calendars: calendars.map(({ href, displayName, supportsSyncCollection }) => ({
+              href,
+              displayName,
+              supportsSyncCollection,
+            })),
+          }
+        } catch (err) {
+          return reply.code(400).send({ error: (err as Error).message })
         }
-      } catch (err) {
-        return reply.code(400).send({ error: (err as Error).message })
-      }
-    })
+      },
+    )
 
-    secured.post('/apple', async (req, reply) => {
-      const body = z
-        .object({
-          username: z.string().min(3),
-          password: z.string().min(6),
-          baseUrl: z.string().default(env.CALDAV_APPLE_URL),
-          calendarHref: z.string().min(1),
-          calendarName: z.string().default('Kalender'),
-          direction: z.enum(['PULL', 'PUSH', 'BOTH']).default('BOTH'),
-        })
-        .parse(req.body)
+    secured.post(
+      '/apple',
+      {
+        schema: {
+          body: z.object({
+            username: z.string().min(3),
+            password: z.string().min(6),
+            baseUrl: z.string().default(env.CALDAV_APPLE_URL),
+            calendarHref: z.string().min(1),
+            calendarName: z.string().default('Kalender'),
+            direction: z.enum(['PULL', 'PUSH', 'BOTH']).default('BOTH'),
+          }),
+        },
+      },
+      async (req, reply) => {
+        const body = req.body
 
-      const account = await prisma.calendarAccount.upsert({
-        where: {
-          provider_accountId_remoteCalendarId: {
-            provider: 'APPLE',
-            accountId: body.username,
-            remoteCalendarId: body.calendarHref,
+        const account = await prisma.calendarAccount.upsert({
+          where: {
+            provider_accountId_remoteCalendarId: {
+              provider: 'APPLE',
+              accountId: body.username,
+              remoteCalendarId: body.calendarHref,
+            },
           },
-        },
-        create: {
-          provider: 'APPLE',
-          label: `Apple · ${body.calendarName}`,
-          accountId: body.username,
-          direction: body.direction,
-          caldavBaseUrl: body.baseUrl,
-          caldavUsername: body.username,
-          caldavPassEnc: seal(body.password),
-          remoteCalendarId: body.calendarHref,
-          remoteCalendarName: body.calendarName,
-          color: await nextCalendarColor(),
-          isDefault: await shouldBeDefault(),
-        },
-        update: {
-          label: `Apple · ${body.calendarName}`,
-          direction: body.direction,
-          caldavPassEnc: seal(body.password),
-          remoteCalendarName: body.calendarName,
-          enabled: true,
-          lastError: null,
-        },
-      })
-      return reply.code(201).send({ id: account.id })
-    })
+          create: {
+            provider: 'APPLE',
+            label: `Apple · ${body.calendarName}`,
+            accountId: body.username,
+            direction: body.direction,
+            caldavBaseUrl: body.baseUrl,
+            caldavUsername: body.username,
+            caldavPassEnc: seal(body.password),
+            remoteCalendarId: body.calendarHref,
+            remoteCalendarName: body.calendarName,
+            color: await nextCalendarColor(),
+            isDefault: await shouldBeDefault(),
+          },
+          update: {
+            label: `Apple · ${body.calendarName}`,
+            direction: body.direction,
+            caldavPassEnc: seal(body.password),
+            remoteCalendarName: body.calendarName,
+            enabled: true,
+            lastError: null,
+          },
+        })
+        return reply.code(201).send({ id: account.id })
+      },
+    )
 
     // --- Administration ---------------------------------------------------
 
-    secured.patch('/:id', async (req) => {
-      const { id } = idParam.parse(req.params)
-      const body = z
-        .object({
-          direction: z.enum(['PULL', 'PUSH', 'BOTH']).optional(),
-          enabled: z.boolean().optional(),
-          label: z.string().optional(),
-          isDefault: z.boolean().optional(),
-          allowRemoteDelete: z.boolean().optional(),
-        })
-        .parse(req.body)
+    secured.patch(
+      '/:id',
+      {
+        schema: {
+          params: idParam,
+          body: z.object({
+            direction: z.enum(['PULL', 'PUSH', 'BOTH']).optional(),
+            enabled: z.boolean().optional(),
+            label: z.string().optional(),
+            isDefault: z.boolean().optional(),
+            allowRemoteDelete: z.boolean().optional(),
+          }),
+        },
+      },
+      async (req) => {
+        const { id } = req.params
+        const body = req.body
 
-      // Exactly one target calendar: the flag moves instead of piling up.
-      if (body.isDefault === true) {
-        await prisma.calendarAccount.updateMany({
-          where: { id: { not: id } },
-          data: { isDefault: false },
-        })
-      }
-      return prisma.calendarAccount.update({ where: { id }, data: body })
-    })
+        // Exactly one target calendar: the flag moves instead of piling up.
+        if (body.isDefault === true) {
+          await prisma.calendarAccount.updateMany({
+            where: { id: { not: id } },
+            data: { isDefault: false },
+          })
+        }
+        return prisma.calendarAccount.update({ where: { id }, data: body })
+      },
+    )
 
-    secured.post('/:id/sync', async (req) => {
-      const { id } = idParam.parse(req.params)
+    secured.post('/:id/sync', { schema: { params: idParam } }, async (req) => {
+      const { id } = req.params
       return syncAccount(id)
     })
 
@@ -266,16 +293,16 @@ const routes: FastifyPluginAsync = async (app) => {
      * Force a full sync by dropping the sync token. The links stay, so that
      * nothing gets created twice.
      */
-    secured.post('/:id/reset-token', async (req) => {
-      const { id } = idParam.parse(req.params)
+    secured.post('/:id/reset-token', { schema: { params: idParam } }, async (req) => {
+      const { id } = req.params
       return prisma.calendarAccount.update({
         where: { id },
         data: { syncToken: null, ctag: null, lastError: null },
       })
     })
 
-    secured.delete('/:id', async (req, reply) => {
-      const { id } = idParam.parse(req.params)
+    secured.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+      const { id } = req.params
       // The links go by cascade; the events stay put locally.
       await prisma.syncTombstone.deleteMany({ where: { accountId: id } })
       await prisma.calendarAccount.delete({ where: { id } })

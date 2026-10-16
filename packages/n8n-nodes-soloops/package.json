@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json && npm run icons",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsc -p tsconfig.json --watch",
-    "icons": "mkdir -p dist/nodes/Soloops && cp nodes/Soloops/*.svg dist/nodes/Soloops/"
+    "icons": "mkdir -p dist/nodes/Soloops && cp nodes/Soloops/*.svg dist/nodes/Soloops/",
+    "test": "tsx test/contract.test.ts"
   },
   "n8n": {
     "n8nNodesApiVersion": 1,

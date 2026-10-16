@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { idParam, linkParam } from '@soloops/shared'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -23,9 +24,6 @@ import {
  * later is the rest of a ticket — a board column, a client of its own, the
  * time booked against it and the commits that closed it.
  */
-
-const idParam = z.object({ id: z.string() })
-const linkParam = z.object({ id: z.string(), linkId: z.string() })
 
 /**
  * `z.coerce.boolean()` would read "false" as true — every non-empty string is
@@ -56,57 +54,69 @@ const providerAccess = () => ({
   gitlabHost: env.GITLAB_HOST,
 })
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z
-      .object({
-        open: boolParam.default('true'),
-        status: taskStatus.optional(),
-        projectId: z.string().optional(),
-        clientId: z.string().optional(),
-        meetingId: z.string().optional(),
-        leadId: z.string().optional(),
-        /** Only what is already overdue — the one filter worth a shortcut. */
-        overdue: boolParam.optional(),
-        q: z.string().optional(),
-        take: z.coerce.number().max(500).default(200),
-      })
-      .parse(req.query)
-    return listTasks(q)
-  })
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          open: boolParam.default('true'),
+          status: taskStatus.optional(),
+          projectId: z.string().optional(),
+          clientId: z.string().optional(),
+          meetingId: z.string().optional(),
+          leadId: z.string().optional(),
+          /** Only what is already overdue — the one filter worth a shortcut. */
+          overdue: boolParam.optional(),
+          q: z.string().optional(),
+          take: z.coerce.number().max(500).default(200),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+      return listTasks(q)
+    },
+  )
 
   /** One task with everything the detail panel shows. */
-  app.get('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return getTask(id)
   })
 
-  app.post('/', async (req, reply) => {
-    const data = itemInput.parse(req.body)
+  app.post('/', { schema: { body: itemInput } }, async (req, reply) => {
+    const data = req.body
     // Project, client and position are decided in one place for every caller
     // — see services/taskWrite.ts.
     const created = await createTask(data, taskIncludes)
     return reply.code(201).send({ ...created, trackedSec: 0 })
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const data = itemInput.partial().parse(req.body)
+  app.patch('/:id', { schema: { params: idParam, body: itemInput.partial() } }, async (req) => {
+    const { id } = req.params
+    const data = req.body
     return updateTask(id, data, (message) => app.log.warn(message))
   })
 
   /** A column after a drag: the ids in the order they now have. */
-  app.post('/order', async (req) => {
-    const body = z
-      .object({ column: z.enum(BOARD_COLUMNS), ids: z.array(z.string()).max(500) })
-      .parse(req.body)
-    return reorderColumn(body.column, body.ids, (message) => app.log.warn(message))
-  })
+  app.post(
+    '/order',
+    {
+      schema: {
+        body: z.object({ column: z.enum(BOARD_COLUMNS), ids: z.array(z.string()).max(500) }),
+      },
+    },
+    async (req) => {
+      const body = req.body
+      return reorderColumn(body.column, body.ids, (message) => app.log.warn(message))
+    },
+  )
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await deleteTask(id)
     return reply.code(204).send()
   })
@@ -122,63 +132,67 @@ const routes: FastifyPluginAsync = async (app) => {
    * a number — but a provider that is down or has no token must not keep the
    * link from being stored, so that part is best-effort.
    */
-  app.post('/:id/links', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
-    const { url } = z.object({ url: z.string().min(1) }).parse(req.body)
+  app.post(
+    '/:id/links',
+    { schema: { params: idParam, body: z.object({ url: z.string().min(1) }) } },
+    async (req, reply) => {
+      const { id } = req.params
+      const { url } = req.body
 
-    const parsed = parseTaskLink(url, env.GITLAB_HOST)
-    if (!parsed) {
-      return reply.code(422).send({
-        error: 'Kein erkennbarer Commit-, PR- oder Issue-Link (GitHub oder GitLab)',
+      const parsed = parseTaskLink(url, env.GITLAB_HOST)
+      if (!parsed) {
+        return reply.code(422).send({
+          error: 'Kein erkennbarer Commit-, PR- oder Issue-Link (GitHub oder GitLab)',
+        })
+      }
+
+      await prisma.actionItem.findUniqueOrThrow({ where: { id }, select: { id: true } })
+      const state = await readLinkState(parsed, providerAccess()).catch((err: Error) => {
+        app.log.warn(`[tasks] ${parsed.url}: ${err.message}`)
+        return null
       })
-    }
 
-    await prisma.actionItem.findUniqueOrThrow({ where: { id }, select: { id: true } })
-    const state = await readLinkState(parsed, providerAccess()).catch((err: Error) => {
-      app.log.warn(`[tasks] ${parsed.url}: ${err.message}`)
-      return null
-    })
+      // `owner/repo#12` is stored under the issues URL until the provider says
+      // it is a pull request. Without this the corrected row would join the
+      // guessed one instead of replacing it, and the task would show the same
+      // thing twice.
+      if (state?.url && state.url !== parsed.url) {
+        await prisma.taskLink.deleteMany({ where: { actionItemId: id, url: parsed.url } })
+      }
 
-    // `owner/repo#12` is stored under the issues URL until the provider says
-    // it is a pull request. Without this the corrected row would join the
-    // guessed one instead of replacing it, and the task would show the same
-    // thing twice.
-    if (state?.url && state.url !== parsed.url) {
-      await prisma.taskLink.deleteMany({ where: { actionItemId: id, url: parsed.url } })
-    }
-
-    const link = await prisma.taskLink.upsert({
-      where: { actionItemId_url: { actionItemId: id, url: state?.url ?? parsed.url } },
-      create: {
-        actionItemId: id,
-        provider: parsed.provider,
-        kind: state?.kind ?? parsed.kind,
-        repo: parsed.repo,
-        ref: parsed.ref,
-        url: state?.url ?? parsed.url,
-        title: state?.title ?? null,
-        state: state?.state ?? null,
-        author: state?.author ?? null,
-        mergedAt: state?.mergedAt ?? null,
-        checkedAt: state ? new Date() : null,
-      },
-      update: state
-        ? {
-            kind: state.kind ?? parsed.kind,
-            title: state.title,
-            state: state.state,
-            author: state.author,
-            mergedAt: state.mergedAt,
-            checkedAt: new Date(),
-          }
-        : {},
-    })
-    return reply.code(201).send(link)
-  })
+      const link = await prisma.taskLink.upsert({
+        where: { actionItemId_url: { actionItemId: id, url: state?.url ?? parsed.url } },
+        create: {
+          actionItemId: id,
+          provider: parsed.provider,
+          kind: state?.kind ?? parsed.kind,
+          repo: parsed.repo,
+          ref: parsed.ref,
+          url: state?.url ?? parsed.url,
+          title: state?.title ?? null,
+          state: state?.state ?? null,
+          author: state?.author ?? null,
+          mergedAt: state?.mergedAt ?? null,
+          checkedAt: state ? new Date() : null,
+        },
+        update: state
+          ? {
+              kind: state.kind ?? parsed.kind,
+              title: state.title,
+              state: state.state,
+              author: state.author,
+              mergedAt: state.mergedAt,
+              checkedAt: new Date(),
+            }
+          : {},
+      })
+      return reply.code(201).send(link)
+    },
+  )
 
   /** Re-read every link on a task — "is the PR merged by now". */
-  app.post('/:id/links/refresh', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.post('/:id/links/refresh', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     const links = await prisma.taskLink.findMany({ where: { actionItemId: id } })
 
     for (const link of links) {
@@ -209,8 +223,8 @@ const routes: FastifyPluginAsync = async (app) => {
     return prisma.taskLink.findMany({ where: { actionItemId: id }, orderBy: { createdAt: 'asc' } })
   })
 
-  app.delete('/:id/links/:linkId', async (req, reply) => {
-    const { id, linkId } = linkParam.parse(req.params)
+  app.delete('/:id/links/:linkId', { schema: { params: linkParam } }, async (req, reply) => {
+    const { id, linkId } = req.params
     await prisma.taskLink.delete({ where: { id: linkId, actionItemId: id } })
     return reply.code(204).send()
   })

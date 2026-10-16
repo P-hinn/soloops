@@ -1,9 +1,9 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { prisma } from '@soloops/core/db.js'
 import { pipelineSummary } from '@soloops/core/services/leads.js'
 import { listEventsInRange } from '@soloops/core/services/calendarRead.js'
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   /** One call, one picture: events, timer, operations, money, action items. */

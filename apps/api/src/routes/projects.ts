@@ -1,50 +1,52 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { projectInput, ProjectStatus } from '@soloops/shared'
+import { ProjectStatus, idParam, projectInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { digestQueue } from '@soloops/core/queue.js'
 import { buildProjectDigest } from '@soloops/core/ai/digest.js'
 import { env } from '@soloops/core/env.js'
 import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
-const idParam = z.object({ id: z.string() })
-
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z.object({ status: ProjectStatus.optional() }).parse(req.query)
-    const projects = await prisma.project.findMany({
-      where: q.status ? { status: q.status } : { status: { not: 'ARCHIVED' } },
-      orderBy: [{ status: 'asc' }, { name: 'asc' }],
-      include: {
-        client: { select: { id: true, name: true, company: true } },
-        _count: { select: { timeEntries: true, notes_: true, meetings: true } },
-      },
-    })
+  app.get(
+    '/',
+    { schema: { querystring: z.object({ status: ProjectStatus.optional() }) } },
+    async (req) => {
+      const q = req.query
+      const projects = await prisma.project.findMany({
+        where: q.status ? { status: q.status } : { status: { not: 'ARCHIVED' } },
+        orderBy: [{ status: 'asc' }, { name: 'asc' }],
+        include: {
+          client: { select: { id: true, name: true, company: true } },
+          _count: { select: { timeEntries: true, notes_: true, meetings: true } },
+        },
+      })
 
-    // Aggregated time per project in one query
-    const totals = await prisma.timeEntry.groupBy({
-      by: ['projectId'],
-      _sum: { durationSec: true },
-    })
-    const unbilled = await prisma.timeEntry.groupBy({
-      by: ['projectId'],
-      where: { billable: true, invoiceItemId: null, endedAt: { not: null } },
-      _sum: { durationSec: true },
-    })
-    const totalMap = new Map(totals.map((t) => [t.projectId, t._sum.durationSec ?? 0]))
-    const unbilledMap = new Map(unbilled.map((t) => [t.projectId, t._sum.durationSec ?? 0]))
+      // Aggregated time per project in one query
+      const totals = await prisma.timeEntry.groupBy({
+        by: ['projectId'],
+        _sum: { durationSec: true },
+      })
+      const unbilled = await prisma.timeEntry.groupBy({
+        by: ['projectId'],
+        where: { billable: true, invoiceItemId: null, endedAt: { not: null } },
+        _sum: { durationSec: true },
+      })
+      const totalMap = new Map(totals.map((t) => [t.projectId, t._sum.durationSec ?? 0]))
+      const unbilledMap = new Map(unbilled.map((t) => [t.projectId, t._sum.durationSec ?? 0]))
 
-    return projects.map((p) => ({
-      ...p,
-      trackedSec: totalMap.get(p.id) ?? 0,
-      unbilledSec: unbilledMap.get(p.id) ?? 0,
-    }))
-  })
+      return projects.map((p) => ({
+        ...p,
+        trackedSec: totalMap.get(p.id) ?? 0,
+        unbilledSec: unbilledMap.get(p.id) ?? 0,
+      }))
+    },
+  )
 
-  app.get('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
@@ -79,8 +81,8 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  app.post('/', async (req, reply) => {
-    const data = projectInput.parse(req.body)
+  app.post('/', { schema: { body: projectInput } }, async (req, reply) => {
+    const data = req.body
     const created = await prisma.project.create({
       data: {
         ...data,
@@ -104,9 +106,9 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(created)
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const data = projectInput.partial().parse(req.body)
+  app.patch('/:id', { schema: { params: idParam, body: projectInput.partial() } }, async (req) => {
+    const { id } = req.params
+    const data = req.body
     return prisma.project.update({
       where: { id },
       data: {
@@ -117,8 +119,8 @@ const routes: FastifyPluginAsync = async (app) => {
     })
   })
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await prisma.project.update({ where: { id }, data: { status: 'ARCHIVED' } })
     return reply.code(204).send()
   })
@@ -126,11 +128,11 @@ const routes: FastifyPluginAsync = async (app) => {
   // --- AI ------------------------------------------------------------------
 
   /** Build a digest right now (synchronously, so the UI has something). */
-  app.post('/:id/digest', async (req, reply) => {
+  app.post('/:id/digest', { schema: { params: idParam } }, async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY) {
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     }
-    const { id } = idParam.parse(req.params)
+    const { id } = req.params
     return buildProjectDigest(id)
   })
 
@@ -140,8 +142,8 @@ const routes: FastifyPluginAsync = async (app) => {
     return { queued: true }
   })
 
-  app.get('/:id/digests', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id/digests', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return prisma.aiDigest.findMany({
       where: { projectId: id },
       orderBy: { createdAt: 'desc' },

@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { dbRaw, prisma } from '@soloops/core/db.js'
 import { encodeRow } from '@soloops/core/services/syncCodec.js'
@@ -50,7 +51,7 @@ const opSchema = z.object({
   patch: z.unknown().optional(),
 })
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   // --- Pairing, from the web UI -------------------------------------------
   // These two are the owner's, so they use the normal authentication.
 
@@ -81,41 +82,51 @@ const routes: FastifyPluginAsync = async (app) => {
     return { host: hostDevice(), port: env.PORT, addresses: lanAddresses(), devices, ops: pending }
   })
 
-  app.post('/devices/:id/revoke', { onRequest: app.authenticate }, async (req) => {
-    const { id } = z.object({ id: z.string() }).parse(req.params)
-    // Revoked, not deleted: the op log keeps pointing at this id, and a
-    // revoked device has to stay distinguishable from one that never was.
-    return dbRaw.syncDevice.update({
-      where: { id },
-      data: { revokedAt: new Date(), tokenHash: null },
-      select: { id: true, name: true, revokedAt: true },
-    })
-  })
+  app.post(
+    '/devices/:id/revoke',
+    { onRequest: app.authenticate, schema: { params: z.object({ id: z.string() }) } },
+    async (req) => {
+      const { id } = req.params
+      // Revoked, not deleted: the op log keeps pointing at this id, and a
+      // revoked device has to stay distinguishable from one that never was.
+      return dbRaw.syncDevice.update({
+        where: { id },
+        data: { revokedAt: new Date(), tokenHash: null },
+        select: { id: true, name: true, revokedAt: true },
+      })
+    },
+  )
 
   // --- Claiming a code, from the phone ------------------------------------
   // The one route here without authentication. It is what pairing *is*: the
   // device has no credential yet. The code is single-use and short-lived —
   // see services/syncPairing.ts.
 
-  app.post('/pair/claim', async (req, reply) => {
-    const body = z
-      .object({
-        code: z.string().min(1).max(32),
-        name: z.string().min(1).max(80),
-        platform: z.enum(['ios', 'macos']),
+  app.post(
+    '/pair/claim',
+    {
+      schema: {
+        body: z.object({
+          code: z.string().min(1).max(32),
+          name: z.string().min(1).max(80),
+          platform: z.enum(['ios', 'macos']),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const body = req.body
+
+      const result = await claimPairing(body)
+      if (!result.ok) return reply.code(401).send({ error: result.reason })
+
+      return reply.code(201).send({
+        deviceId: result.deviceId,
+        token: result.token,
+        name: result.name,
+        host: hostDevice(),
       })
-      .parse(req.body)
-
-    const result = await claimPairing(body)
-    if (!result.ok) return reply.code(401).send({ error: result.reason })
-
-    return reply.code(201).send({
-      deviceId: result.deviceId,
-      token: result.token,
-      name: result.name,
-      host: hostDevice(),
-    })
-  })
+    },
+  )
 
   // --- Device-authenticated routes ----------------------------------------
 
@@ -175,17 +186,24 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   }
 
-  app.post('/pull', { onRequest: requireDevice }, async (req) => {
-    const device = deviceOf(req)
-    const body = z
-      .object({
-        cursor: z.string().default(''),
-        limit: z.number().int().min(1).max(MAX_PULL).default(MAX_PULL),
-      })
-      .parse(req.body ?? {})
+  app.post(
+    '/pull',
+    {
+      onRequest: requireDevice,
+      schema: {
+        body: z.object({
+          cursor: z.string().default(''),
+          limit: z.number().int().min(1).max(MAX_PULL).default(MAX_PULL),
+        }),
+      },
+    },
+    async (req) => {
+      const device = deviceOf(req)
+      const body = req.body
 
-    return doPull(device.id, body.cursor, body.limit)
-  })
+      return doPull(device.id, body.cursor, body.limit)
+    },
+  )
 
   /**
    * Changes made on the device.
@@ -222,18 +240,25 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   }
 
-  app.post('/push', { onRequest: requireDevice }, async (req) => {
-    const device = deviceOf(req)
-    const body = z
-      .object({
-        ops: z.array(opSchema).max(MAX_PUSH),
-        /** What the device has consumed. Stored once it says so. */
-        cursor: z.string().optional(),
-      })
-      .parse(req.body)
+  app.post(
+    '/push',
+    {
+      onRequest: requireDevice,
+      schema: {
+        body: z.object({
+          ops: z.array(opSchema).max(MAX_PUSH),
+          /** What the device has consumed. Stored once it says so. */
+          cursor: z.string().optional(),
+        }),
+      },
+    },
+    async (req) => {
+      const device = deviceOf(req)
+      const body = req.body
 
-    return doPush(device.id, body.ops, body.cursor)
-  })
+      return doPush(device.id, body.ops, body.cursor)
+    },
+  )
 
   // --- The iCloud relay ---------------------------------------------------
   //
@@ -251,35 +276,49 @@ const routes: FastifyPluginAsync = async (app) => {
     return { devices: await relayableDevices() }
   })
 
-  app.post('/relay/pull', { onRequest: app.authenticate }, async (req, reply) => {
-    const body = z
-      .object({
-        deviceId: z.string().min(1),
-        cursor: z.string().default(''),
-        limit: z.number().int().min(1).max(MAX_PULL).default(MAX_PULL),
-      })
-      .parse(req.body)
+  app.post(
+    '/relay/pull',
+    {
+      onRequest: app.authenticate,
+      schema: {
+        body: z.object({
+          deviceId: z.string().min(1),
+          cursor: z.string().default(''),
+          limit: z.number().int().min(1).max(MAX_PULL).default(MAX_PULL),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const body = req.body
 
-    const device = await knownDevice(body.deviceId)
-    if (!device) return reply.code(404).send({ error: 'Gerät unbekannt oder widerrufen' })
+      const device = await knownDevice(body.deviceId)
+      if (!device) return reply.code(404).send({ error: 'Gerät unbekannt oder widerrufen' })
 
-    return doPull(device.id, body.cursor, body.limit)
-  })
+      return doPull(device.id, body.cursor, body.limit)
+    },
+  )
 
-  app.post('/relay/push', { onRequest: app.authenticate }, async (req, reply) => {
-    const body = z
-      .object({
-        deviceId: z.string().min(1),
-        ops: z.array(opSchema).max(MAX_PUSH),
-        cursor: z.string().optional(),
-      })
-      .parse(req.body)
+  app.post(
+    '/relay/push',
+    {
+      onRequest: app.authenticate,
+      schema: {
+        body: z.object({
+          deviceId: z.string().min(1),
+          ops: z.array(opSchema).max(MAX_PUSH),
+          cursor: z.string().optional(),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const body = req.body
 
-    const device = await knownDevice(body.deviceId)
-    if (!device) return reply.code(404).send({ error: 'Gerät unbekannt oder widerrufen' })
+      const device = await knownDevice(body.deviceId)
+      if (!device) return reply.code(404).send({ error: 'Gerät unbekannt oder widerrufen' })
 
-    return doPush(device.id, body.ops, body.cursor)
-  })
+      return doPush(device.id, body.ops, body.cursor)
+    },
+  )
 
   /**
    * Everything, for a device that has never synced.

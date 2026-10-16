@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -39,7 +39,7 @@ async function setFlag(key: string, value: boolean): Promise<void> {
   })
 }
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/', async () => {
@@ -177,17 +177,25 @@ const routes: FastifyPluginAsync = async (app) => {
     }
   })
 
-  app.post('/dismiss', async (req) => {
-    const body = z.object({ dismissed: z.boolean().default(true) }).parse(req.body ?? {})
-    await setFlag(SETTING_DISMISSED, body.dismissed)
-    return { dismissed: body.dismissed }
-  })
+  app.post(
+    '/dismiss',
+    { schema: { body: z.object({ dismissed: z.boolean().default(true) }) } },
+    async (req) => {
+      const body = req.body
+      await setFlag(SETTING_DISMISSED, body.dismissed)
+      return { dismissed: body.dismissed }
+    },
+  )
 
-  app.post('/tour-seen', async (req) => {
-    const body = z.object({ seen: z.boolean().default(true) }).parse(req.body ?? {})
-    await setFlag(SETTING_TOUR_SEEN, body.seen)
-    return { tourSeen: body.seen }
-  })
+  app.post(
+    '/tour-seen',
+    { schema: { body: z.object({ seen: z.boolean().default(true) }) } },
+    async (req) => {
+      const body = req.body
+      await setFlag(SETTING_TOUR_SEEN, body.seen)
+      return { tourSeen: body.seen }
+    },
+  )
 }
 
 export default routes

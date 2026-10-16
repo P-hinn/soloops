@@ -33,6 +33,17 @@ rather than merely exists. The desktop app uses the same token for its activity
 samples, so both name themselves in an `X-Soloops-Client` header and are
 counted apart.
 
+## The tools and the API cannot drift apart
+
+Every tool is held against the endpoint it calls. `apps/mcp/test/contract.test.ts`
+calls each of the 81 tools once with values made up from its own schema,
+intercepts the request, and checks the path, the method, every field it sends
+and every field the endpoint requires against
+[`docs/openapi.json`](openapi.json). Nothing in that test is hand-maintained,
+so a renamed field fails there instead of in a conversation.
+
+Run `npm run openapi` after changing a route, then `npm test`.
+
 ## Tools
 
 | Area        | Tools                                                                                                                                                                                                                                                                                                                                                                               |

@@ -14,7 +14,7 @@
     "db:studio": "prisma studio --schema prisma/schema.prisma",
     "seed": "tsx prisma/seed.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "tsx test/recurrence.test.ts && tsx test/sales.test.ts && tsx test/activity.test.ts && tsx test/sync.test.ts && tsx test/automations.test.ts && tsx test/tasks.test.ts && tsx test/taskLinkState.test.ts && tsx test/timeNarrative.test.ts && tsx test/repoCommitRead.test.ts && tsx test/contracts.test.ts && tsx test/contacts.test.ts && tsx test/invoices.test.ts",
+    "test": "tsx test/recurrence.test.ts && tsx test/sales.test.ts && tsx test/activity.test.ts && tsx test/sync.test.ts && tsx test/automations.test.ts && tsx test/tasks.test.ts && tsx test/taskLinkState.test.ts && tsx test/timeNarrative.test.ts && tsx test/repoCommitRead.test.ts && tsx test/contracts.test.ts && tsx test/contacts.test.ts && tsx test/invoices.test.ts && tsx test/schemaParity.test.ts",
     "test:sync": "tsx test/sync.integration.ts",
     "test:invoices": "tsx test/invoices.integration.ts",
     "sync:registry": "tsx scripts/exportSyncRegistry.ts"

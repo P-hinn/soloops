@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -72,19 +72,19 @@ async function freeProjectKey(wanted: string): Promise<string> {
   return key
 }
 
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.post('/plan', async (req, reply) => {
+  app.post('/plan', { schema: { body: planInput } }, async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY) {
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     }
-    const { text } = planInput.parse(req.body)
+    const { text } = req.body
     return planFromText(text)
   })
 
-  app.post('/apply', async (req, reply) => {
-    const plan = applyInput.parse(req.body)
+  app.post('/apply', { schema: { body: applyInput } }, async (req, reply) => {
+    const plan = req.body
 
     const created: {
       clientId?: string

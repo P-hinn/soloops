@@ -1,6 +1,14 @@
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
+import swagger from '@fastify/swagger'
+import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod'
 import { ZodError } from 'zod'
 import { Prisma } from '@prisma/client'
 
@@ -41,8 +49,35 @@ const app = Fastify({
   bodyLimit: 25 * 1024 * 1024,
 })
 
+// Zod validates and serialises, and the same schemas describe the API — see
+// `npm run openapi`. Set before any route is registered.
+app.setValidatorCompiler(validatorCompiler)
+app.setSerializerCompiler(serializerCompiler)
+
 await app.register(cors, { origin: true, credentials: true })
 await app.register(jwt, { secret: env.JWT_SECRET, sign: { expiresIn: '30d' } })
+await app.register(swagger, {
+  openapi: {
+    info: {
+      title: 'soloops',
+      description:
+        'Das eigene Betriebssystem für die Solo-Selbstständigkeit. Ein Besitzer, ein Token.',
+      version: process.env.npm_package_version ?? '0.1.0',
+    },
+    servers: [{ url: `http://localhost:${env.PORT}` }],
+    components: {
+      securitySchemes: {
+        bearer: {
+          type: 'http',
+          scheme: 'bearer',
+          description: 'JWT aus /api/auth/login oder der SERVICE_TOKEN aus der .env',
+        },
+      },
+    },
+    security: [{ bearer: [] }],
+  },
+  transform: jsonSchemaTransform,
+})
 
 registerAuth(app)
 
@@ -52,8 +87,39 @@ app.setErrorHandler((error: FastifyError, _req: FastifyRequest, reply: FastifyRe
   if (error instanceof RuleError) {
     return reply.code(error.status).send({ error: error.message })
   }
+  // Validation, from either direction: a schema on the route, or a `.parse()`
+  // inside a handler. Both answer 422 with the issues — the shape the
+  // interface has always read, and the reason Fastify's own 400 is not let
+  // through here.
+  if (hasZodFastifySchemaValidationErrors(error)) {
+    return reply.code(422).send({
+      error: 'Validierung fehlgeschlagen',
+      // The library hands the original Zod issue through under
+      // `params.issue`, typed as unknown. Narrowed here rather than cast
+      // blindly, so a changed shape shows up as a missing field and not as a
+      // crash inside the error handler.
+      issues: error.validation.map((entry) => {
+        const issue = entry.params?.issue as
+          { path?: unknown; message?: string; code?: string } | undefined
+        return {
+          path: issue?.path ?? [],
+          message: issue?.message ?? entry.message ?? 'ungültig',
+          code: issue?.code ?? 'invalid',
+        }
+      }),
+    })
+  }
   if (error instanceof ZodError) {
     return reply.code(422).send({ error: 'Validierung fehlgeschlagen', issues: error.issues })
+  }
+  // A response that does not match its own schema is our bug, not the
+  // caller's. It must not read as a client error.
+  if (isResponseSerializationError(error)) {
+    app.log.error(
+      { err: error, route: error.method + ' ' + error.url },
+      'Antwort passt nicht zum Schema',
+    )
+    return reply.code(500).send({ error: 'Interner Fehler' })
   }
   // Prisma error messages carry the query and server paths — none of that
   // belongs in the frontend. The two cases that come up in practice get a
@@ -110,14 +176,20 @@ await app.register(automationConnectorRoutes, { prefix: '/api/automations/connec
 await app.register(contractRoutes, { prefix: '/api/contracts' })
 await app.register(syncRoutes, { prefix: '/api/sync' })
 
-await ensureSearchIndexes()
+// Writing the API description needs the routes and nothing else — no
+// database, no port. See scripts/openapi.ts.
+if (!process.env.SOLOOPS_OPENAPI) {
+  await ensureSearchIndexes()
 
-// The op log needs its device identity before the first write is served.
-const { deviceId } = await initSync('api')
-app.log.info(`Sync-Geraet ${deviceId}`)
+  // The op log needs its device identity before the first write is served.
+  const { deviceId } = await initSync('api')
+  app.log.info(`Sync-Geraet ${deviceId}`)
 
-await app.listen({ port: env.PORT, host: '0.0.0.0' })
-app.log.info(`soloops API auf :${env.PORT}`)
+  await app.listen({ port: env.PORT, host: '0.0.0.0' })
+  app.log.info(`soloops API auf :${env.PORT}`)
+}
+
+export { app }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {

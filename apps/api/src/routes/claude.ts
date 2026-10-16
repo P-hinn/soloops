@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { prisma } from '@soloops/core/db.js'
 
 /**
@@ -9,7 +9,7 @@ import { prisma } from '@soloops/core/db.js'
  * does know is whether Claude has actually been here: every call from the MCP
  * server passes through `authenticate` and leaves a timestamp.
  */
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/status', async () => {

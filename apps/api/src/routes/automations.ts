@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { idParam } from '@soloops/shared'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
@@ -25,8 +26,6 @@ import {
   setWorkflowActive,
 } from '@soloops/core/services/n8n.js'
 
-const idParam = z.object({ id: z.string() })
-
 const automationEvent = z.enum([
   'LEAD_CREATED',
   'LEAD_STAGE_CHANGED',
@@ -47,7 +46,7 @@ const automationEvent = z.enum([
  * itself a second token or reading the delivery log. The workflows' own
  * surface is routes/automationConnector.ts.
  */
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   /** n8n errors carry a status worth passing on — 503 for "no key" especially. */
@@ -97,17 +96,21 @@ const routes: FastifyPluginAsync = async (app) => {
    * checked before it is kept: a key that does not work is a worse state than
    * no key, because the view would claim to be configured.
    */
-  app.post('/api-key', async (req, reply) => {
-    const body = z.object({ apiKey: z.string().min(10) }).parse(req.body)
-    const previous = await getApiKey()
-    await setApiKey(body.apiKey)
-    const state = await probe()
-    if (!state.authorized) {
-      await setApiKey(previous)
-      return reply.code(400).send({ error: state.error ?? 'n8n hat den Key nicht akzeptiert' })
-    }
-    return { ok: true, ...state }
-  })
+  app.post(
+    '/api-key',
+    { schema: { body: z.object({ apiKey: z.string().min(10) }) } },
+    async (req, reply) => {
+      const body = req.body
+      const previous = await getApiKey()
+      await setApiKey(body.apiKey)
+      const state = await probe()
+      if (!state.authorized) {
+        await setApiKey(previous)
+        return reply.code(400).send({ error: state.error ?? 'n8n hat den Key nicht akzeptiert' })
+      }
+      return { ok: true, ...state }
+    },
+  )
 
   app.delete('/api-key', async () => {
     await setApiKey(null)
@@ -123,15 +126,17 @@ const routes: FastifyPluginAsync = async (app) => {
    * that do not work are a worse state than none, because the interface would
    * then promise a sign-in it cannot deliver.
    */
-  app.post('/login', async (req) => {
-    const body = z
-      .object({ email: z.string().email(), password: z.string().min(1) })
-      .parse(req.body)
-    // Throws with n8n's own wording when the password is wrong or MFA is on.
-    await openSession(body)
-    await setLogin(body)
-    return { ok: true, email: body.email }
-  })
+  app.post(
+    '/login',
+    { schema: { body: z.object({ email: z.string().email(), password: z.string().min(1) }) } },
+    async (req) => {
+      const body = req.body
+      // Throws with n8n's own wording when the password is wrong or MFA is on.
+      await openSession(body)
+      await setLogin(body)
+      return { ok: true, email: body.email }
+    },
+  )
 
   app.delete('/login', async () => {
     await setLogin(null)
@@ -199,30 +204,38 @@ const routes: FastifyPluginAsync = async (app) => {
   })
 
   /** Assigning a flow to a project — the one thing n8n has no concept of. */
-  app.patch('/flows/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const body = z.object({ projectId: z.string().nullable() }).parse(req.body)
-    return prisma.automationFlow.update({ where: { id }, data: { projectId: body.projectId } })
-  })
+  app.patch(
+    '/flows/:id',
+    { schema: { params: idParam, body: z.object({ projectId: z.string().nullable() }) } },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+      return prisma.automationFlow.update({ where: { id }, data: { projectId: body.projectId } })
+    },
+  )
 
   /** On and off. Decided in n8n, then mirrored — not the other way round. */
-  app.post('/flows/:id/active', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const body = z.object({ active: z.boolean() }).parse(req.body)
-    const flow = await prisma.automationFlow.findUniqueOrThrow({ where: { id } })
-    const updated = await setWorkflowActive(flow.n8nId, body.active)
-    return prisma.automationFlow.update({
-      where: { id },
-      data: { active: updated.active ?? body.active },
-    })
-  })
+  app.post(
+    '/flows/:id/active',
+    { schema: { params: idParam, body: z.object({ active: z.boolean() }) } },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+      const flow = await prisma.automationFlow.findUniqueOrThrow({ where: { id } })
+      const updated = await setWorkflowActive(flow.n8nId, body.active)
+      return prisma.automationFlow.update({
+        where: { id },
+        data: { active: updated.active ?? body.active },
+      })
+    },
+  )
 
   /**
    * Delete in n8n and here. A workflow already gone from n8n is not an error —
    * the point of the call was to be rid of it.
    */
-  app.delete('/flows/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/flows/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     const flow = await prisma.automationFlow.findUniqueOrThrow({ where: { id } })
     try {
       await deleteWorkflow(flow.n8nId)
@@ -236,24 +249,30 @@ const routes: FastifyPluginAsync = async (app) => {
   // --- Runs ----------------------------------------------------------------
 
   /** The monitoring feed: every run across every flow, newest first. */
-  app.get('/runs', async (req) => {
-    const q = z
-      .object({
-        take: z.coerce.number().max(200).default(50),
-        status: z
-          .enum(['NEW', 'RUNNING', 'WAITING', 'SUCCESS', 'ERROR', 'CANCELED', 'UNKNOWN'])
-          .optional(),
-        flowId: z.string().optional(),
-      })
-      .parse(req.query)
+  app.get(
+    '/runs',
+    {
+      schema: {
+        querystring: z.object({
+          take: z.coerce.number().max(200).default(50),
+          status: z
+            .enum(['NEW', 'RUNNING', 'WAITING', 'SUCCESS', 'ERROR', 'CANCELED', 'UNKNOWN'])
+            .optional(),
+          flowId: z.string().optional(),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
 
-    return prisma.automationRun.findMany({
-      where: { status: q.status, flowId: q.flowId },
-      orderBy: { startedAt: 'desc' },
-      take: q.take,
-      include: { flow: { select: { id: true, name: true, n8nId: true } } },
-    })
-  })
+      return prisma.automationRun.findMany({
+        where: { status: q.status, flowId: q.flowId },
+        orderBy: { startedAt: 'desc' },
+        take: q.take,
+        include: { flow: { select: { id: true, name: true, n8nId: true } } },
+      })
+    },
+  )
 
   app.post('/sync', async () => syncAutomations())
 
@@ -266,14 +285,21 @@ const routes: FastifyPluginAsync = async (app) => {
    * picked by hand, and a template that switched itself on would run with a
    * blank one.
    */
-  app.post('/templates/:slug/import', async (req) => {
-    const { slug } = z.object({ slug: z.string() }).parse(req.params)
-    const body = z
-      .object({ projectId: z.string().nullish(), name: z.string().optional() })
-      .parse(req.body ?? {})
-    const { flow, n8nId } = await importTemplate(slug, body)
-    return { flow, editorUrl: editorUrl(n8nId) }
-  })
+  app.post(
+    '/templates/:slug/import',
+    {
+      schema: {
+        params: z.object({ slug: z.string() }),
+        body: z.object({ projectId: z.string().nullish(), name: z.string().optional() }),
+      },
+    },
+    async (req) => {
+      const { slug } = req.params
+      const body = req.body
+      const { flow, n8nId } = await importTemplate(slug, body)
+      return { flow, editorUrl: editorUrl(n8nId) }
+    },
+  )
 
   // --- Triggers (soloops -> n8n) -------------------------------------------
 
@@ -301,45 +327,58 @@ const routes: FastifyPluginAsync = async (app) => {
     }))
   })
 
-  app.patch('/triggers/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const body = z
-      .object({ enabled: z.boolean().optional(), projectId: z.string().nullish() })
-      .parse(req.body)
-    return prisma.automationTrigger.update({
-      where: { id },
-      data: {
-        ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
-        ...(body.projectId === undefined ? {} : { projectId: body.projectId }),
-        // Switching one back on is also forgiving its history, otherwise the
-        // next single failure trips the limit again.
-        ...(body.enabled ? { failStreak: 0, lastError: null } : {}),
+  app.patch(
+    '/triggers/:id',
+    {
+      schema: {
+        params: idParam,
+        body: z.object({ enabled: z.boolean().optional(), projectId: z.string().nullish() }),
       },
-    })
-  })
+    },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+      return prisma.automationTrigger.update({
+        where: { id },
+        data: {
+          ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
+          ...(body.projectId === undefined ? {} : { projectId: body.projectId }),
+          // Switching one back on is also forgiving its history, otherwise the
+          // next single failure trips the limit again.
+          ...(body.enabled ? { failStreak: 0, lastError: null } : {}),
+        },
+      })
+    },
+  )
 
-  app.delete('/triggers/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/triggers/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     await prisma.automationTrigger.delete({ where: { id } })
     return { ok: true }
   })
 
   /** Every outbound attempt — what makes a silently dead webhook visible. */
-  app.get('/deliveries', async (req) => {
-    const q = z
-      .object({
-        take: z.coerce.number().max(200).default(50),
-        triggerId: z.string().optional(),
-        failedOnly: z.coerce.boolean().optional(),
+  app.get(
+    '/deliveries',
+    {
+      schema: {
+        querystring: z.object({
+          take: z.coerce.number().max(200).default(50),
+          triggerId: z.string().optional(),
+          failedOnly: z.coerce.boolean().optional(),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+      return prisma.automationDelivery.findMany({
+        where: { triggerId: q.triggerId, ...(q.failedOnly ? { ok: false } : {}) },
+        orderBy: { at: 'desc' },
+        take: q.take,
+        include: { trigger: { select: { id: true, event: true, webhookUrl: true } } },
       })
-      .parse(req.query)
-    return prisma.automationDelivery.findMany({
-      where: { triggerId: q.triggerId, ...(q.failedOnly ? { ok: false } : {}) },
-      orderBy: { at: 'desc' },
-      take: q.take,
-      include: { trigger: { select: { id: true, event: true, webhookUrl: true } } },
-    })
-  })
+    },
+  )
 
   // --- Tokens (n8n -> soloops) --------------------------------------------
 
@@ -367,28 +406,34 @@ const routes: FastifyPluginAsync = async (app) => {
    * Mint one. The token itself is in this response and nowhere else — only
    * its hash is stored, so a lost one is replaced rather than recovered.
    */
-  app.post('/tokens', async (req) => {
-    const body = z
-      .object({
-        name: z.string().min(1),
-        scopes: z.array(z.enum(['read', 'write'])).default(['read', 'write']),
-      })
-      .parse(req.body)
-    const created = await createToken(body.name, body.scopes)
-    return {
-      ...created,
-      baseUrl: `http://api:${env.PORT}`,
-      note: 'Dieser Token wird nur jetzt angezeigt.',
-    }
-  })
+  app.post(
+    '/tokens',
+    {
+      schema: {
+        body: z.object({
+          name: z.string().min(1),
+          scopes: z.array(z.enum(['read', 'write'])).default(['read', 'write']),
+        }),
+      },
+    },
+    async (req) => {
+      const body = req.body
+      const created = await createToken(body.name, body.scopes)
+      return {
+        ...created,
+        baseUrl: `http://api:${env.PORT}`,
+        note: 'Dieser Token wird nur jetzt angezeigt.',
+      }
+    },
+  )
 
   /**
    * Revoked, not deleted. The row keeps proving that this prefix was once a
    * real token, which is the difference between "revoked" and "never existed"
    * when something starts failing.
    */
-  app.post('/tokens/:id/revoke', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.post('/tokens/:id/revoke', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return prisma.automationToken.update({
       where: { id },
       data: { revokedAt: new Date() },
@@ -396,8 +441,8 @@ const routes: FastifyPluginAsync = async (app) => {
     })
   })
 
-  app.delete('/tokens/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/tokens/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     await prisma.automationToken.delete({ where: { id } })
     return { ok: true }
   })

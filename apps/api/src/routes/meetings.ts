@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { meetingInput } from '@soloops/shared'
+import { idParam, meetingInput } from '@soloops/shared'
 import { env } from '@soloops/core/env.js'
 import { summarizeMeeting } from '@soloops/core/ai/digest.js'
 import {
@@ -13,69 +13,83 @@ import {
   updateMeeting,
 } from '@soloops/core/services/meetings.js'
 
-const idParam = z.object({ id: z.string() })
-
-const routes: FastifyPluginAsync = async (app) => {
+const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
-  app.get('/', async (req) => {
-    const q = z
-      .object({
-        projectId: z.string().optional(),
-        from: z.string().optional(),
-        take: z.coerce.number().max(200).default(50),
-      })
-      .parse(req.query)
-    return listMeetings(q)
-  })
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          projectId: z.string().optional(),
+          from: z.string().optional(),
+          take: z.coerce.number().max(200).default(50),
+        }),
+      },
+    },
+    async (req) => {
+      const q = req.query
+      return listMeetings(q)
+    },
+  )
 
-  app.get('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
+  app.get('/:id', { schema: { params: idParam } }, async (req) => {
+    const { id } = req.params
     return getMeeting(id)
   })
 
-  app.post('/', async (req, reply) => {
-    const data = meetingInput.parse(req.body)
+  app.post('/', { schema: { body: meetingInput } }, async (req, reply) => {
+    const data = req.body
     return reply.code(201).send(await createMeeting(data))
   })
 
-  app.patch('/:id', async (req) => {
-    const { id } = idParam.parse(req.params)
-    return updateMeeting(id, meetingInput.partial().parse(req.body))
-  })
+  app.patch('/:id', { schema: { params: idParam, body: meetingInput.partial() } }, async (req) =>
+    updateMeeting(req.params.id, req.body),
+  )
 
-  app.delete('/:id', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
+  app.delete('/:id', { schema: { params: idParam } }, async (req, reply) => {
+    const { id } = req.params
     await deleteMeeting(id)
     return reply.code(204).send()
   })
 
   /** Create or replace the video room after the fact. */
-  app.post('/:id/video', async (req) => {
-    const { id } = idParam.parse(req.params)
-    const body = z.object({ url: z.string().url().optional() }).parse(req.body ?? {})
-    return setMeetingVideo(id, body.url)
-  })
+  app.post(
+    '/:id/video',
+    { schema: { params: idParam, body: z.object({ url: z.string().url().optional() }) } },
+    async (req) => {
+      const { id } = req.params
+      const body = req.body
+      return setMeetingVideo(id, body.url)
+    },
+  )
 
   /** AI summary + action items from the transcript. */
-  app.post('/:id/summarize', async (req, reply) => {
+  app.post('/:id/summarize', { schema: { params: idParam } }, async (req, reply) => {
     if (!env.ANTHROPIC_API_KEY)
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
-    const { id } = idParam.parse(req.params)
+    const { id } = req.params
     return summarizeMeeting(id)
   })
 
-  app.post('/:id/action-items', async (req, reply) => {
-    const { id } = idParam.parse(req.params)
-    const body = z
-      .object({
-        title: z.string().min(1),
-        dueOn: z.string().nullish(),
-        assignee: z.string().nullish(),
-      })
-      .parse(req.body)
-    return reply.code(201).send(await addMeetingActionItem(id, body))
-  })
+  app.post(
+    '/:id/action-items',
+    {
+      schema: {
+        params: idParam,
+        body: z.object({
+          title: z.string().min(1),
+          dueOn: z.string().nullish(),
+          assignee: z.string().nullish(),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params
+      const body = req.body
+      return reply.code(201).send(await addMeetingActionItem(id, body))
+    },
+  )
 }
 
 export default routes
