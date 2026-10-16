@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client'
 import type { InvoiceStatus } from '@prisma/client'
 import { secondsToBillableHours } from '@soloops/shared'
 import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { invoiceDefaults } from '../settings.js'
 import { conflict, invalid, notFound } from '../rules.js'
 
 /** `RE-2026-0007` — fixed width, so the text sorts by number. */
@@ -153,9 +153,10 @@ export type CreateInvoice = {
 
 export async function createInvoice(data: CreateInvoice) {
   const client = await prisma.client.findUniqueOrThrow({ where: { id: data.clientId } })
+  const defaults = await invoiceDefaults()
 
-  const smallBusiness = data.smallBusiness ?? env.INVOICE_SMALL_BUSINESS
-  const taxRate = data.taxRate ?? env.INVOICE_DEFAULT_TAX_RATE
+  const smallBusiness = data.smallBusiness ?? defaults.smallBusiness
+  const taxRate = data.taxRate ?? defaults.taxRate
   const issueDate = data.issueDate ? new Date(data.issueDate) : new Date()
   const dueDate = data.dueDate
     ? new Date(data.dueDate)
@@ -169,7 +170,7 @@ export async function createInvoice(data: CreateInvoice) {
   return prisma.$transaction(async (tx) =>
     tx.invoice.create({
       data: {
-        number: await nextInvoiceNumber(tx, env.INVOICE_NUMBER_PREFIX, issueDate.getFullYear()),
+        number: await nextInvoiceNumber(tx, defaults.numberPrefix, issueDate.getFullYear()),
         clientId: data.clientId,
         projectId: data.projectId ?? null,
         issueDate,
@@ -205,6 +206,7 @@ export type FromTime = {
  */
 export async function invoiceFromTime(data: FromTime) {
   const client = await prisma.client.findUniqueOrThrow({ where: { id: data.clientId } })
+  const defaults = await invoiceDefaults()
 
   const entries = await prisma.timeEntry.findMany({
     where: {
@@ -232,7 +234,7 @@ export async function invoiceFromTime(data: FromTime) {
     }
     for (const [, list] of byProject) {
       const seconds = list.reduce((s, e) => s + e.durationSec, 0)
-      const rate = list[0]?.rateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
+      const rate = list[0]?.rateCents ?? defaults.hourlyRateCents
       const project = list[0]?.project
       // The typed text first, the commits of that window second: a line item
       // without a service description is a line item that gets asked about.
@@ -258,21 +260,21 @@ export async function invoiceFromTime(data: FromTime) {
         description: `${e.project.key}: ${e.description || e.autoSummary || 'Leistung'} (${e.startedAt.toLocaleDateString('de-DE')})`,
         quantity: secondsToBillableHours(e.durationSec),
         unit: 'Std.',
-        unitPriceCents: e.rateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS,
+        unitPriceCents: e.rateCents ?? defaults.hourlyRateCents,
         timeEntryIds: [e.id],
       })
     }
   }
 
-  const smallBusiness = env.INVOICE_SMALL_BUSINESS
-  const sums = totals(drafts, env.INVOICE_DEFAULT_TAX_RATE, smallBusiness)
+  const smallBusiness = defaults.smallBusiness
+  const sums = totals(drafts, defaults.taxRate, smallBusiness)
   const issueDate = new Date()
   const dueDate = new Date(issueDate.getTime() + client.paymentTermDays * 86_400_000)
 
   return prisma.$transaction(async (tx) => {
     const created = await tx.invoice.create({
       data: {
-        number: await nextInvoiceNumber(tx, env.INVOICE_NUMBER_PREFIX, issueDate.getFullYear()),
+        number: await nextInvoiceNumber(tx, defaults.numberPrefix, issueDate.getFullYear()),
         clientId: data.clientId,
         projectId: data.projectId ?? null,
         issueDate,

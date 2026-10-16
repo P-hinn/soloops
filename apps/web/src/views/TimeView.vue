@@ -24,7 +24,8 @@ type Entry = {
   rateCents: number | null
   invoiceItemId: string | null
   project: { id: string; key: string; name: string; color: string }
-  commits: Commit[]
+  /** Absent when the entry was fetched without them. */
+  commits?: Commit[]
 }
 type Project = { id: string; key: string; name: string }
 type Report = {
@@ -228,11 +229,11 @@ onMounted(async () => {
                 <span v-else-if="e.autoSummary" class="text-soft">{{ e.autoSummary }}</span>
                 <span v-else>—</span>
                 <span
-                  v-if="e.commits.length"
+                  v-if="e.commits?.length"
                   class="ml-1 badge badge-blue"
-                  :title="e.commits.map((c) => c.subject).join('\n')"
+                  :title="(e.commits ?? []).map((c) => c.subject).join('\n')"
                 >
-                  {{ e.commits.length }} Commit{{ e.commits.length === 1 ? '' : 's' }}
+                  {{ e.commits!.length }} Commit{{ e.commits!.length === 1 ? '' : 's' }}
                 </span>
                 <span v-if="e.invoiceItemId" class="ml-1 badge bg-paper-2 text-muted"
                   >fakturiert</span

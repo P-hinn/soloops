@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit'
-import { env } from '../env.js'
+import { companyDetails } from '../settings.js'
 
 type PdfInvoice = {
   number: string
@@ -39,6 +39,10 @@ const date = (d: Date) => d.toLocaleDateString('de-DE')
 
 /** A layout close to DIN 5008, without a headless browser. */
 export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
+  // Read once per document: the sender is twelve values that belong together,
+  // and they come from the settings layer so the address can be corrected in
+  // the app instead of in a file plus a container restart.
+  const company = await companyDetails()
   const doc = new PDFDocument({ size: 'A4', margin: 50 })
   const chunks: Buffer[] = []
   doc.on('data', (c: Buffer) => chunks.push(c))
@@ -48,13 +52,13 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
   const right = 545
 
   // Sender
-  doc.fontSize(16).font('Helvetica-Bold').text(env.COMPANY_NAME, left, 50)
+  doc.fontSize(16).font('Helvetica-Bold').text(company.name, left, 50)
   doc
     .fontSize(8)
     .font('Helvetica')
     .fillColor('#555')
     .text(
-      [env.COMPANY_STREET, `${env.COMPANY_ZIP} ${env.COMPANY_CITY}`.trim(), env.COMPANY_COUNTRY]
+      [company.street, `${company.zip} ${company.city}`.trim(), company.country]
         .filter(Boolean)
         .join(' · '),
       left,
@@ -71,7 +75,7 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
       : null,
     invoice.client.street,
     `${invoice.client.zip ?? ''} ${invoice.client.city ?? ''}`.trim() || null,
-    invoice.client.country !== env.COMPANY_COUNTRY ? invoice.client.country : null,
+    invoice.client.country !== company.country ? invoice.client.country : null,
   ].filter(Boolean) as string[]
   doc.fontSize(11).font('Helvetica').text(recipient.join('\n'), left, 130)
 
@@ -84,8 +88,8 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
     ['Fällig am', date(invoice.dueDate)],
   ]
   if (invoice.project) meta.push(['Projekt', invoice.project.key])
-  if (env.COMPANY_VAT_ID) meta.push(['USt-IdNr.', env.COMPANY_VAT_ID])
-  else if (env.COMPANY_TAX_NUMBER) meta.push(['Steuernr.', env.COMPANY_TAX_NUMBER])
+  if (company.vatId) meta.push(['USt-IdNr.', company.vatId])
+  else if (company.taxNumber) meta.push(['Steuernr.', company.taxNumber])
   meta.forEach(([label, value], i) => {
     doc.fillColor('#666').text(label, 350, metaTop + i * 14, { width: 90 })
     doc.fillColor('#000').text(value, 440, metaTop + i * 14, { width: 105, align: 'right' })
@@ -171,14 +175,14 @@ export async function renderInvoicePdf(invoice: PdfInvoice): Promise<Buffer> {
 
   // Footer
   const footer = [
-    [env.COMPANY_NAME, env.COMPANY_STREET, `${env.COMPANY_ZIP} ${env.COMPANY_CITY}`.trim()]
+    [company.name, company.street, `${company.zip} ${company.city}`.trim()]
       .filter(Boolean)
       .join(', '),
-    [env.COMPANY_EMAIL, env.COMPANY_PHONE].filter(Boolean).join(' · '),
+    [company.email, company.phone].filter(Boolean).join(' · '),
     [
-      env.COMPANY_BANK && `Bank: ${env.COMPANY_BANK}`,
-      env.COMPANY_IBAN && `IBAN: ${env.COMPANY_IBAN}`,
-      env.COMPANY_BIC && `BIC: ${env.COMPANY_BIC}`,
+      company.bank && `Bank: ${company.bank}`,
+      company.iban && `IBAN: ${company.iban}`,
+      company.bic && `BIC: ${company.bic}`,
     ]
       .filter(Boolean)
       .join(' · '),

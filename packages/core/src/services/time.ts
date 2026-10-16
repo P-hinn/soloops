@@ -14,7 +14,7 @@
  */
 import type { TimeSource } from '@prisma/client'
 import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { invoiceDefaults } from '../settings.js'
 import { conflict, invalid, notFound } from '../rules.js'
 
 /** What the interface shows with a booking, everywhere it shows one. */
@@ -29,11 +29,10 @@ export async function resolveRateCents(projectId: string): Promise<number> {
     where: { id: projectId },
     include: { client: true },
   })
-  return (
-    project.hourlyRateCents ??
-    project.client?.hourlyRateCents ??
-    env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
-  )
+  if (project.hourlyRateCents ?? project.client?.hourlyRateCents) {
+    return (project.hourlyRateCents ?? project.client?.hourlyRateCents)!
+  }
+  return (await invoiceDefaults()).hourlyRateCents
 }
 
 export type StartTimer = {
@@ -233,6 +232,7 @@ export function listTime(q: TimeFilter) {
 
 /** Weekly/monthly report, grouped by project. */
 export async function timeReport(from: string, to: string, billableOnly = false) {
+  const defaults = await invoiceDefaults()
   const grouped = await prisma.timeEntry.groupBy({
     by: ['projectId'],
     where: {
@@ -252,7 +252,7 @@ export async function timeReport(from: string, to: string, billableOnly = false)
   const rows = grouped.map((g) => {
     const project = projects.find((p) => p.id === g.projectId)
     const seconds = g._sum.durationSec ?? 0
-    const rate = project?.hourlyRateCents ?? env.INVOICE_DEFAULT_HOURLY_RATE_CENTS
+    const rate = project?.hourlyRateCents ?? defaults.hourlyRateCents
     return {
       projectId: g.projectId,
       projectKey: project?.key ?? '?',

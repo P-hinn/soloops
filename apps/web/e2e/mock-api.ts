@@ -174,6 +174,10 @@ export const DEFAULT_MOCKS: Mocks = {
       rateCents: 9500,
       invoiceItemId: null,
       project: PROJECT,
+      // The real answer always carries this, even when it is empty — see
+      // listTime() in packages/core. Without it here the page used to crash
+      // in all three browsers.
+      commits: [],
     },
   ],
   'GET /api/time/report': {
