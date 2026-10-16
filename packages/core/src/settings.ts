@@ -40,6 +40,20 @@ type Entry = {
   env?: keyof typeof env
   /** Shown in the interface next to the field. */
   label: string
+  /**
+   * How the interface should offer it.
+   *
+   * Here and not in the component, because it is part of what the value
+   * *means*: `invoice.hourlyRateCents` is stored in cents and nobody types
+   * cents, and a cron expression is a thing to pick rather than to write.
+   */
+  kind?: 'text' | 'money' | 'percent' | 'days' | 'cron' | 'select' | 'url' | 'switch' | 'iban'
+  /** One line under the field, when the label is not enough. */
+  hint?: string
+  /** Needed before an invoice is formally complete. */
+  required?: true
+  /** For `kind: 'select'`. */
+  options?: readonly { readonly value: string; readonly label: string }[]
 }
 
 const cron = z
@@ -49,10 +63,21 @@ const cron = z
 
 export const REGISTRY = {
   // --- Who is sending the invoice ------------------------------------------
-  'company.name': { schema: z.string().min(1), env: 'COMPANY_NAME', label: 'Name' },
-  'company.street': { schema: z.string(), env: 'COMPANY_STREET', label: 'Straße' },
-  'company.zip': { schema: z.string(), env: 'COMPANY_ZIP', label: 'PLZ' },
-  'company.city': { schema: z.string(), env: 'COMPANY_CITY', label: 'Ort' },
+  'company.name': {
+    schema: z.string().min(1),
+    env: 'COMPANY_NAME',
+    label: 'Name oder Firma',
+    required: true,
+    hint: 'Steht als Absender auf jeder Rechnung.',
+  },
+  'company.street': {
+    schema: z.string(),
+    env: 'COMPANY_STREET',
+    label: 'Straße und Nummer',
+    required: true,
+  },
+  'company.zip': { schema: z.string(), env: 'COMPANY_ZIP', label: 'PLZ', required: true },
+  'company.city': { schema: z.string(), env: 'COMPANY_CITY', label: 'Ort', required: true },
   'company.country': { schema: z.string(), env: 'COMPANY_COUNTRY', label: 'Land' },
   'company.email': {
     schema: z.string().email().or(z.literal('')),
@@ -60,37 +85,60 @@ export const REGISTRY = {
     label: 'E-Mail',
   },
   'company.phone': { schema: z.string(), env: 'COMPANY_PHONE', label: 'Telefon' },
-  'company.vatId': { schema: z.string(), env: 'COMPANY_VAT_ID', label: 'USt-IdNr.' },
-  'company.taxNumber': { schema: z.string(), env: 'COMPANY_TAX_NUMBER', label: 'Steuernummer' },
-  'company.iban': { schema: z.string(), env: 'COMPANY_IBAN', label: 'IBAN' },
-  'company.bic': { schema: z.string(), env: 'COMPANY_BIC', label: 'BIC' },
+  'company.vatId': {
+    schema: z.string(),
+    env: 'COMPANY_VAT_ID',
+    label: 'USt-IdNr.',
+    hint: 'Entweder diese oder die Steuernummer muss auf der Rechnung stehen.',
+  },
+  'company.taxNumber': {
+    schema: z.string(),
+    env: 'COMPANY_TAX_NUMBER',
+    label: 'Steuernummer',
+  },
+  'company.iban': {
+    schema: z.string(),
+    env: 'COMPANY_IBAN',
+    label: 'IBAN',
+    kind: 'iban',
+    required: true,
+    hint: 'Ohne Konto weiß niemand, wohin er zahlen soll.',
+  },
+  'company.bic': { schema: z.string(), env: 'COMPANY_BIC', label: 'BIC', kind: 'iban' },
   'company.bank': { schema: z.string(), env: 'COMPANY_BANK', label: 'Bank' },
 
   // --- How an invoice is calculated ----------------------------------------
   'invoice.numberPrefix': {
     schema: z.string().min(1).max(16),
     env: 'INVOICE_NUMBER_PREFIX',
-    label: 'Nummernkreis-Präfix',
-  },
-  'invoice.taxRate': {
-    schema: z.number().min(0).max(100),
-    env: 'INVOICE_DEFAULT_TAX_RATE',
-    label: 'Steuersatz (%)',
+    label: 'Nummernkreis',
+    hint: 'Vorsilbe der Rechnungsnummer: RE ergibt RE-2026-0001.',
   },
   'invoice.smallBusiness': {
     schema: z.boolean(),
     env: 'INVOICE_SMALL_BUSINESS',
     label: 'Kleinunternehmer (§19 UStG)',
+    kind: 'switch',
+    hint: 'An: keine Umsatzsteuer auf der Rechnung, egal welcher Satz eingestellt ist.',
+  },
+  'invoice.taxRate': {
+    schema: z.number().min(0).max(100),
+    env: 'INVOICE_DEFAULT_TAX_RATE',
+    label: 'Umsatzsteuer',
+    kind: 'percent',
   },
   'invoice.hourlyRateCents': {
     schema: z.number().int().min(0),
     env: 'INVOICE_DEFAULT_HOURLY_RATE_CENTS',
-    label: 'Stundensatz (Cent)',
+    label: 'Stundensatz',
+    kind: 'money',
+    hint: 'Gilt, wenn Projekt und Kunde keinen eigenen Satz haben.',
   },
   'invoice.paymentTermDays': {
     schema: z.number().int().min(0).max(365),
     env: 'INVOICE_PAYMENT_TERM_DAYS',
-    label: 'Zahlungsziel (Tage)',
+    label: 'Zahlungsziel',
+    kind: 'days',
   },
 
   // --- Keys for the optional services --------------------------------------
@@ -99,6 +147,7 @@ export const REGISTRY = {
     secret: true,
     env: 'ANTHROPIC_API_KEY',
     label: 'Anthropic',
+    hint: 'Schaltet Schnelleingabe, Lageberichte, Meeting-Zusammenfassungen und Lead-Bewertung frei.',
   },
   'keys.anthropicModel': {
     schema: z.string().min(3),
@@ -110,37 +159,90 @@ export const REGISTRY = {
     secret: true,
     env: 'UPTIMEROBOT_API_KEY',
     label: 'UptimeRobot',
+    hint: 'Spiegelt die Monitore samt Ausfällen.',
   },
-  'keys.github': { schema: z.string().min(10), secret: true, env: 'GITHUB_TOKEN', label: 'GitHub' },
-  'keys.gitlab': { schema: z.string().min(10), secret: true, env: 'GITLAB_TOKEN', label: 'GitLab' },
-  'keys.gitlabHost': { schema: z.string().url(), env: 'GITLAB_HOST', label: 'GitLab-Host' },
+  'keys.github': {
+    schema: z.string().min(10),
+    secret: true,
+    env: 'GITHUB_TOKEN',
+    label: 'GitHub',
+    hint: 'Für Actions-Läufe und die Commits hinter den Zeitbuchungen.',
+  },
+  'keys.gitlab': {
+    schema: z.string().min(10),
+    secret: true,
+    env: 'GITLAB_TOKEN',
+    label: 'GitLab',
+  },
+  'keys.gitlabHost': {
+    schema: z.string().url(),
+    env: 'GITLAB_HOST',
+    label: 'GitLab-Adresse',
+    kind: 'url',
+    hint: 'Nur bei selbst gehostetem GitLab nötig.',
+  },
   'keys.lexoffice': {
     schema: z.string().min(10),
     secret: true,
     env: 'LEXOFFICE_API_KEY',
     label: 'lexoffice',
+    hint: 'Überträgt Kunden und Rechnungen in die Buchhaltung.',
   },
 
   // --- Video ----------------------------------------------------------------
   'video.provider': {
     schema: z.enum(['JITSI', 'GOOGLE_MEET', 'CUSTOM']),
     env: 'VIDEO_PROVIDER',
-    label: 'Videoanbieter',
+    label: 'Woher der Raum kommt',
+    kind: 'select',
+    options: [
+      { value: 'JITSI', label: 'Jitsi — neuer Raum je Termin, ohne Konto' },
+      { value: 'GOOGLE_MEET', label: 'Google Meet — braucht ein verbundenes Google-Konto' },
+      { value: 'CUSTOM', label: 'Eigener Dauerraum (Zoom, Teams …)' },
+    ],
   },
-  'video.jitsiBaseUrl': { schema: z.string().url(), env: 'JITSI_BASE_URL', label: 'Jitsi-Adresse' },
+  'video.jitsiBaseUrl': {
+    schema: z.string().url(),
+    env: 'JITSI_BASE_URL',
+    label: 'Jitsi-Server',
+    kind: 'url',
+  },
   'video.customUrl': {
     schema: z.string().url().or(z.literal('')),
     env: 'VIDEO_CUSTOM_URL',
-    label: 'Eigener Raum',
+    label: 'Adresse des Dauerraums',
+    kind: 'url',
+    hint: 'Nur nötig, wenn oben „Eigener Dauerraum" gewählt ist.',
   },
 
   // --- How often the worker looks -------------------------------------------
-  'cron.mail': { schema: cron, env: 'MAIL_POLL_CRON', label: 'Postfach' },
-  'cron.calendar': { schema: cron, env: 'CALENDAR_SYNC_CRON', label: 'Kalender' },
-  'cron.commits': { schema: cron, env: 'COMMIT_POLL_CRON', label: 'Commits' },
-  'cron.pipelines': { schema: cron, env: 'PIPELINE_POLL_CRON', label: 'Pipelines' },
-  'cron.uptime': { schema: cron, env: 'UPTIME_POLL_CRON', label: 'Uptime' },
-  'cron.automations': { schema: cron, env: 'AUTOMATION_POLL_CRON', label: 'Automationen' },
+  'cron.mail': { schema: cron, env: 'MAIL_POLL_CRON', label: 'Postfach abrufen', kind: 'cron' },
+  'cron.calendar': {
+    schema: cron,
+    env: 'CALENDAR_SYNC_CRON',
+    label: 'Kalender abgleichen',
+    kind: 'cron',
+  },
+  'cron.commits': {
+    schema: cron,
+    env: 'COMMIT_POLL_CRON',
+    label: 'Commits spiegeln',
+    kind: 'cron',
+    hint: 'Langsamer als die Pipelines: ein Commit zehn Minuten später ändert keine Buchung.',
+  },
+  'cron.pipelines': {
+    schema: cron,
+    env: 'PIPELINE_POLL_CRON',
+    label: 'CI-Läufe prüfen',
+    kind: 'cron',
+  },
+  'cron.uptime': { schema: cron, env: 'UPTIME_POLL_CRON', label: 'Uptime prüfen', kind: 'cron' },
+  'cron.automations': {
+    schema: cron,
+    env: 'AUTOMATION_POLL_CRON',
+    label: 'n8n spiegeln',
+    kind: 'cron',
+  },
 } as const satisfies Record<string, Entry>
 
 export type SettingKey = keyof typeof REGISTRY
@@ -276,7 +378,16 @@ export async function describeSettings() {
   const stored = await load()
   const out: Record<
     string,
-    { value: unknown; label: string; source: 'db' | 'env'; secret: boolean }
+    {
+      value: unknown
+      label: string
+      source: 'db' | 'env'
+      secret: boolean
+      kind: string
+      hint?: string
+      required: boolean
+      options?: readonly { readonly value: string; readonly label: string }[]
+    }
   > = {}
   for (const key of SETTING_KEYS) {
     const spec = REGISTRY[key] as Entry
@@ -286,6 +397,10 @@ export async function describeSettings() {
       label: spec.label,
       source: stored.has(row(key)) ? 'db' : 'env',
       secret: !!spec.secret,
+      kind: spec.kind ?? (spec.secret ? 'text' : 'text'),
+      hint: spec.hint,
+      required: !!spec.required,
+      options: spec.options,
     }
   }
   return out

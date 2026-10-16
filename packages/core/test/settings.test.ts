@@ -6,6 +6,9 @@
  * marked, the fallbacks point at variables that exist, and a masked secret
  * never carries the secret.
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { CRON_PRESETS, cronLabel } from '@soloops/shared'
 import { REGISTRY, SETTING_KEYS, isSettingKey, maskSecret } from '../src/settings.js'
 
 let pass = 0,
@@ -115,6 +118,49 @@ check(
   ],
   [true, false],
 )
+
+// --- The intervals a person can pick ----------------------------------------
+//
+// A preset the API would refuse is worse than no preset: the form would offer
+// it and the save would fail.
+
+const cronSchema = REGISTRY['cron.mail'].schema
+check(
+  'jede angebotene Taktung ist eine, die die API annimmt',
+  CRON_PRESETS.filter((preset) => !cronSchema.safeParse(preset.value).success).map((p) => p.value),
+  [],
+)
+check(
+  'und jede hat eine Beschriftung',
+  CRON_PRESETS.filter((p) => !p.label.trim()).map((p) => p.value),
+  [],
+)
+/**
+ * The defaults this project ships with have to be pickable.
+ *
+ * Read out of env.ts rather than written down again: a default that is not a
+ * preset shows up in the form as "eigener Cron-Ausdruck" for a value nobody
+ * chose, which is exactly the thing this is supposed to spare people.
+ */
+const shippedDefaults = [
+  ...readFileSync(resolve(import.meta.dirname, '../src/env.ts'), 'utf8').matchAll(
+    /_CRON: z\.string\(\)\.default\('([^']+)'\)/g,
+  ),
+].map((m) => m[1]!)
+
+check('es wurden Standardtaktungen gefunden', shippedDefaults.length, 6)
+check(
+  'jeder ausgelieferte Standard ist auswaehlbar',
+  shippedDefaults.filter((pattern) => !cronLabel(pattern)),
+  [],
+)
+check(
+  'und gueltig',
+  shippedDefaults.filter((pattern) => !cronSchema.safeParse(pattern).success),
+  [],
+)
+check('eine bekannte Taktung wird benannt', cronLabel('0 * * * *'), 'jede Stunde')
+check('eine eigene nicht', cronLabel('7 3 * * 2'), null)
 
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen`)
 if (fail > 0) process.exit(1)

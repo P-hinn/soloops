@@ -86,6 +86,38 @@ export const RunStatus = z.enum(['QUEUED', 'RUNNING', 'SUCCESS', 'FAILED', 'CANC
 export const TaskSource = z.enum(['MANUAL', 'AI', 'MCP'])
 
 // ---------------------------------------------------------------------------
+// Poll intervals, as something a person picks
+// ---------------------------------------------------------------------------
+
+/**
+ * The intervals worth offering, instead of asking for a cron expression.
+ *
+ * Nobody should have to write a cron expression to say "every ten minutes", and
+ * the few who want to can still type one — the field falls back to free text.
+ * A test holds every pattern here against the schema that validates the
+ * setting, so a preset cannot be one the API would refuse.
+ */
+export const CRON_PRESETS = [
+  { value: '*/2 * * * *', label: 'alle 2 Minuten' },
+  { value: '*/3 * * * *', label: 'alle 3 Minuten' },
+  { value: '*/5 * * * *', label: 'alle 5 Minuten' },
+  { value: '*/10 * * * *', label: 'alle 10 Minuten' },
+  { value: '*/15 * * * *', label: 'alle 15 Minuten' },
+  { value: '*/30 * * * *', label: 'alle 30 Minuten' },
+  { value: '0 * * * *', label: 'jede Stunde' },
+  { value: '0 */2 * * *', label: 'alle 2 Stunden' },
+  { value: '0 */6 * * *', label: 'alle 6 Stunden' },
+  { value: '0 7 * * *', label: 'täglich um 7:00' },
+  { value: '30 7 * * 1-5', label: 'werktags um 7:30' },
+  { value: '0 18 * * 1-5', label: 'werktags um 18:00' },
+] as const
+
+/** The label for a pattern, or null when it is one somebody typed. */
+export function cronLabel(pattern: string): string | null {
+  return CRON_PRESETS.find((preset) => preset.value === pattern)?.label ?? null
+}
+
+// ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
 

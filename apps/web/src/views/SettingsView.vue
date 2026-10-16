@@ -31,13 +31,13 @@ async function changePassword() {
 }
 
 const featureLabels: Record<string, string> = {
-  ai: 'Anthropic (Lageberichte, Zusammenfassungen, Schnelleingabe)',
-  google: 'Google Kalender (OAuth)',
-  apple: 'Apple / iCloud (CalDAV)',
+  ai: 'Anthropic',
+  google: 'Google Kalender',
+  apple: 'Apple / iCloud',
   video: 'Videoräume',
   uptime: 'UptimeRobot',
-  github: 'GitHub Actions',
-  gitlab: 'GitLab CI',
+  github: 'GitHub',
+  gitlab: 'GitLab',
   lexoffice: 'lexoffice',
 }
 </script>
@@ -76,52 +76,89 @@ const featureLabels: Record<string, string> = {
       </div>
     </section>
 
-    <!-- Calendars: the part that genuinely needs setting up -->
-    <CalendarAccounts class="mb-4" />
-
-    <MailAccounts class="mb-4" />
+    <!-- 1. What an invoice needs. First, because it is the only group with
+         fields that block something. -->
+    <h2 class="eyebrow mb-2 mt-6">Rechnungen stellen</h2>
 
     <SettingsForm
       group="company."
       title="Absenderdaten"
-      note="Stehen auf jeder Rechnung. Ohne Adresse, Steuernummer und IBAN ist eine Rechnung formal unvollständig."
+      :columns="2"
+      note="Stehen auf jeder Rechnung. Mit * markierte Felder braucht eine Rechnung, um formal vollständig zu sein."
       @saved="auth.load()"
     />
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <section class="card">
-        <h2 class="eyebrow mb-3">Angebundene Dienste</h2>
-        <p class="mb-3 text-xs text-muted">
-          Schlüssel können unten eingetragen werden; was in der
-          <code class="rounded bg-paper-2 px-1">.env</code> steht, gilt weiter, solange hier nichts
-          gesetzt ist. Google und Apple bleiben in der
-          <code class="rounded bg-paper-2 px-1">.env</code> — die Redirect-URI muss zu der in der
-          Google-Konsole registrierten passen.
-        </p>
-        <ul class="space-y-2 text-sm">
-          <li
-            v-for="(label, key) in featureLabels"
-            :key="key"
-            class="flex items-center justify-between"
+    <SettingsForm
+      group="invoice."
+      title="Rechnungsstellung"
+      note="Gilt, wenn Projekt und Kunde nichts eigenes sagen."
+      @saved="auth.load()"
+    />
+
+    <!-- 2. The accounts that need a real connection, not just a value. -->
+    <h2 class="eyebrow mb-2 mt-6">Postfach und Kalender</h2>
+
+    <MailAccounts class="mb-4" />
+    <CalendarAccounts class="mb-4" />
+
+    <!-- 3. The optional services: what is on, and the keys that turn them on. -->
+    <h2 class="eyebrow mb-2 mt-6">Angebundene Dienste</h2>
+
+    <section class="card mb-4">
+      <h2 class="mb-3 text-sm font-semibold">Was gerade läuft</h2>
+      <p class="mb-3 text-xs text-muted">
+        Schlüssel stehen unten. Was in der <code class="rounded bg-paper-2 px-1">.env</code> steht,
+        gilt weiter, solange hier nichts gesetzt ist. Google und Apple bleiben in der
+        <code class="rounded bg-paper-2 px-1">.env</code> — die Redirect-URI muss zu der in der
+        Google-Konsole registrierten passen.
+      </p>
+      <ul class="grid gap-x-8 gap-y-2 text-sm md:grid-cols-2 xl:grid-cols-3">
+        <li
+          v-for="(label, key) in featureLabels"
+          :key="key"
+          class="flex items-center justify-between gap-3 border-b border-line py-1"
+        >
+          <span>{{ label }}</span>
+          <span
+            class="badge whitespace-nowrap"
+            :class="auth.config?.features[key] ? 'bg-good/10 text-good' : 'bg-paper-2 text-muted'"
           >
-            <span>{{ label }}</span>
-            <span
-              class="badge"
-              :class="auth.config?.features[key] ? 'bg-good/10 text-good' : 'bg-paper-2 text-muted'"
-            >
-              {{ auth.config?.features[key] ? 'aktiv' : 'nicht konfiguriert' }}
-            </span>
-          </li>
-        </ul>
-      </section>
+            {{ auth.config?.features[key] ? 'aktiv' : 'aus' }}
+          </span>
+        </li>
+      </ul>
+    </section>
 
-      <SettingsForm
-        group="invoice."
-        title="Rechnungsstellung"
-        note="Gelten, wenn Kunde und Projekt nichts eigenes sagen."
-        @saved="auth.load()"
-      />
+    <SettingsForm
+      group="keys."
+      title="Schlüssel"
+      note="Verschlüsselt gespeichert und nie zurückgeschickt. Ein leeres Feld lässt einen gesetzten Schlüssel stehen."
+      :columns="2"
+      @saved="auth.load()"
+    />
 
+    <SettingsForm
+      group="video."
+      title="Videoräume"
+      note="Jeder Termin kann einen Raum bekommen — hier steht, woher er kommt."
+      :columns="2"
+      @saved="auth.load()"
+    />
+
+    <!-- 4. Rhythm. Last, because the defaults are fine for everyone. -->
+    <h2 class="eyebrow mb-2 mt-6">Wie oft nachgesehen wird</h2>
+
+    <SettingsForm
+      group="cron."
+      title="Taktung der Hintergrundläufe"
+      note="Eine Änderung greift innerhalb einer Minute — der Worker plant sich selbst um, ohne Neustart."
+      @saved="auth.load()"
+    />
+
+    <!-- 5. Access to this installation. -->
+    <h2 class="eyebrow mb-2 mt-6">Zugang und Geräte</h2>
+
+    <div class="grid gap-4 lg:grid-cols-2">
       <section class="card">
         <h2 class="eyebrow mb-3">Passwort ändern</h2>
         <form class="space-y-3" @submit.prevent="changePassword">
@@ -152,30 +189,9 @@ const featureLabels: Record<string, string> = {
           <button class="btn-primary">Ändern</button>
         </form>
       </section>
-
-      <SettingsForm
-        group="keys."
-        title="Schlüssel der angebundenen Dienste"
-        note="Verschlüsselt gespeichert. Ein gesetzter Schlüssel wird nie zurückgeschickt — das Feld bleibt leer und ein leeres Feld lässt ihn stehen."
-        @saved="auth.load()"
-      />
-
-      <SettingsForm
-        group="video."
-        title="Videoräume"
-        note="Jitsi braucht nichts außer der Adresse. CUSTOM nutzt den eigenen Dauerraum."
-        @saved="auth.load()"
-      />
-
-      <SettingsForm
-        group="cron."
-        title="Wie oft nachgesehen wird"
-        note="Cron-Ausdrücke. Eine Änderung greift innerhalb einer Minute — der Worker plant sich selbst um, ohne Neustart."
-        @saved="auth.load()"
-      />
-
-      <ClaudeConnection />
-      <DeviceSync />
     </div>
+
+    <ClaudeConnection class="mt-4" />
+    <DeviceSync class="mt-4" />
   </div>
 </template>
