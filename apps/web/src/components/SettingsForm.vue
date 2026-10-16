@@ -135,7 +135,7 @@ onMounted(load)
 
     <div class="grid gap-3 md:grid-cols-3">
       <div v-for="field in fields" :key="field.key">
-        <label class="label flex items-center gap-2">
+        <label :for="`set-${field.key}`" class="label flex items-center gap-2">
           {{ field.label }}
           <span v-if="field.source === 'db'" class="badge bg-blue/10 text-blue" title="Hier gesetzt"
             >hier</span
@@ -145,6 +145,7 @@ onMounted(load)
 
         <label v-if="kind(field) === 'checkbox'" class="flex items-center gap-2 py-1">
           <input
+            :id="`set-${field.key}`"
             type="checkbox"
             :checked="!!current(field.key)"
             @change="set(field.key, ($event.target as HTMLInputElement).checked)"
@@ -154,6 +155,7 @@ onMounted(load)
 
         <template v-else>
           <input
+            :id="`set-${field.key}`"
             class="input"
             :type="kind(field)"
             :value="current(field.key)"

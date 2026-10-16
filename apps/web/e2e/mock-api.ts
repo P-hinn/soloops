@@ -46,6 +46,39 @@ export const DEFAULT_MOCKS: Mocks = {
     next: null,
   },
   'GET /api/time/running': null,
+
+  // The settings layer, as /api/settings answers it: value, label, whether it
+  // still comes from the .env, and secrets masked. One of each kind, which is
+  // all the form needs to render every control.
+  'GET /api/settings': {
+    'company.name': { value: 'Beispiel GmbH', label: 'Name', source: 'env', secret: false },
+    'company.street': { value: 'Beispielweg 1', label: 'Straße', source: 'env', secret: false },
+    'company.zip': { value: '10115', label: 'PLZ', source: 'env', secret: false },
+    'company.city': { value: 'Berlin', label: 'Ort', source: 'env', secret: false },
+    'company.iban': { value: 'DE00', label: 'IBAN', source: 'db', secret: false },
+    'invoice.taxRate': { value: 19, label: 'Steuersatz (%)', source: 'env', secret: false },
+    'invoice.smallBusiness': {
+      value: false,
+      label: 'Kleinunternehmer (§19 UStG)',
+      source: 'env',
+      secret: false,
+    },
+    'keys.anthropic': {
+      value: { set: true, hint: 'sk-a…' },
+      label: 'Anthropic',
+      source: 'env',
+      secret: true,
+    },
+    'keys.github': {
+      value: { set: false, hint: '' },
+      label: 'GitHub',
+      source: 'env',
+      secret: true,
+    },
+    'video.provider': { value: 'JITSI', label: 'Videoanbieter', source: 'env', secret: false },
+    'cron.mail': { value: '*/10 * * * *', label: 'Postfach', source: 'env', secret: false },
+  },
+  'PATCH /api/settings': {},
   'GET /api/dashboard': {
     today: {
       events: [
