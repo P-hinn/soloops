@@ -48,6 +48,17 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # npm/cli#4828: a lock file only carries the platform binaries of the
+      # machine it was written on, and this one is written on an arm64 Mac.
+      # vite 8 builds with rolldown, whose binding is a platform binary — so
+      # on a Linux runner `npm ci` leaves a hole that only shows up when vite
+      # starts. Pulled in at the version the lock file already pins, so this
+      # does not have to be kept in step by hand.
+      - name: Linux-Binaries nachziehen
+        run: |
+          version=$(node -p "require('rolldown/package.json').version")
+          npm install --no-save --no-audit --no-fund "@rolldown/binding-linux-x64-gnu@$version"
+
       - name: Prisma-Client erzeugen
         run: npx prisma generate --schema packages/core/prisma/schema.prisma
 
