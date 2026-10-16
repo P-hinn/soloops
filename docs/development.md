@@ -15,6 +15,7 @@ only people who build the app need that. The same goes for the Swift ones:
 ```bash
 bash scripts/ios-test.sh              # the sync engine on the phone (104 cases)
 npm -w @soloops/api run test:sync     # the op log against a real Postgres
+npm -w @soloops/api run test:invoices # invoice numbers under concurrency
 ```
 
 `scripts/ios-test.sh` exists rather than a bare `swift test` because building

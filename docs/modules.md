@@ -160,7 +160,9 @@ projects is the next stage — for now this is the raw material. See
 in the period, groups them per project, uses the typed description or else the
 commits of that window, and links the time entries firmly to the line item — so nothing lands on two invoices. The PDF is rendered server-side
 with pdfkit (close to DIN 5008, with the §19 UStG note if configured).
-Sequential numbering per year. Issued invoices are locked and can only be
+Sequential numbering per year, handed out from a counter table inside the
+same transaction that writes the invoice — two invoices issued at the same
+moment get two numbers, and an invoice that fails leaves no gap. Issued invoices are locked and can only be
 cancelled.
 
 **Accounting.** A lexoffice adapter: create contacts, transfer invoices as

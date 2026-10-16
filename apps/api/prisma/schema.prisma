@@ -690,6 +690,20 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+/// The counter behind the invoice number, one row per year.
+///
+/// A table and not `max(number) + 1`: reading the maximum and adding one is
+/// two statements, and two requests that run them at the same time compute
+/// the same number. The unique index on `Invoice.number` then turns the
+/// second invoice into a 409 instead of giving it the next number — on
+/// sequential invoice numbers that is a legal problem, not a race to shrug
+/// at. The upsert that increments this takes a row lock, so the second
+/// request waits for the first.
+model InvoiceSequence {
+  year Int @id
+  last Int @default(0)
+}
+
 model Invoice {
   id                String        @id @default(cuid())
   number            String        @unique

@@ -5,21 +5,9 @@ import { invoiceFromTimeInput, invoiceInput, secondsToBillableHours } from '@sol
 import { prisma } from '../db.js'
 import { env } from '../env.js'
 import { renderInvoicePdf } from '../services/invoicePdf.js'
+import { nextInvoiceNumber } from '../services/invoices.js'
 
 const idParam = z.object({ id: z.string() })
-
-/** Sequential number per year: RE-2026-0001 */
-async function nextInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear()
-  const prefix = `${env.INVOICE_NUMBER_PREFIX}-${year}-`
-  const last = await prisma.invoice.findFirst({
-    where: { number: { startsWith: prefix } },
-    orderBy: { number: 'desc' },
-    select: { number: true },
-  })
-  const seq = last ? Number(last.number.slice(prefix.length)) + 1 : 1
-  return `${prefix}${String(seq).padStart(4, '0')}`
-}
 
 type ItemDraft = {
   description: string
@@ -111,34 +99,39 @@ const routes: FastifyPluginAsync = async (app) => {
 
     const sums = totals(data.items, taxRate, smallBusiness)
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        number: await nextInvoiceNumber(),
-        clientId: data.clientId,
-        projectId: data.projectId ?? null,
-        issueDate,
-        dueDate,
-        currency: client.currency,
-        taxRate: sums.effectiveRate,
-        smallBusiness,
-        subtotalCents: sums.subtotalCents,
-        taxCents: sums.taxCents,
-        totalCents: sums.totalCents,
-        intro: data.intro ?? null,
-        notes: data.notes ?? null,
-        items: {
-          create: data.items.map((item, index) => ({
-            position: index + 1,
-            description: item.description,
-            quantity: new Prisma.Decimal(item.quantity),
-            unit: item.unit,
-            unitPriceCents: item.unitPriceCents,
-            amountCents: Math.round(item.quantity * item.unitPriceCents),
-          })),
+    // A transaction, for the number's sake: it comes from the year's
+    // counter, and counter and invoice have to be written together or a
+    // create that fails would burn a number.
+    const invoice = await prisma.$transaction(async (tx) =>
+      tx.invoice.create({
+        data: {
+          number: await nextInvoiceNumber(tx, env.INVOICE_NUMBER_PREFIX, issueDate.getFullYear()),
+          clientId: data.clientId,
+          projectId: data.projectId ?? null,
+          issueDate,
+          dueDate,
+          currency: client.currency,
+          taxRate: sums.effectiveRate,
+          smallBusiness,
+          subtotalCents: sums.subtotalCents,
+          taxCents: sums.taxCents,
+          totalCents: sums.totalCents,
+          intro: data.intro ?? null,
+          notes: data.notes ?? null,
+          items: {
+            create: data.items.map((item, index) => ({
+              position: index + 1,
+              description: item.description,
+              quantity: new Prisma.Decimal(item.quantity),
+              unit: item.unit,
+              unitPriceCents: item.unitPriceCents,
+              amountCents: Math.round(item.quantity * item.unitPriceCents),
+            })),
+          },
         },
-      },
-      include: { items: true, client: true },
-    })
+        include: { items: true, client: true },
+      }),
+    )
     return reply.code(201).send(invoice)
   })
 
@@ -218,7 +211,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const invoice = await prisma.$transaction(async (tx) => {
       const created = await tx.invoice.create({
         data: {
-          number: await nextInvoiceNumber(),
+          number: await nextInvoiceNumber(tx, env.INVOICE_NUMBER_PREFIX, issueDate.getFullYear()),
           clientId: data.clientId,
           projectId: data.projectId ?? null,
           issueDate,
