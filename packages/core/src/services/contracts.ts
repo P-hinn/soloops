@@ -18,7 +18,8 @@
  * the two against each other.
  */
 
-import { isAbsolute, join, normalize, resolve } from 'node:path'
+import { mkdir, unlink, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, join, normalize, resolve } from 'node:path'
 
 /** Where the PDFs live. Inside /data, a volume the API and n8n share. */
 export const SIGNED_ROOT = '/data/vertraege/signiert'
@@ -85,4 +86,61 @@ function slug(title: string): string {
   // Long enough to recognise, short enough to leave room for the rest of the
   // name inside a file system's 255 bytes.
   return cleaned.slice(0, 60) || 'vertrag'
+}
+
+// ---------------------------------------------------------------------------
+// The directory
+//
+// Writing and deleting live here rather than in the route because they are
+// the two places the path check has to hold, and because a route that calls
+// `writeFile` is a route that cannot be tested without an HTTP server.
+// ---------------------------------------------------------------------------
+
+/** The five bytes every PDF starts with. Catches the wrong file, not a liar. */
+export function isPdf(bytes: Buffer): boolean {
+  return bytes.length > 5 && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))
+}
+
+/**
+ * Put a PDF into the contract directory.
+ *
+ * Returns the name it was written under — the same one that went in, which
+ * makes the call read as the handover it is. Throws on a name that does not
+ * resolve into the directory: that is the boundary, and a caller that built
+ * the name itself has a bug rather than bad input.
+ */
+export async function storeContractFile(
+  name: string,
+  bytes: Buffer,
+  root = SIGNED_ROOT,
+): Promise<string> {
+  const target = resolveSignedPath(name, root)
+  if (!target) throw new Error(`Dateiname nicht zulässig: ${name}`)
+
+  await mkdir(dirname(target), { recursive: true })
+  await writeFile(target, bytes)
+  return name
+}
+
+/**
+ * Take a PDF out again.
+ *
+ * Best effort on purpose: a file that is already gone is the state we wanted,
+ * and a record that no longer points at a file is what counts. Returns
+ * whether something was actually removed, so a caller that cares can log it.
+ */
+export async function removeContractFile(
+  name: string | null | undefined,
+  root = SIGNED_ROOT,
+): Promise<boolean> {
+  if (!name) return false
+  const target = resolveSignedPath(name, root)
+  if (!target) return false
+  try {
+    await unlink(target)
+    return true
+  } catch {
+    // Missing, or a directory somebody made read-only.
+    return false
+  }
 }

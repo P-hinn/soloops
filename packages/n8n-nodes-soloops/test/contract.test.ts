@@ -175,8 +175,8 @@ check('kein Feld schreibt in etwas, das der Endpunkt nicht kennt', [...new Set(u
 
 // --- The enum the node offers must be the one the API accepts --------------
 
-/** Only the `stage` field's own options — the file has several enums. */
-function optionsOf(name: string): string[] {
+/** One field's own options — a description file has several enums. */
+function optionsOf(name: string, fields: INodeProperties[] = leadFields): string[] {
   const found: string[] = []
   const walk = (property: INodeProperties) => {
     if (property.name === name) {
@@ -188,7 +188,7 @@ function optionsOf(name: string): string[] {
       if (typeof option === 'object' && 'name' in option) walk(option)
     }
   }
-  for (const property of leadFields) walk(property)
+  for (const property of fields) walk(property)
   return found
 }
 
@@ -205,6 +205,24 @@ check('das Stage-Feld bietet ueberhaupt Stufen an', stageOptions.length > 0, tru
 check(
   'die Lead-Stufen der Node sind die der API',
   stageOptions.filter((value) => !(allowed ?? []).includes(value)),
+  [],
+)
+
+// Dasselbe fuer den Vertragsstatus: die Node fuehrt ihn als eigene Liste, und
+// ein in der API ergaenzter Stand liesse sich sonst nicht filtern.
+const contractStatus = optionsOf('status', contractFields)
+const specStatus = (
+  spec.paths['/api/contracts/']?.post?.requestBody?.content['application/json']?.schema as
+    { properties?: { status?: { enum?: string[] } } } | undefined
+)?.properties?.status?.enum
+
+check('das Status-Feld bietet ueberhaupt Staende an', contractStatus.length > 0, true)
+check(
+  'die Vertragsstaende der Node sind die der API',
+  [
+    ...contractStatus.filter((value) => !(specStatus ?? []).includes(value)),
+    ...(specStatus ?? []).filter((value) => !contractStatus.includes(value)),
+  ],
   [],
 )
 

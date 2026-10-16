@@ -1,12 +1,18 @@
 import { createReadStream } from 'node:fs'
-import { mkdir, stat, unlink, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { stat } from 'node:fs/promises'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { contractInput, idParam, SendableContractType } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
-import { resolveSignedPath, signedFileName, SIGNED_ROOT } from '@soloops/core/services/contracts.js'
+import {
+  isPdf,
+  removeContractFile,
+  resolveSignedPath,
+  signedFileName,
+  SIGNED_ROOT,
+  storeContractFile,
+} from '@soloops/core/services/contracts.js'
 import { getExecution, listExecutions, listWorkflows } from '@soloops/core/services/n8n.js'
 
 /**
@@ -107,6 +113,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
           status: z.string().optional(),
           includeArchived: z.coerce.boolean().default(false),
           q: z.string().optional(),
+          limit: z.coerce.number().int().min(1).max(500).default(200),
         }),
       },
     },
@@ -130,9 +137,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
               }
             : {}),
         },
-        // Newest first, but a contract still being signed stays on top: that
-        // is the one with something left to do.
         orderBy: [{ createdAt: 'desc' }],
+        take: q.limit,
         include: INCLUDE,
       })
     },
@@ -150,8 +156,9 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     { schema: { body: contractInput.extend({ clientId: z.string() }) } },
     async (req, reply) => {
       const body = req.body
-      const client = await prisma.client.findUnique({ where: { id: body.clientId } })
-      if (!client) return reply.code(404).send({ error: 'Kunde nicht gefunden' })
+
+      const missing = await unknownRelation(body)
+      if (missing) return reply.code(404).send({ error: missing })
 
       const created = await prisma.contract.create({
         data: withDates(body),
@@ -173,10 +180,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       const { id } = req.params
       const body = req.body
 
-      if (body.clientId) {
-        const client = await prisma.client.findUnique({ where: { id: body.clientId } })
-        if (!client) return reply.code(404).send({ error: 'Kunde nicht gefunden' })
-      }
+      const missing = await unknownRelation(body)
+      if (missing) return reply.code(404).send({ error: missing })
 
       const existing = await prisma.contract.findUnique({ where: { id } })
       if (!existing) return reply.code(404).send({ error: 'Vertrag nicht gefunden' })
@@ -198,7 +203,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     if (!contract) return reply.code(404).send({ error: 'Vertrag nicht gefunden' })
 
     await prisma.contract.delete({ where: { id } })
-    await removeFile(contract.file)
+    await removeContractFile(contract.file)
     return reply.code(204).send()
   })
 
@@ -222,37 +227,39 @@ const routes: FastifyPluginAsyncZod = async (app) => {
           error: 'Erwartet wird der Inhalt einer PDF-Datei als Content-Type application/pdf',
         })
       }
-      // A PDF starts with %PDF-. Not a guarantee of anything, but it catches
-      // the common mistake of sending the wrong file.
-      if (!body.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+      if (!isPdf(body)) {
         return reply.code(422).send({ error: 'Die Datei ist kein PDF' })
       }
 
       const contract = await prisma.contract.findUnique({ where: { id } })
       if (!contract) return reply.code(404).send({ error: 'Vertrag nicht gefunden' })
 
-      const name = signedFileName({
-        clientId: contract.clientId,
-        title: contract.title,
-        unique: contract.id,
-        on: new Date(),
-      })
-      const target = resolveSignedPath(name)
-      if (!target) {
-        // Unreachable with a name this code built — but the path check is the
-        // security boundary, so it is not bypassed just because it should hold.
-        return reply.code(500).send({ error: 'Dateiname nicht zulässig' })
+      const name = await storeContractFile(
+        signedFileName({
+          clientId: contract.clientId,
+          title: contract.title,
+          unique: contract.id,
+          on: new Date(),
+        }),
+        body,
+      )
+
+      let updated
+      try {
+        updated = await prisma.contract.update({
+          where: { id },
+          data: { file: name },
+          include: INCLUDE,
+        })
+      } catch (err) {
+        // The bytes are on disk and nothing points at them. Take them back
+        // out, or the directory collects files no record knows about.
+        await removeContractFile(name)
+        throw err
       }
 
-      await mkdir(dirname(target), { recursive: true })
-      await writeFile(target, body)
-      if (contract.file && contract.file !== name) await removeFile(contract.file)
-
-      return prisma.contract.update({
-        where: { id },
-        data: { file: name },
-        include: INCLUDE,
-      })
+      if (contract.file && contract.file !== name) await removeContractFile(contract.file)
+      return updated
     },
   )
 
@@ -261,7 +268,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     const contract = await prisma.contract.findUnique({ where: { id } })
     if (!contract) return reply.code(404).send({ error: 'Vertrag nicht gefunden' })
 
-    await removeFile(contract.file)
+    await removeContractFile(contract.file)
     return prisma.contract.update({ where: { id }, data: { file: null }, include: INCLUDE })
   })
 
@@ -290,11 +297,20 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     }
 
     // The name the browser offers on save: the contract's, not the one on
-    // disk, which carries ids nobody wants in their download folder.
-    const download = `${contract.title.replace(/[^\w\s.-]/g, '')}.pdf`.replace(/\s+/g, '-')
+    // disk, which carries ids nobody wants in their download folder. Letters
+    // rather than \w, so "Müller" survives; the whitespace collapse runs last
+    // and is what keeps a newline out of the header.
+    const download = `${contract.title.replace(/[^\p{L}\p{N}\s.-]/gu, '')}.pdf`.replace(/\s+/g, '-')
+    // Two names, per RFC 6266: a header is ASCII, so "Müller" in the plain
+    // `filename` arrives as mojibake. The encoded one is what every current
+    // browser reads, the plain one is the fallback and stays legible.
+    const ascii = download.replace(/[^\x20-\x7E]/g, '-')
     return reply
       .type('application/pdf')
-      .header('Content-Disposition', `inline; filename="${download}"`)
+      .header(
+        'Content-Disposition',
+        `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(download)}`,
+      )
       .send(createReadStream(full))
   })
 
@@ -381,19 +397,30 @@ const routes: FastifyPluginAsyncZod = async (app) => {
        * indistinguishable from a draft somebody is working on. The Zoho
        * request id is what the signing webhook finds it by later.
        */
-      const contract = await prisma.contract.create({
-        data: {
-          clientId: body.clientId,
-          type: body.vertrag,
-          title: payload?.vertrag?.trim() || body.vertrag,
-          status: 'versendet',
-          externalId: payload?.zoho_request_id ?? null,
-          taskId: (await taskOrNull(payload?.aufgabe_id)) ?? null,
-        },
-        include: INCLUDE,
-      })
-
-      return { ...(payload ?? { status: 'versendet' }), vertrag_id: contract.id }
+      try {
+        const contract = await prisma.contract.create({
+          data: {
+            clientId: body.clientId,
+            type: body.vertrag,
+            title: payload?.vertrag?.trim() || body.vertrag,
+            status: 'versendet',
+            externalId: payload?.zoho_request_id ?? null,
+            taskId: (await taskOrNull(payload?.aufgabe_id)) ?? null,
+          },
+        })
+        return { ...(payload ?? { status: 'versendet' }), vertrag_id: contract.id }
+      } catch (err) {
+        // The contract is out. Failing the request now would report a send
+        // that happened as one that did not, and the webhook cannot be taken
+        // back — so it is reported next to the success instead.
+        app.log.error({ err, zoho: payload?.zoho_request_id }, 'Vertrag versendet, nicht erfasst')
+        return {
+          ...(payload ?? { status: 'versendet' }),
+          vertrag_id: null,
+          warnung:
+            'Der Vertrag ist raus, konnte aber nicht beim Kunden abgelegt werden — bitte von Hand anlegen, sonst findet die Signatur ihn später nicht.',
+        }
+      }
     },
   )
 }
@@ -411,17 +438,33 @@ async function taskOrNull(id: string | undefined): Promise<string | null> {
   return task?.id ?? null
 }
 
-/** Best effort: a PDF that is already gone is the state we wanted. */
-async function removeFile(name: string | null): Promise<void> {
-  if (!name) return
-  const full = resolveSignedPath(name)
-  if (!full) return
-  try {
-    await unlink(full)
-  } catch {
-    // Missing, or a directory somebody made read-only. The record is what
-    // counts, and it no longer points at the file.
+/**
+ * The first relation in the body that does not exist, as a sentence.
+ *
+ * Both foreign keys, not just the customer: without this an unknown project
+ * reaches Postgres and comes back as a foreign key violation, which the error
+ * handler can only turn into a 500 — a request that named something wrong,
+ * answered as if the server were broken.
+ */
+async function unknownRelation(body: {
+  clientId?: string
+  projectId?: string | null
+}): Promise<string | null> {
+  if (body.clientId) {
+    const client = await prisma.client.findUnique({
+      where: { id: body.clientId },
+      select: { id: true },
+    })
+    if (!client) return 'Kunde nicht gefunden'
   }
+  if (body.projectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: body.projectId },
+      select: { id: true },
+    })
+    if (!project) return 'Projekt nicht gefunden'
+  }
+  return null
 }
 
 function safeJson(text: string): unknown {

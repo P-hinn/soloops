@@ -11,7 +11,14 @@
  * workflow would fill it in anyway.
  */
 
-export type ContractType = 'nda' | 'werkvertrag' | 'dienstvertrag' | 'freie-mitarbeit'
+import { SENDABLE_CONTRACT_TYPES } from '@soloops/shared'
+
+/**
+ * The four with a template — the list itself lives in @soloops/shared,
+ * because the API validates against it and this file would otherwise be a
+ * second opinion on what may be sent.
+ */
+export type ContractType = (typeof SENDABLE_CONTRACT_TYPES)[number]
 
 export type ContractField = {
   name: string

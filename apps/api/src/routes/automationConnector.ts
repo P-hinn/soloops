@@ -768,8 +768,17 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
       // A name that does not resolve into the contract directory is dropped
       // rather than stored: it would be a file nobody can open, recorded as
-      // if there were one.
-      const file = body.file && resolveSignedPath(body.file) ? body.file : contract.file
+      // if there were one. Logged, because the workflow has written those
+      // bytes somewhere by now and nothing else will mention them.
+      let file = contract.file
+      if (body.file && resolveSignedPath(body.file)) {
+        file = body.file
+      } else if (body.file) {
+        app.log.warn(
+          { contract: id, file: body.file },
+          'Dateiname ausserhalb der Vertragsablage — nicht uebernommen',
+        )
+      }
 
       const updated = await prisma.contract.update({
         where: { id },

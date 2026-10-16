@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { SENDABLE_CONTRACT_TYPES } from '@soloops/shared'
 import { CONTRACTS, contractByType, draftFor, type ContractType } from '../src/lib/contracts.js'
 
 /**
@@ -85,12 +86,14 @@ const kundenFelder = [
 // Die vier Verträge
 // ---------------------------------------------------------------------------
 
-check('Formular und Workflow kennen dieselben Vertragsarten', CONTRACTS.map((c) => c.type).sort(), [
-  'dienstvertrag',
-  'freie-mitarbeit',
-  'nda',
-  'werkvertrag',
-])
+// Gegen @soloops/shared, nicht gegen eine Liste hier: die API validiert den
+// Versand damit, und eine dritte Aufzaehlung waere genau die Stelle, an der
+// ein Typ auftaucht, den das Formular anbietet und die API ablehnt.
+check(
+  'Formular, API und Workflow kennen dieselben Vertragsarten',
+  CONTRACTS.map((c) => c.type).sort(),
+  [...SENDABLE_CONTRACT_TYPES].sort(),
+)
 
 check(
   'jede Vertragsart steht auch im Konfig-Node',

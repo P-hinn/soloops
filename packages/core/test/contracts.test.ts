@@ -4,7 +4,17 @@ import {
   EXPIRY_WARNING_DAYS,
   type ContractState,
 } from '@soloops/shared'
-import { resolveSignedPath, signedFileName, SIGNED_ROOT } from '../src/services/contracts.js'
+import { mkdtemp, readFile, readdir } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  isPdf,
+  removeContractFile,
+  resolveSignedPath,
+  signedFileName,
+  SIGNED_ROOT,
+  storeContractFile,
+} from '../src/services/contracts.js'
 
 /**
  * Was an einem Vertrag ohne Datenbank entschieden wird.
@@ -158,6 +168,58 @@ check(
 )
 check('danach ist er abgelaufen', state('signiert', '2026-10-15T00:00:00Z'), 'abgelaufen')
 check('am letzten Tag noch nicht', state('signiert', '2026-10-16T00:00:00Z'), 'laeuft-ab')
+
+// ---------------------------------------------------------------------------
+// Die Ablage selbst
+//
+// Gegen ein Wegwerf-Verzeichnis statt gegen /data: Schreiben und Löschen sind
+// die beiden Stellen, an denen die Pfadprüfung halten muss, und sie gehören
+// deshalb in den Service und nicht in eine Route, die sich nur mit einem
+// HTTP-Server testen ließe.
+// ---------------------------------------------------------------------------
+
+const root = await mkdtemp(join(tmpdir(), 'soloops-vertraege-'))
+const pdf = Buffer.from('%PDF-1.4\nirgendwas\n')
+
+check('ein PDF erkennt man am Anfang', isPdf(pdf), true)
+check('eine Textdatei nicht', isPdf(Buffer.from('Sehr geehrte Damen und Herren')), false)
+check('und ein leerer Puffer auch nicht', isPdf(Buffer.alloc(0)), false)
+
+const erste = await storeContractFile('cl1-2026-10-16-nda-a.pdf', pdf, root)
+check('der Name kommt zurück, wie er reinging', erste, 'cl1-2026-10-16-nda-a.pdf')
+check('und die Bytes liegen unverändert da', await readFile(join(root, erste)), pdf)
+
+await storeContractFile('cl1-2026-10-16-nda-b.pdf', pdf, root)
+check('zwei Verträge, zwei Dateien', (await readdir(root)).length, 2)
+
+check('ersetzen überschreibt an Ort und Stelle', await storeContractFile(erste, pdf, root), erste)
+check('ohne eine dritte Datei zu hinterlassen', (await readdir(root)).length, 2)
+
+check('entfernen entfernt', await removeContractFile(erste, root), true)
+check(
+  'und meldet beim zweiten Mal, dass nichts mehr da war',
+  await removeContractFile(erste, root),
+  false,
+)
+check('nichts zu entfernen ist kein Fehler', await removeContractFile(null, root), false)
+check('übrig bleibt der andere Vertrag', await readdir(root), ['cl1-2026-10-16-nda-b.pdf'])
+
+// Die Grenze gilt auch hier, nicht nur beim Lesen.
+let refused = false
+try {
+  await storeContractFile('../entwischt.pdf', pdf, root)
+} catch {
+  refused = true
+}
+check('ein Name aus der Ablage heraus wird abgelehnt', refused, true)
+check(
+  'ein Löschversuch daneben fasst nichts an',
+  await removeContractFile('../../etc/passwd.pdf', root),
+  false,
+)
+check('und die Ablage ist unverändert', (await readdir(root)).length, 1)
+
+await removeContractFile('cl1-2026-10-16-nda-b.pdf', root)
 
 // ---------------------------------------------------------------------------
 

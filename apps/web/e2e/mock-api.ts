@@ -243,6 +243,7 @@ export const DEFAULT_MOCKS: Mocks = {
   'GET /api/projects': [
     {
       ...PROJECT,
+      clientId: CLIENT.id,
       status: 'ACTIVE',
       dueOn: null,
       client: CLIENT,

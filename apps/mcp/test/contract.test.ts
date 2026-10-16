@@ -27,11 +27,21 @@ type Spec = {
     Record<
       string,
       {
-        parameters?: { in: string; name: string; required?: boolean }[]
+        parameters?: {
+          in: string
+          name: string
+          required?: boolean
+          schema?: { enum?: string[] }
+        }[]
         requestBody?: {
           content: Record<
             string,
-            { schema: { properties?: Record<string, unknown>; required?: string[] } }
+            {
+              schema: {
+                properties?: Record<string, { enum?: string[] }>
+                required?: string[]
+              }
+            }
           >
         }
       }
@@ -132,6 +142,19 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
 let current = ''
 
+/** Per tool, the fields whose schema is a fixed set of values. */
+const choices = new Map<string, Record<string, string[]>>()
+
+/** The enum inside, through the optional and default wrappers. */
+function enumValues(schema: z.ZodTypeAny): string[] | null {
+  const def = (
+    schema as { _def: { typeName?: string; values?: unknown; innerType?: z.ZodTypeAny } }
+  )._def
+  if (def.typeName === 'ZodEnum') return def.values as string[]
+  if (def.innerType) return enumValues(def.innerType)
+  return null
+}
+
 process.env.SOLOOPS_TOKEN = 'probe-token'
 const { registerAll } = await import('./harness.js')
 const tools = await registerAll()
@@ -139,13 +162,17 @@ const tools = await registerAll()
 for (const [name, tool] of tools) {
   current = name
   const args: Record<string, unknown> = {}
+  const offered: Record<string, string[]> = {}
   for (const [key, schema] of Object.entries(tool.shape)) {
+    const values = enumValues(schema as z.ZodTypeAny)
+    if (values) offered[key] = values
     const def = (schema as { _def: { typeName?: string } })._def
     // Optional fields are left out — a tool must work without them, and
     // sending everything would hide a required field the API misses.
     if (def.typeName === 'ZodOptional' || def.typeName === 'ZodDefault') continue
     args[key] = sample(schema as z.ZodTypeAny, key)
   }
+  choices.set(name, offered)
   try {
     await tool.run(args)
   } catch (err) {
@@ -214,6 +241,54 @@ for (const call of sent) {
     if (!known.has(field)) unknownFields.push(`${call.tool}: ?${field} -> ${key}`)
   }
 }
+
+/**
+ * Auswahllisten gegeneinander.
+ *
+ * Ein Tool, das `status` anbietet, schreibt die erlaubten Werte noch einmal
+ * auf — das MCP-Paket hat keine gemeinsame Quelle dafür. Ein in der API
+ * ergaenzter Wert faellt sonst nirgends auf: der Pfad stimmt, das Feld
+ * stimmt, nur waehlen kann ihn niemand.
+ */
+const driftedChoices: string[] = []
+
+/**
+ * Wo ein Tool bewusst weniger anbietet als die API erlaubt.
+ *
+ * `STAGE_CHANGE` schreibt der Stufenwechsel selbst, `OFFER` das Angebot — von
+ * Hand gesetzt waere beides eine Zeile im Verlauf, der nichts entspricht.
+ * Hier aufgefuehrt statt die Regel aufzuweichen: eine benannte Ausnahme
+ * bleibt eine Entscheidung, eine weiche Regel faengt den naechsten Drift
+ * nicht mehr.
+ */
+const NARROWER = new Set(['soloops_log_lead_activity.kind'])
+for (const call of sent) {
+  const key = template(call.path)
+  if (!key) continue
+  const op = spec.paths[key]?.[call.method.toLowerCase()]
+  if (!op) continue
+  const body = op.requestBody?.content['application/json']?.schema?.properties ?? {}
+  const params = new Map(
+    (op.parameters ?? []).filter((p) => p.in === 'query').map((p) => [p.name, p.schema?.enum]),
+  )
+
+  for (const [field, values] of Object.entries(choices.get(call.tool) ?? {})) {
+    const expected = body[field]?.enum ?? params.get(field)
+    if (!expected) continue
+    const got = [...values].sort()
+    const want = [...expected].sort()
+    const extra = got.filter((value) => !want.includes(value))
+    // Ein Wert, den die API nicht kennt, ist immer falsch. Fehlende Werte nur
+    // dort, wo die Einschraenkung nicht ausdruecklich gewollt ist.
+    const incomplete =
+      !NARROWER.has(`${call.tool}.${field}`) && want.some((value) => !got.includes(value))
+    if (extra.length || incomplete) {
+      driftedChoices.push(`${call.tool}.${field}: ${got.join(',')} statt ${want.join(',')}`)
+    }
+  }
+}
+
+check('die Auswahllisten der Tools sind die der API', driftedChoices, [])
 
 check('jeder aufgerufene Pfad steht in der Spezifikation', missingPath, [])
 check('und mit der Methode, die das Tool benutzt', missingMethod, [])

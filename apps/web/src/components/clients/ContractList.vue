@@ -41,7 +41,11 @@ type Contract = {
 const props = defineProps<{ clientId: string }>()
 const emit = defineEmits<{ changed: [] }>()
 
+type Project = { id: string; key: string; name: string; clientId: string | null }
+
 const contracts = ref<Contract[]>([])
+/** The customer's projects, for the one field that is a reference. */
+const projects = ref<Project[]>([])
 const error = ref('')
 const busy = ref('')
 /** The contract being edited, or '' for the "new contract" row. */
@@ -63,6 +67,7 @@ function empty() {
     type: 'nda' as string,
     title: '',
     status: 'signiert' as string,
+    projectId: '',
     signedOn: '',
     startsOn: '',
     endsOn: '',
@@ -109,19 +114,34 @@ async function load() {
   contracts.value = await api.get<Contract[]>('/api/contracts', { clientId: props.clientId })
 }
 
+/**
+ * Once, when the form is first opened.
+ *
+ * Not on mount: most visits only read the list, and a second request per
+ * unfolded customer row buys nothing for them.
+ */
+async function loadProjects() {
+  if (projects.value.length) return
+  const all = await api.get<Project[]>('/api/projects')
+  projects.value = all.filter((project) => project.clientId === props.clientId)
+}
+
 function startNew() {
   editing.value = ''
   picked.value = null
   form.value = empty()
+  void loadProjects()
 }
 
 function startEdit(contract: Contract) {
   editing.value = contract.id
   picked.value = null
+  void loadProjects()
   form.value = {
     type: contract.type,
     title: contract.title,
     status: contract.status,
+    projectId: contract.project?.id ?? '',
     signedOn: day(contract.signedOn),
     startsOn: day(contract.startsOn),
     endsOn: day(contract.endsOn),
@@ -157,6 +177,7 @@ async function save() {
     type: form.value.type,
     title: form.value.title,
     status: form.value.status,
+    projectId: form.value.projectId || null,
     signedOn: instant(form.value.signedOn),
     startsOn: instant(form.value.startsOn),
     endsOn: instant(form.value.endsOn),
@@ -376,7 +397,20 @@ onMounted(load)
         />
       </label>
 
-      <input v-model="form.notes" class="input md:col-span-2" placeholder="Notiz" />
+      <label class="label" :for="`vertrag-projekt-${clientId}`">
+        Projekt
+        <select :id="`vertrag-projekt-${clientId}`" v-model="form.projectId" class="input">
+          <option value="">— keins —</option>
+          <option v-for="project in projects" :key="project.id" :value="project.id">
+            {{ project.key }} · {{ project.name }}
+          </option>
+        </select>
+      </label>
+
+      <label class="label md:col-span-3" :for="`vertrag-notiz-${clientId}`">
+        Notiz
+        <input :id="`vertrag-notiz-${clientId}`" v-model="form.notes" class="input" />
+      </label>
       <label class="label md:col-span-2" :for="`vertrag-pdf-${clientId}`">
         PDF
         <input

@@ -12,7 +12,16 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       where: req.query.includeArchived ? {} : { archived: false },
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { projects: true, invoices: true, contacts: true, contracts: true } },
+        // Archived rows are filtered out of both lists, so counting them here
+        // would put a number on the row that the unfolded list contradicts.
+        _count: {
+          select: {
+            projects: true,
+            invoices: true,
+            contacts: { where: { archived: false } },
+            contracts: { where: { archived: false } },
+          },
+        },
       },
     })
   })
