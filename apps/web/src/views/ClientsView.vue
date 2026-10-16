@@ -5,6 +5,7 @@ import { formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import ContractDialog from '@/components/contracts/ContractDialog.vue'
 import ContactList from '@/components/clients/ContactList.vue'
+import ContractList from '@/components/clients/ContractList.vue'
 import { useAuth } from '@/stores/auth'
 
 type Client = {
@@ -21,14 +22,26 @@ type Client = {
   paymentTermDays: number
   lexofficeContactId: string | null
   archived: boolean
-  _count: { projects: number; invoices: number; contacts: number }
+  _count: { projects: number; invoices: number; contacts: number; contracts: number }
 }
 
 const auth = useAuth()
 const clients = ref<Client[]>([])
-/** The customer whose people are unfolded. One at a time: the row below
- * the table is wide, and two of them open at once read as a mistake. */
-const showContacts = ref<string | null>(null)
+/**
+ * Which panel is unfolded under which customer.
+ *
+ * One at a time: the row below the table is wide, and two of them open at
+ * once read as a mistake.
+ */
+const open = ref<{ clientId: string; panel: 'contacts' | 'contracts' } | null>(null)
+
+function toggle(clientId: string, panel: 'contacts' | 'contracts') {
+  open.value =
+    open.value?.clientId === clientId && open.value.panel === panel ? null : { clientId, panel }
+}
+
+const unfolded = (clientId: string, panel: 'contacts' | 'contracts') =>
+  open.value?.clientId === clientId && open.value.panel === panel
 /** The customer a contract is being sent to, while the dialog is open. */
 const contractFor = ref<Client | null>(null)
 const showForm = ref(false)
@@ -109,9 +122,18 @@ async function save() {
   }
 }
 
-/** A sent contract leaves a note and a task — both show up elsewhere. */
-function onContractSent() {
+/**
+ * A sent contract is filed at the customer right away.
+ *
+ * So the counts are reloaded and the list unfolds: the row that just appeared
+ * is the one the user is looking for, and finding it folded away would read
+ * as "nothing happened".
+ */
+async function onContractSent(client: Client | null) {
   error.value = ''
+  if (!client) return
+  await load()
+  open.value = { clientId: client.id, panel: 'contracts' }
 }
 
 async function syncLexoffice(client: Client) {
@@ -188,7 +210,7 @@ onMounted(load)
       v-if="contractFor"
       :client="contractFor"
       @close="contractFor = null"
-      @sent="onContractSent"
+      @sent="onContractSent(contractFor)"
     />
 
     <div class="border-t border-line-strong">
@@ -198,6 +220,7 @@ onMounted(load)
             <th>Kunde</th>
             <th>Kontakt</th>
             <th class="text-right">Personen</th>
+            <th class="text-right">Verträge</th>
             <th class="text-right">Satz</th>
             <th class="text-right">Projekte</th>
             <th class="text-right">Rechnungen</th>
@@ -218,10 +241,19 @@ onMounted(load)
               <td class="text-right tabular-nums">
                 <button
                   class="text-xs text-blue hover:underline"
-                  :title="showContacts === c.id ? 'Zuklappen' : 'Ansprechpartner zeigen'"
-                  @click="showContacts = showContacts === c.id ? null : c.id"
+                  :title="unfolded(c.id, 'contacts') ? 'Zuklappen' : 'Ansprechpartner zeigen'"
+                  @click="toggle(c.id, 'contacts')"
                 >
                   {{ c._count.contacts || '+' }}
+                </button>
+              </td>
+              <td class="text-right tabular-nums">
+                <button
+                  class="text-xs text-blue hover:underline"
+                  :title="unfolded(c.id, 'contracts') ? 'Zuklappen' : 'Verträge zeigen und ablegen'"
+                  @click="toggle(c.id, 'contracts')"
+                >
+                  {{ c._count.contracts || '+' }}
                 </button>
               </td>
               <td class="text-right tabular-nums">
@@ -251,14 +283,19 @@ onMounted(load)
                 <button class="btn-xs ml-1" @click="edit(c)">✎</button>
               </td>
             </tr>
-            <tr v-if="showContacts === c.id" class="bg-ink/[0.02]">
-              <td colspan="8" class="p-0">
+            <tr v-if="unfolded(c.id, 'contacts')" class="bg-ink/[0.02]">
+              <td colspan="9" class="p-0">
                 <ContactList :client-id="c.id" @changed="load" />
+              </td>
+            </tr>
+            <tr v-if="unfolded(c.id, 'contracts')" class="bg-ink/[0.02]">
+              <td colspan="9" class="p-0">
+                <ContractList :client-id="c.id" @changed="load" />
               </td>
             </tr>
           </template>
           <tr v-if="!clients.length">
-            <td colspan="8" class="py-8 text-center text-muted">Noch keine Kunden.</td>
+            <td colspan="9" class="py-8 text-center text-muted">Noch keine Kunden.</td>
           </tr>
         </tbody>
       </table>

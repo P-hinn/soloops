@@ -204,10 +204,3 @@ export function contractByType(type: ContractType): ContractDefinition {
 export function draftFor(type: ContractType): Record<string, string> {
   return Object.fromEntries(contractByType(type).fields.map((f) => [f.name, f.default ?? '']))
 }
-
-/** Short enough for a badge; the long version is on the stat card. */
-export const CONTRACT_STATUS_LABEL: Record<string, string> = {
-  versendet: 'offen',
-  signiert: 'signiert',
-  abgelehnt: 'abgelehnt',
-}

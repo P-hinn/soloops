@@ -1,60 +1,78 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import {
+  CONTRACT_STATE_LABELS,
+  CONTRACT_TYPE_LABELS,
+  contractDaysLeft,
+  contractState,
+} from '@soloops/shared'
 import { api, getToken } from '@/api'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
-import { CONTRACT_STATUS_LABEL } from '@/lib/contracts'
 
 /**
- * Who has which contract, in what state.
+ * Every contract, across all customers.
  *
- * Read out of the `[VERTRAG]` notes the workflows write — there is no
- * contracts table, see services/contracts.ts on the API side. The practical
- * consequence is visible here: a contract that was handled by hand shows up
- * too, as long as the note follows the convention.
+ * The per-customer list is the one used while working — this page answers the
+ * two questions that span customers: what is still waiting for a signature,
+ * and what runs out soon. Filing and editing happens at the customer, which
+ * is why there is nothing to edit here.
  */
 
-type ContractRow = {
+type Contract = {
+  id: string
+  clientId: string
+  type: string
   title: string
-  status: 'versendet' | 'signiert' | 'abgelehnt'
-  on: string | null
-  sentOn: string | null
-  zohoRequestId: string | null
+  status: string
   file: string | null
-  noteId: string
+  externalId: string | null
+  signedOn: string | null
+  endsOn: string | null
   createdAt: string
-  clientId: string | null
   client: { id: string; name: string; company: string | null } | null
-  openTask: { id: string; title: string; dueOn: string | null } | null
+  task: { id: string; title: string; dueOn: string | null; done: boolean } | null
 }
 
-const rows = ref<ContractRow[]>([])
+const contracts = ref<Contract[]>([])
 const loading = ref(true)
 const error = ref('')
-const filter = ref<'alle' | 'offen' | 'signiert'>('alle')
+const filter = ref<'alle' | 'offen' | 'laufend' | 'ablaufend'>('alle')
+
+const now = new Date()
+
+const rows = computed(() =>
+  contracts.value.map((contract) => {
+    const state = contractState(contract, now)
+    return {
+      ...contract,
+      state,
+      label: CONTRACT_STATE_LABELS[state],
+      left: contractDaysLeft(contract.endsOn, now),
+      typeLabel:
+        CONTRACT_TYPE_LABELS[contract.type as keyof typeof CONTRACT_TYPE_LABELS] ?? contract.type,
+    }
+  }),
+)
 
 const visible = computed(() =>
   rows.value.filter((row) =>
     filter.value === 'alle'
       ? true
       : filter.value === 'offen'
-        ? row.status === 'versendet'
-        : row.status === 'signiert',
+        ? row.state === 'versendet' || row.state === 'entwurf'
+        : filter.value === 'laufend'
+          ? row.state === 'laeuft' || row.state === 'laeuft-ab'
+          : row.state === 'laeuft-ab' || row.state === 'abgelaufen',
   ),
 )
 
 const stats = computed(() => ({
-  open: rows.value.filter((r) => r.status === 'versendet').length,
-  signed: rows.value.filter((r) => r.status === 'signiert').length,
-  overdue: rows.value.filter(
-    (r) => r.status === 'versendet' && r.sentOn && daysSince(r.sentOn) > 14,
-  ).length,
+  open: rows.value.filter((r) => r.state === 'versendet').length,
+  running: rows.value.filter((r) => r.state === 'laeuft' || r.state === 'laeuft-ab').length,
+  expiring: rows.value.filter((r) => r.state === 'laeuft-ab' || r.state === 'abgelaufen').length,
 }))
-
-function daysSince(iso: string): number {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
-}
 
 const date = (value: string | null) =>
   value
@@ -66,20 +84,23 @@ const date = (value: string | null) =>
     : '—'
 
 /**
- * Open the signed PDF.
+ * Open the PDF.
  *
  * Fetched with the token in the header and handed to the browser as a blob,
  * rather than linked with the token in the query: a URL ends up in history,
  * in the proxy log and in whatever the user pastes it into.
  */
 const opening = ref('')
-async function openPdf(path: string) {
-  opening.value = path
+async function openPdf(id: string) {
+  opening.value = id
   try {
-    const url = new URL('/api/contracts/file', window.location.origin)
-    url.searchParams.set('path', path)
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken() ?? ''}` } })
-    if (!res.ok) throw new Error(`PDF nicht abrufbar (${res.status})`)
+    const res = await fetch(`/api/contracts/${id}/file`, {
+      headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+    })
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => null)) as { error?: string } | null
+      throw new Error(detail?.error ?? `PDF nicht abrufbar (${res.status})`)
+    }
     const blob = URL.createObjectURL(await res.blob())
     window.open(blob, '_blank', 'noopener')
     // The object stays alive until the new tab has it; a minute is plenty and
@@ -93,8 +114,7 @@ async function openPdf(path: string) {
 }
 
 async function load() {
-  const res = await api.get<{ rows: ContractRow[] }>('/api/contracts')
-  rows.value = res.rows
+  contracts.value = await api.get<Contract[]>('/api/contracts')
   loading.value = false
 }
 
@@ -106,10 +126,10 @@ onMounted(load)
     <PageHeader
       eyebrow="Abrechnen"
       title="Verträge"
-      subtitle="Was verschickt ist, was unterschrieben zurückkam — und was zu lange liegt."
+      subtitle="Was auf eine Unterschrift wartet, was läuft — und was demnächst ausläuft."
     >
       <template #actions>
-        <RouterLink to="/clients" class="btn-primary">Vertrag versenden ↗</RouterLink>
+        <RouterLink to="/clients" class="btn-primary">Beim Kunden ablegen ↗</RouterLink>
       </template>
     </PageHeader>
 
@@ -120,13 +140,13 @@ onMounted(load)
         hint="verschickt, noch nicht zurück"
         :tone="stats.open ? 'warn' : 'default'"
       />
+      <StatCard label="Laufend" :value="String(stats.running)" hint="unterschrieben und gültig" />
       <StatCard
-        label="Über zwei Wochen offen"
-        :value="String(stats.overdue)"
-        hint="da lohnt ein Anruf"
-        :tone="stats.overdue ? 'bad' : 'default'"
+        label="Läuft aus"
+        :value="String(stats.expiring)"
+        hint="in den nächsten 30 Tagen oder schon vorbei"
+        :tone="stats.expiring ? 'bad' : 'default'"
       />
-      <StatCard label="Signiert" :value="String(stats.signed)" hint="beidseitig unterschrieben" />
     </div>
 
     <p v-if="error" class="mb-4 border-l-2 border-bad bg-bad/5 px-3 py-2 text-sm text-bad">
@@ -135,7 +155,7 @@ onMounted(load)
 
     <div class="mb-4 flex gap-2">
       <button
-        v-for="mode in ['alle', 'offen', 'signiert'] as const"
+        v-for="mode in ['alle', 'offen', 'laufend', 'ablaufend'] as const"
         :key="mode"
         class="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.09em] transition-colors"
         :class="
@@ -155,18 +175,20 @@ onMounted(load)
           <th>Vertrag</th>
           <th>Kunde</th>
           <th class="w-28">Status</th>
-          <th class="w-24">Verschickt</th>
           <th class="w-24">Signiert</th>
-          <th class="w-32">Zoho</th>
+          <th class="w-32">Läuft bis</th>
           <th class="w-24"></th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in visible" :key="row.noteId">
+        <tr v-for="row in visible" :key="row.id">
           <td>
             <div class="font-medium">{{ row.title }}</div>
-            <div v-if="row.openTask" class="text-xs text-warn">
-              offene Aufgabe · fällig {{ date(row.openTask.dueOn) }}
+            <div class="text-xs text-muted">
+              {{ row.typeLabel }}
+              <span v-if="row.task && !row.task.done" class="text-warn">
+                · offene Aufgabe, fällig {{ date(row.task.dueOn) }}
+              </span>
             </div>
           </td>
           <td>
@@ -179,38 +201,38 @@ onMounted(load)
             <span
               class="badge"
               :class="{
-                'badge-good': row.status === 'signiert',
-                'badge-warn': row.status === 'versendet',
-                'badge-bad': row.status === 'abgelehnt',
+                'badge-good': row.state === 'laeuft',
+                'badge-warn': row.state === 'versendet' || row.state === 'laeuft-ab',
+                'badge-bad': row.state === 'abgelehnt' || row.state === 'abgelaufen',
               }"
             >
-              {{ CONTRACT_STATUS_LABEL[row.status] ?? row.status }}
+              {{ row.label }}
             </span>
           </td>
-          <td class="tabular-nums">{{ date(row.sentOn) }}</td>
+          <td class="tabular-nums">{{ date(row.signedOn) }}</td>
           <td class="tabular-nums">
-            {{ row.status === 'signiert' ? date(row.on) : '—' }}
-          </td>
-          <td class="truncate font-mono text-xs text-muted" :title="row.zohoRequestId ?? ''">
-            {{ row.zohoRequestId ?? '—' }}
+            {{ date(row.endsOn) }}
+            <span v-if="row.left !== null && row.left >= 0" class="text-xs text-muted">
+              ({{ row.left }} T)
+            </span>
           </td>
           <td class="text-right">
             <button
               v-if="row.file"
               class="btn-xs"
-              :disabled="opening === row.file"
-              @click="openPdf(row.file)"
+              :disabled="opening === row.id"
+              @click="openPdf(row.id)"
             >
-              {{ opening === row.file ? '…' : 'PDF' }}
+              {{ opening === row.id ? '…' : 'PDF' }}
             </button>
           </td>
         </tr>
         <tr v-if="!visible.length">
-          <td colspan="7" class="py-8 text-center text-sm text-muted">
+          <td colspan="6" class="py-8 text-center text-sm text-muted">
             {{
               loading
                 ? 'Lädt …'
-                : 'Noch kein Vertrag verschickt. Das geht bei einem Kunden über „Vertrag".'
+                : 'Noch kein Vertrag abgelegt. Das geht beim Kunden über die Spalte „Verträge".'
             }}
           </td>
         </tr>
