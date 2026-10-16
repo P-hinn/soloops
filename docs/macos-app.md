@@ -138,6 +138,32 @@ quarantine mark off with
 `xattr -d com.apple.quarantine /Applications/soloops.app`. The release notes
 say so too, because that is where somebody reads it.
 
+### The install window
+
+A DMG opens as a Finder window, and by default that window is two icons on
+grey with nothing explaining what to do with them. This one is drawn: the
+word mark with its acid dot, an arrow from the app to the Applications
+folder, what to do, and the sentence about the first launch — in `raised`,
+the palette's colour for what lies on top of the work surface, which is also
+the closest the palette gets to the white the app icon carries.
+
+The picture is generated, not hand-drawn:
+
+```bash
+python3 apps/desktop/src-tauri/icons/dmg-background.py
+```
+
+It writes `icons/dmg-background.png` at twice the size with 144 dpi, so the
+Finder lays it out at 660×400 points with a Retina display's pixels. The icon
+positions in that script and the ones in
+[`tauri.conf.json`](../apps/desktop/src-tauri/tauri.conf.json) have to agree —
+the arrow is drawn into the gap between them.
+
+One thing it cannot fix: `icons/icon.icns` has an opaque white background
+rather than the transparent rounded square macOS expects, so the icon shows
+as a white tile — in this window, and in the Dock and Launchpad too. The
+window's colour was chosen to make that as quiet as possible.
+
 ## How it finds the repository
 
 The app is the frame around a stack that lives in a directory — the compose
