@@ -14,7 +14,8 @@ import {
   sealSecret,
 } from '@soloops/core/services/automationDelivery.js'
 import { eventFromWire } from '@soloops/core/services/automationEvents.js'
-import { createTask } from '@soloops/core/services/taskWrite.js'
+import { completeTask, createTask } from '@soloops/core/services/taskWrite.js'
+import { logTime } from '@soloops/core/services/time.js'
 
 /**
  * What an n8n workflow may do to soloops.
@@ -460,16 +461,16 @@ const routes: FastifyPluginAsync = async (app) => {
     return createTask({ ...body, source: 'MCP' })
   })
 
+  /**
+   * Tick a task off — through the same rule the board uses.
+   *
+   * This used to write `done: true` and emit the event itself, which skipped
+   * the one thing that makes closing a follow-up's ticket mean something: the
+   * lead's follow-up stays open, waiting on a date nobody can see any more.
+   */
   app.post('/tasks/:id/complete', async (req) => {
     const { id } = idParam.parse(req.params)
-    const task = await prisma.actionItem.update({ where: { id }, data: { done: true } })
-    await emitAutomationEvent({
-      event: 'TASK_COMPLETED',
-      projectId: task.projectId,
-      path: task.projectId ? `/projects/${task.projectId}` : null,
-      data: { id: task.id, title: task.title, projectId: task.projectId },
-    })
-    return task
+    return completeTask(id, (message) => app.log.warn(message))
   })
 
   // --- Time ----------------------------------------------------------------
@@ -496,17 +497,20 @@ const routes: FastifyPluginAsync = async (app) => {
     const durationSec = body.minutes * 60
     const startedAt = body.startedAt ?? new Date(Date.now() - durationSec * 1000)
 
-    return prisma.timeEntry.create({
-      data: {
-        projectId: body.projectId,
-        startedAt,
-        endedAt: new Date(startedAt.getTime() + durationSec * 1000),
-        durationSec,
-        description: body.description,
-        billable: body.billable,
-        tags: body.tags,
-        source: 'MCP',
-      },
+    // Through the service, so the booking carries an hourly rate and a
+    // client. Written here directly it carried neither, and an hour booked by
+    // a workflow was worth nothing on the invoice while the same hour booked
+    // by hand was worth the project's rate.
+    return logTime({
+      projectId: body.projectId,
+      description: body.description,
+      startedAt,
+      endedAt: new Date(startedAt.getTime() + durationSec * 1000),
+      billable: body.billable,
+      tags: body.tags,
+      // TimeSource has no value for "automation", and adding one is a
+      // migration for a label. MCP is what it has always said here.
+      source: 'MCP',
     })
   })
 
