@@ -17,6 +17,7 @@ import { prisma } from '../db.js'
 import { emitAutomationEvent } from './automationDelivery.js'
 import { tombstoneEvent } from './calendarSync.js'
 import { createVideoRoom } from './video.js'
+import { videoSettings } from '../settings.js'
 import { notFound } from '../rules.js'
 
 export type MeetingFilter = { projectId?: string; from?: string; take?: number }
@@ -72,7 +73,7 @@ export async function createMeeting(data: CreateMeeting) {
 
   // Create the video room once and mirror it into event and meeting
   const room = data.withVideo
-    ? createVideoRoom(data.title)
+    ? createVideoRoom(data.title, await videoSettings())
     : data.videoUrl
       ? { videoUrl: data.videoUrl, videoProvider: 'CUSTOM' as const }
       : null
@@ -191,7 +192,7 @@ export async function setMeetingVideo(id: string, url?: string) {
 
   const room = url
     ? { videoUrl: url, videoProvider: 'CUSTOM' as const }
-    : createVideoRoom(meeting.title)
+    : createVideoRoom(meeting.title, await videoSettings())
   if (!room) return { error: 'Kein Videoanbieter konfiguriert' }
 
   const updated = await prisma.meeting.update({

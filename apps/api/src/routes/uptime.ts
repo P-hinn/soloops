@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
-import { env } from '@soloops/core/env.js'
 import { uptimeQueue } from '@soloops/core/queue.js'
 import { syncUptimeRobot } from '@soloops/core/services/uptimerobot.js'
 
@@ -9,6 +9,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/', async () => {
+    const keys = await serviceKeys()
     const monitors = await prisma.monitor.findMany({
       orderBy: [{ status: 'desc' }, { friendlyName: 'asc' }],
       include: {
@@ -17,7 +18,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       },
     })
     return {
-      configured: !!env.UPTIMEROBOT_API_KEY,
+      configured: !!keys.uptimerobot,
       down: monitors.filter((m) => m.status === 8 || m.status === 9).length,
       monitors,
     }
@@ -38,7 +39,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
   /** Sync right now (otherwise the worker does it on a schedule). */
   app.post('/sync', async (_req, reply) => {
-    if (!env.UPTIMEROBOT_API_KEY) {
+    const keys = await serviceKeys()
+    if (!keys.uptimerobot) {
       return reply.code(503).send({ error: 'UPTIMEROBOT_API_KEY nicht gesetzt' })
     }
     return syncUptimeRobot()

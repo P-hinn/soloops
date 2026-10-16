@@ -2,7 +2,7 @@
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { prisma } from '../db.js'
-import { anthropic, MODEL } from './anthropic.js'
+import { anthropic, model } from './anthropic.js'
 import { leadValueCents, stalenessDays, STAGE_LABEL } from '../services/leads.js'
 
 /**
@@ -74,8 +74,10 @@ export async function scoreLead(leadId: string) {
     })),
   }
 
-  const response = await anthropic().messages.parse({
-    model: MODEL,
+  const response = await (
+    await anthropic()
+  ).messages.parse({
+    model: await model(),
     max_tokens: 4000,
     system: SYSTEM,
     thinking: { type: 'adaptive' },

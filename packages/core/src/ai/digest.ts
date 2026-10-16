@@ -2,7 +2,7 @@
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { prisma } from '../db.js'
-import { anthropic, MODEL } from './anthropic.js'
+import { anthropic, model } from './anthropic.js'
 import { formatDuration } from '@soloops/shared'
 
 // ---------------------------------------------------------------------------
@@ -129,8 +129,10 @@ export async function buildProjectDigest(projectId: string) {
     })),
   }
 
-  const response = await anthropic().messages.parse({
-    model: MODEL,
+  const response = await (
+    await anthropic()
+  ).messages.parse({
+    model: await model(),
     max_tokens: 8000,
     system: SYSTEM,
     thinking: { type: 'adaptive' },
@@ -160,7 +162,7 @@ export async function buildProjectDigest(projectId: string) {
     data: {
       projectId,
       kind: 'project',
-      model: MODEL,
+      model: await model(),
       headline: parsed.headline,
       content: parsed.summary,
       data: parsed,
@@ -181,8 +183,10 @@ export async function summarizeMeeting(meetingId: string) {
   const source = meeting.minutes?.trim()
   if (!source) throw new Error('Keine Mitschrift vorhanden')
 
-  const response = await anthropic().messages.parse({
-    model: MODEL,
+  const response = await (
+    await anthropic()
+  ).messages.parse({
+    model: await model(),
     max_tokens: 8000,
     system: SYSTEM,
     thinking: { type: 'adaptive' },

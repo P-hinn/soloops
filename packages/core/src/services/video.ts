@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto'
-import { env } from '../env.js'
 
 export type VideoProviderName = 'JITSI' | 'GOOGLE_MEET' | 'CUSTOM'
 
@@ -28,17 +27,24 @@ function slug(text: string): string {
  *          created (see services/google.ts). Falls back to Jitsi without a
  *          connected Google account.
  */
+/** Where the rooms come from. Passed in, so this stays a pure function. */
+export type VideoConfig = {
+  provider: VideoProviderName
+  jitsiBaseUrl: string
+  customUrl: string
+}
+
 export function createVideoRoom(
   title: string,
-  provider: VideoProviderName = env.VIDEO_PROVIDER,
+  config: VideoConfig,
 ): { videoUrl: string; videoProvider: VideoProviderName } | null {
-  if (provider === 'CUSTOM') {
-    if (!env.VIDEO_CUSTOM_URL) return null
-    return { videoUrl: env.VIDEO_CUSTOM_URL, videoProvider: 'CUSTOM' }
+  if (config.provider === 'CUSTOM') {
+    if (!config.customUrl) return null
+    return { videoUrl: config.customUrl, videoProvider: 'CUSTOM' }
   }
 
   // GOOGLE_MEET without a Google account and JITSI both end up here.
-  const base = env.JITSI_BASE_URL.replace(/\/$/, '')
+  const base = config.jitsiBaseUrl.replace(/\/$/, '')
   const room = `soloops-${slug(title)}-${randomBytes(4).toString('hex')}`
   return { videoUrl: `${base}/${room}`, videoProvider: 'JITSI' }
 }

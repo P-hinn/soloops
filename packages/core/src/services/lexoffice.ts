@@ -1,4 +1,5 @@
 import { env } from '../env.js'
+import { serviceKeys } from '../settings.js'
 
 type LexClient = {
   id: string
@@ -45,11 +46,12 @@ function countryCode(country: string): string {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!env.LEXOFFICE_API_KEY) throw new Error('LEXOFFICE_API_KEY nicht gesetzt')
+  const { lexoffice: apiKey } = await serviceKeys()
+  if (!apiKey) throw new Error('Kein lexoffice-Schlüssel hinterlegt')
   const res = await fetch(`${env.LEXOFFICE_BASE_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${env.LEXOFFICE_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(init?.headers ?? {}),

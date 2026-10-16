@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { idParam, linkParam } from '@soloops/shared'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
@@ -47,12 +48,15 @@ const itemInput = z.object({
   source: z.enum(['MANUAL', 'AI', 'MCP']).default('MANUAL'),
 })
 
-/** The tokens the link reader needs, out of the configuration. */
-const providerAccess = () => ({
-  githubToken: env.GITHUB_TOKEN,
-  gitlabToken: env.GITLAB_TOKEN,
-  gitlabHost: env.GITLAB_HOST,
-})
+/** The tokens the link reader needs, out of the settings. */
+async function providerAccess() {
+  const keys = await serviceKeys()
+  return {
+    githubToken: keys.github,
+    gitlabToken: keys.gitlab,
+    gitlabHost: keys.gitlabHost ?? env.GITLAB_HOST,
+  }
+}
 
 const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
@@ -136,10 +140,11 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     '/:id/links',
     { schema: { params: idParam, body: z.object({ url: z.string().min(1) }) } },
     async (req, reply) => {
+      const keys = await serviceKeys()
       const { id } = req.params
       const { url } = req.body
 
-      const parsed = parseTaskLink(url, env.GITLAB_HOST)
+      const parsed = parseTaskLink(url, keys.gitlabHost)
       if (!parsed) {
         return reply.code(422).send({
           error: 'Kein erkennbarer Commit-, PR- oder Issue-Link (GitHub oder GitLab)',
@@ -147,7 +152,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       }
 
       await prisma.actionItem.findUniqueOrThrow({ where: { id }, select: { id: true } })
-      const state = await readLinkState(parsed, providerAccess()).catch((err: Error) => {
+      const state = await readLinkState(parsed, await providerAccess()).catch((err: Error) => {
         app.log.warn(`[tasks] ${parsed.url}: ${err.message}`)
         return null
       })
@@ -196,7 +201,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     const links = await prisma.taskLink.findMany({ where: { actionItemId: id } })
 
     for (const link of links) {
-      const state = await readLinkState(link, providerAccess()).catch((err: Error) => {
+      const state = await readLinkState(link, await providerAccess()).catch((err: Error) => {
         app.log.warn(`[tasks] ${link.url}: ${err.message}`)
         return null
       })

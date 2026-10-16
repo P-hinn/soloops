@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
-import { env } from '@soloops/core/env.js'
 import { companyDetails, serviceKeys } from '@soloops/core/settings.js'
 
 /**

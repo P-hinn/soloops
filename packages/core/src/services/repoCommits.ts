@@ -1,4 +1,5 @@
 import { prisma } from '../db.js'
+import { serviceKeys } from '../settings.js'
 import { env } from '../env.js'
 import { readCommits, type ProviderAccess } from './repoCommitRead.js'
 
@@ -15,11 +16,12 @@ import { readCommits, type ProviderAccess } from './repoCommitRead.js'
  * hosts is next door in repoCommitRead.ts, which needs no database.
  */
 
-function access(): ProviderAccess {
+async function access(): Promise<ProviderAccess> {
+  const keys = await serviceKeys()
   return {
-    githubToken: env.GITHUB_TOKEN,
-    gitlabToken: env.GITLAB_TOKEN,
-    gitlabHost: env.GITLAB_HOST,
+    githubToken: keys.github,
+    gitlabToken: keys.gitlab,
+    gitlabHost: keys.gitlabHost ?? env.GITLAB_HOST,
   }
 }
 
@@ -27,7 +29,7 @@ function access(): ProviderAccess {
 export async function syncRepoCommits(repoId: string): Promise<{ slug: string; commits: number }> {
   const repo = await prisma.pipelineRepo.findUniqueOrThrow({ where: { id: repoId } })
   const since = new Date(Date.now() - env.COMMIT_LOOKBACK_DAYS * 86_400_000)
-  const commits = await readCommits(repo.provider, repo.slug, repo.branch, since, access())
+  const commits = await readCommits(repo.provider, repo.slug, repo.branch, since, await access())
 
   for (const commit of commits) {
     await prisma.repoCommit.upsert({

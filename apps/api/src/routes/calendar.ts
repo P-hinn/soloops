@@ -6,6 +6,7 @@ import { env } from '@soloops/core/env.js'
 import { buildIcs } from '@soloops/core/services/ics.js'
 import { tombstoneEvent } from '@soloops/core/services/calendarSync.js'
 import { createVideoRoom } from '@soloops/core/services/video.js'
+import { videoSettings } from '@soloops/core/settings.js'
 import { listEventsInRange } from '@soloops/core/services/calendarRead.js'
 
 const routes: FastifyPluginAsyncZod = async (app) => {
@@ -62,7 +63,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
     secured.post('/', { schema: { body: eventInput } }, async (req, reply) => {
       const data = req.body
-      const room = data.withVideo ? createVideoRoom(data.title) : null
+      const room = data.withVideo ? createVideoRoom(data.title, await videoSettings()) : null
       const created = await prisma.calendarEvent.create({
         data: {
           title: data.title,
@@ -96,7 +97,9 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
         // Request a video room after the fact
         const room =
-          data.withVideo && !current.videoUrl ? createVideoRoom(data.title ?? current.title) : null
+          data.withVideo && !current.videoUrl
+            ? createVideoRoom(data.title ?? current.title, await videoSettings())
+            : null
 
         return prisma.calendarEvent.update({
           where: { id },

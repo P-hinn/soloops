@@ -1,14 +1,15 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
-import { env } from '@soloops/core/env.js'
 import { lexoffice } from '@soloops/core/services/lexoffice.js'
 
 const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/status', async () => {
-    if (!env.LEXOFFICE_API_KEY) return { provider: 'lexoffice', connected: false }
+    const keys = await serviceKeys()
+    if (!keys.lexoffice) return { provider: 'lexoffice', connected: false }
     try {
       const profile = await lexoffice.profile()
       const pending = await prisma.invoice.count({
@@ -25,8 +26,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     '/clients/:id/sync',
     { schema: { params: z.object({ id: z.string() }) } },
     async (req, reply) => {
-      if (!env.LEXOFFICE_API_KEY)
-        return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+      const keys = await serviceKeys()
+      if (!keys.lexoffice) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
       const { id } = req.params
       const client = await prisma.client.findUniqueOrThrow({ where: { id } })
       const contactId = await lexoffice.upsertContact(client)
@@ -43,8 +44,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     '/invoices/:id/sync',
     { schema: { params: z.object({ id: z.string() }) } },
     async (req, reply) => {
-      if (!env.LEXOFFICE_API_KEY)
-        return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+      const keys = await serviceKeys()
+      if (!keys.lexoffice) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
       const { id } = req.params
 
       const invoice = await prisma.invoice.findUniqueOrThrow({
@@ -79,8 +80,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
   /** Every invoice not yet transferred, in one go. */
   app.post('/invoices/sync-pending', async (_req, reply) => {
-    if (!env.LEXOFFICE_API_KEY)
-      return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
+    const keys = await serviceKeys()
+    if (!keys.lexoffice) return reply.code(503).send({ error: 'LEXOFFICE_API_KEY nicht gesetzt' })
     const pending = await prisma.invoice.findMany({
       where: { status: { in: ['SENT', 'PAID', 'OVERDUE'] }, lexofficeId: null },
       include: { client: true, items: { orderBy: { position: 'asc' } } },

@@ -1,10 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { ProjectStatus, idParam, projectInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
 import { digestQueue } from '@soloops/core/queue.js'
 import { buildProjectDigest } from '@soloops/core/ai/digest.js'
-import { env } from '@soloops/core/env.js'
 import { emitAutomationEvent } from '@soloops/core/services/automationDelivery.js'
 
 const routes: FastifyPluginAsyncZod = async (app) => {
@@ -129,7 +129,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
   /** Build a digest right now (synchronously, so the UI has something). */
   app.post('/:id/digest', { schema: { params: idParam } }, async (req, reply) => {
-    if (!env.ANTHROPIC_API_KEY) {
+    const keys = await serviceKeys()
+    if (!keys.anthropic) {
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     }
     const { id } = req.params

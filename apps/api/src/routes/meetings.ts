@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { idParam, meetingInput } from '@soloops/shared'
-import { env } from '@soloops/core/env.js'
 import { summarizeMeeting } from '@soloops/core/ai/digest.js'
 import {
   addMeetingActionItem,
@@ -66,8 +66,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
   /** AI summary + action items from the transcript. */
   app.post('/:id/summarize', { schema: { params: idParam } }, async (req, reply) => {
-    if (!env.ANTHROPIC_API_KEY)
-      return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
+    const keys = await serviceKeys()
+    if (!keys.anthropic) return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     const { id } = req.params
     return summarizeMeeting(id)
   })

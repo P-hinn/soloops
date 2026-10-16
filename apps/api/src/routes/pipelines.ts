@@ -1,8 +1,8 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { idParam, repoInput } from '@soloops/shared'
 import { prisma } from '@soloops/core/db.js'
-import { env } from '@soloops/core/env.js'
 import { commitQueue, pipelineQueue } from '@soloops/core/queue.js'
 import { syncRepo } from '@soloops/core/services/pipelines.js'
 import { projectCommits, syncRepoCommits } from '@soloops/core/services/repoCommits.js'
@@ -11,6 +11,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.get('/repos', async () => {
+    const keys = await serviceKeys()
     const repos = await prisma.pipelineRepo.findMany({
       orderBy: { slug: 'asc' },
       include: {
@@ -19,7 +20,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       },
     })
     return {
-      configured: { github: !!env.GITHUB_TOKEN, gitlab: !!env.GITLAB_TOKEN },
+      configured: { github: !!keys.github, gitlab: !!keys.gitlab },
       repos,
     }
   })

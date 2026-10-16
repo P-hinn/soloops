@@ -1,7 +1,7 @@
 // The Anthropic Zod helper expects Zod 4 — zod 3.25 ships it under /v4.
 import { z } from 'zod/v4'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import { anthropic, MODEL } from './anthropic.js'
+import { anthropic, model } from './anthropic.js'
 
 /**
  * Placing a mail that no rule could catch.
@@ -55,8 +55,10 @@ export async function triageMail(
   mail: { fromName: string | null; fromEmail: string; subject: string; bodyText: string },
   ctx: TriageContext,
 ): Promise<MailTriage | null> {
-  const response = await anthropic().messages.parse({
-    model: MODEL,
+  const response = await (
+    await anthropic()
+  ).messages.parse({
+    model: await model(),
     max_tokens: 2000,
     system: SYSTEM,
     output_config: {

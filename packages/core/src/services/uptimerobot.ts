@@ -1,5 +1,5 @@
 import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { serviceKeys } from '../settings.js'
 
 type RobotMonitor = {
   id: number
@@ -23,10 +23,11 @@ type RobotMonitor = {
  * so that the project view works without a second browser tab.
  */
 export async function syncUptimeRobot(): Promise<{ monitors: number; incidents: number }> {
-  if (!env.UPTIMEROBOT_API_KEY) throw new Error('UPTIMEROBOT_API_KEY nicht gesetzt')
+  const { uptimerobot: apiKey } = await serviceKeys()
+  if (!apiKey) throw new Error('Kein UptimeRobot-Schlüssel hinterlegt')
 
   const body = new URLSearchParams({
-    api_key: env.UPTIMEROBOT_API_KEY,
+    api_key: apiKey,
     format: 'json',
     logs: '1',
     logs_limit: '20',

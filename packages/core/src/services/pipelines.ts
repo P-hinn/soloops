@@ -1,6 +1,6 @@
 import type { RunStatus } from '@prisma/client'
 import { prisma } from '../db.js'
-import { env } from '../env.js'
+import { serviceKeys } from '../settings.js'
 
 // --- GitHub Actions ---------------------------------------------------------
 
@@ -115,10 +115,11 @@ type RunRow = {
 }
 
 async function fetchGithubRuns(slug: string): Promise<RunRow[]> {
-  if (!env.GITHUB_TOKEN) throw new Error('GITHUB_TOKEN nicht gesetzt')
+  const { github: token } = await serviceKeys()
+  if (!token) throw new Error('Kein GitHub-Token hinterlegt')
   const res = await fetch(`https://api.github.com/repos/${slug}/actions/runs?per_page=20`, {
     headers: {
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
@@ -150,10 +151,11 @@ async function fetchGithubRuns(slug: string): Promise<RunRow[]> {
 }
 
 async function fetchGitlabRuns(slug: string): Promise<RunRow[]> {
-  if (!env.GITLAB_TOKEN) throw new Error('GITLAB_TOKEN nicht gesetzt')
+  const { gitlab: token, gitlabHost } = await serviceKeys()
+  if (!token) throw new Error('Kein GitLab-Token hinterlegt')
   const encoded = encodeURIComponent(slug)
-  const res = await fetch(`${env.GITLAB_HOST}/api/v4/projects/${encoded}/pipelines?per_page=20`, {
-    headers: { 'PRIVATE-TOKEN': env.GITLAB_TOKEN },
+  const res = await fetch(`${gitlabHost}/api/v4/projects/${encoded}/pipelines?per_page=20`, {
+    headers: { 'PRIVATE-TOKEN': token },
   })
   if (!res.ok) throw new Error(`GitLab HTTP ${res.status}`)
   const pipelines = (await res.json()) as GlPipeline[]

@@ -1,9 +1,11 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { env } from '@soloops/core/env.js'
 import { planFromText } from '@soloops/core/ai/assistant.js'
 import { createVideoRoom } from '@soloops/core/services/video.js'
+import { videoSettings } from '@soloops/core/settings.js'
 
 /**
  * Two endpoints, deliberately separate:
@@ -76,7 +78,8 @@ const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
 
   app.post('/plan', { schema: { body: planInput } }, async (req, reply) => {
-    if (!env.ANTHROPIC_API_KEY) {
+    const keys = await serviceKeys()
+    if (!keys.anthropic) {
       return reply.code(503).send({ error: 'ANTHROPIC_API_KEY nicht gesetzt' })
     }
     const { text } = req.body
@@ -154,7 +157,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       }
 
       const title = plan.event.title ?? plan.meeting.title ?? 'Termin'
-      const room = plan.event.withVideo ? createVideoRoom(title) : null
+      const room = plan.event.withVideo ? createVideoRoom(title, await videoSettings()) : null
       videoUrl = room?.videoUrl ?? null
 
       const event = await prisma.calendarEvent.create({

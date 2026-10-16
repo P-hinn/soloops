@@ -1,14 +1,30 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { env } from '../env.js'
+import { serviceKeys } from '../settings.js'
 
 let client: Anthropic | null = null
+let clientKey: string | null = null
 
-export function anthropic(): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY ist nicht gesetzt — AI-Funktionen sind deaktiviert.')
+/**
+ * The Anthropic client, with the key that is in force now.
+ *
+ * Async because the key may come from the database — it can be entered in the
+ * interface, and a key entered there has to work without a restart. The
+ * client is cached, but keyed on the key itself: changing it builds a new one
+ * instead of silently keeping the old.
+ */
+export async function anthropic(): Promise<Anthropic> {
+  const { anthropic: key } = await serviceKeys()
+  if (!key) {
+    throw new Error('Kein Anthropic-Schlüssel — AI-Funktionen sind deaktiviert.')
   }
-  client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+  if (!client || clientKey !== key) {
+    client = new Anthropic({ apiKey: key })
+    clientKey = key
+  }
   return client
 }
 
-export const MODEL = env.ANTHROPIC_MODEL
+/** The model to ask. From the settings, so it can be changed in the app. */
+export async function model(): Promise<string> {
+  return (await serviceKeys()).anthropicModel ?? 'claude-sonnet-4-5'
+}

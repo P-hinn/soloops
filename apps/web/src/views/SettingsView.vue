@@ -92,8 +92,11 @@ const featureLabels: Record<string, string> = {
       <section class="card">
         <h2 class="eyebrow mb-3">Angebundene Dienste</h2>
         <p class="mb-3 text-xs text-muted">
-          Konfiguration läuft über die <code class="rounded bg-paper-2 px-1">.env</code>. Nach
-          Änderungen <code class="rounded bg-paper-2 px-1">docker compose up -d</code> ausführen.
+          Schlüssel können unten eingetragen werden; was in der
+          <code class="rounded bg-paper-2 px-1">.env</code> steht, gilt weiter, solange hier nichts
+          gesetzt ist. Google und Apple bleiben in der
+          <code class="rounded bg-paper-2 px-1">.env</code> — die Redirect-URI muss zu der in der
+          Google-Konsole registrierten passen.
         </p>
         <ul class="space-y-2 text-sm">
           <li
@@ -149,6 +152,20 @@ const featureLabels: Record<string, string> = {
           <button class="btn-primary">Ändern</button>
         </form>
       </section>
+
+      <SettingsForm
+        group="keys."
+        title="Schlüssel der angebundenen Dienste"
+        note="Verschlüsselt gespeichert. Ein gesetzter Schlüssel wird nie zurückgeschickt — das Feld bleibt leer und ein leeres Feld lässt ihn stehen."
+        @saved="auth.load()"
+      />
+
+      <SettingsForm
+        group="video."
+        title="Videoräume"
+        note="Jitsi braucht nichts außer der Adresse. CUSTOM nutzt den eigenen Dauerraum."
+        @saved="auth.load()"
+      />
 
       <ClaudeConnection />
       <DeviceSync />
