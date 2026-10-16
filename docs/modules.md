@@ -169,16 +169,28 @@ cancelled.
 finalized documents (`finalize=true`), monthly revenue net/VAT/gross for the
 advance VAT return.
 
-**Contracts.** NDA, Werkvertrag, Dienstvertrag and freie Mitarbeit, sent for
-signature from the customer list: pick the type, fill in what differs per
+**Contracts.** Every contract is filed at its customer, in the _Verträge_
+column of the customer list: type, title, what it is worth, from when until
+when, and the PDF. Two ways one gets there.
+
+Generated: NDA, Werkvertrag, Dienstvertrag and freie Mitarbeit are sent for
+signature from the same place — pick the type, fill in what differs per
 contract, and n8n renders the template, turns it into a PDF through Gotenberg
 and hands it to Zoho Sign for both signatures. What comes back lands in
-soloops — the "Signatur ausstehend" task ticks itself off, a note records it,
-and the signed PDF shows up under _Verträge_ with everything else that is out
-and everything that came back. There is no contracts table: a contract is two
-notes and a task, which means it syncs to the phone and shows up in search
-without anything new being built for it. See
+soloops: the "Signatur ausstehend" task ticks itself off, the contract turns
+`signiert`, and the signed PDF hangs off it. See
 [packages/core/src/automations/contracts/README.md](../packages/core/src/automations/contracts/README.md).
+
+Uploaded: a framework agreement, a data processing agreement, the NDA the
+customer's lawyer wrote — anything that arrives as a finished PDF is filed
+with the same four fields and the file dropped on it. That is the common case
+for everything agreed before soloops existed, and it is why there is a table
+rather than a note convention: a scanned contract has an end date, and an end
+date is something to be reminded of.
+
+_Verträge_ then answers the two questions that span customers: what is still
+waiting for a signature, and what runs out in the next thirty days. Expiry is
+derived on read from the end date — no job walks the table at midnight.
 
 **Automations.** A full n8n under _Automatisierungen_ — its drag-and-drop
 canvas embedded in soloops, soloops nodes in its palette, templates to start

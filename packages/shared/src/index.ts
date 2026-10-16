@@ -66,6 +66,169 @@ export const contactInput = z.object({
 })
 
 // ---------------------------------------------------------------------------
+// Contracts
+// ---------------------------------------------------------------------------
+
+/**
+ * The four soloops can generate and send itself.
+ *
+ * These strings are not free: they are the file names of the HTML templates,
+ * the keys of the n8n workflow's own configuration and the values its webhook
+ * validates. Renaming one here renames it in four places — the test in
+ * apps/web/test/contracts.test.ts holds them together.
+ */
+export const SENDABLE_CONTRACT_TYPES = [
+  'nda',
+  'werkvertrag',
+  'dienstvertrag',
+  'freie-mitarbeit',
+] as const
+
+/**
+ * Everything that may be filed, which is more than can be sent: a framework
+ * agreement, a data processing agreement, the thing the customer's lawyer
+ * wrote. Those arrive as a finished PDF and are uploaded, so they need no
+ * template — only a name.
+ */
+export const CONTRACT_TYPES = [
+  ...SENDABLE_CONTRACT_TYPES,
+  'rahmenvertrag',
+  'avv',
+  'sonstiges',
+] as const
+
+export const ContractType = z.enum(CONTRACT_TYPES)
+export const SendableContractType = z.enum(SENDABLE_CONTRACT_TYPES)
+
+/**
+ * Where a contract stands.
+ *
+ * `beendet` is set by hand — a contract that ran out keeps its `signiert`
+ * until somebody says otherwise, and `endsOn` in the past is what the
+ * interface reads to show it as expired.
+ */
+export const CONTRACT_STATUSES = [
+  'entwurf',
+  'versendet',
+  'signiert',
+  'abgelehnt',
+  'beendet',
+] as const
+
+export const ContractStatus = z.enum(CONTRACT_STATUSES)
+
+/** How the stored status is named where it is set by hand. */
+export const CONTRACT_STATUS_LABELS: Record<(typeof CONTRACT_STATUSES)[number], string> = {
+  entwurf: 'Entwurf',
+  versendet: 'Versendet',
+  signiert: 'Unterschrieben',
+  abgelehnt: 'Abgelehnt',
+  beendet: 'Beendet',
+}
+
+/** How the types are named in the interface. */
+export const CONTRACT_TYPE_LABELS: Record<(typeof CONTRACT_TYPES)[number], string> = {
+  nda: 'NDA',
+  werkvertrag: 'Werkvertrag',
+  dienstvertrag: 'Dienstvertrag',
+  'freie-mitarbeit': 'Freie Mitarbeit',
+  rahmenvertrag: 'Rahmenvertrag',
+  avv: 'AV-Vertrag',
+  sonstiges: 'Sonstiges',
+}
+
+/**
+ * A contract as it is filed by hand.
+ *
+ * `clientId` is not in here for the same reason it is not in `contactInput`:
+ * on create it comes from the body of the create route explicitly, and the
+ * fields a workflow writes — `externalId`, `taskId`, `file` — are not part of
+ * it at all. Those three say where a contract came from, and a PATCH from the
+ * interface must not be able to claim a different origin for it.
+ */
+export const contractInput = z.object({
+  type: ContractType,
+  title: z.string().min(1).transform(cut(200)),
+  status: ContractStatus.default('entwurf'),
+  projectId: z.string().nullish(),
+  signedOn: isoDate.nullish(),
+  startsOn: isoDate.nullish(),
+  endsOn: isoDate.nullish(),
+  amountCents: z.number().int().nonnegative().nullish(),
+  notes: z.string().nullish(),
+  archived: z.boolean().default(false),
+})
+
+// ---------------------------------------------------------------------------
+/**
+ * How many days a contract still runs. Negative once it has run out, null
+ * when it has no end — the usual case for an NDA.
+ *
+ * Compared by calendar day rather than by instant: a contract that ends today
+ * is still valid today, and the stored date carries no useful time of day.
+ * The calendar is the local one — the browser's in the interface, TZ in the
+ * API — which is the one whoever asks is looking at.
+ */
+export function contractDaysLeft(
+  endsOn: Date | string | null | undefined,
+  now: Date,
+): number | null {
+  if (!endsOn) return null
+  const end = endsOn instanceof Date ? endsOn : new Date(endsOn)
+  if (Number.isNaN(end.getTime())) return null
+  const day = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.round((day(end) - day(now)) / 86_400_000)
+}
+
+/** Inside this many days before the end, a contract wants attention. */
+export const EXPIRY_WARNING_DAYS = 30
+
+/** What a contract is, in one word. More than its status, see below. */
+export const CONTRACT_STATES = [
+  'entwurf',
+  'versendet',
+  'abgelehnt',
+  'beendet',
+  'laeuft',
+  'laeuft-ab',
+  'abgelaufen',
+] as const
+
+export type ContractState = (typeof CONTRACT_STATES)[number]
+
+/**
+ * Status and dates together.
+ *
+ * A signed contract whose end date has passed is expired, and nothing writes
+ * that: there is no job walking the table at midnight, so it is derived on
+ * read — by the interface and by the API, which is why it lives here.
+ */
+export function contractState(
+  contract: { status: string; endsOn?: Date | string | null },
+  now: Date,
+): ContractState {
+  if (contract.status !== 'signiert') {
+    return (CONTRACT_STATES as readonly string[]).includes(contract.status)
+      ? (contract.status as ContractState)
+      : 'entwurf'
+  }
+  const left = contractDaysLeft(contract.endsOn, now)
+  if (left === null) return 'laeuft'
+  if (left < 0) return 'abgelaufen'
+  return left <= EXPIRY_WARNING_DAYS ? 'laeuft-ab' : 'laeuft'
+}
+
+export const CONTRACT_STATE_LABELS: Record<ContractState, string> = {
+  entwurf: 'Entwurf',
+  versendet: 'Versendet',
+  abgelehnt: 'Abgelehnt',
+  beendet: 'Beendet',
+  laeuft: 'Läuft',
+  'laeuft-ab': 'Läuft ab',
+  abgelaufen: 'Abgelaufen',
+}
+
+// ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
 
@@ -250,6 +413,7 @@ export const repoInput = z.object({
 export type LoginInput = z.infer<typeof loginInput>
 export type ClientInput = z.infer<typeof clientInput>
 export type ContactInput = z.infer<typeof contactInput>
+export type ContractInput = z.infer<typeof contractInput>
 export type ProjectInput = z.infer<typeof projectInput>
 export type EventInput = z.infer<typeof eventInput>
 export type MeetingInput = z.infer<typeof meetingInput>

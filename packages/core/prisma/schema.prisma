@@ -45,6 +45,7 @@ model Client {
   updatedAt          DateTime @updatedAt
 
   contacts    Contact[]
+  contracts   Contract[]
   projects    Project[]
   invoices    Invoice[]
   timeEntries TimeEntry[]
@@ -84,6 +85,59 @@ model Contact {
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId, archived])
+}
+
+/// A contract filed at a customer.
+///
+/// Two ways in. soloops sends one from a template through n8n and Zoho Sign,
+/// and the signing workflow writes the result back here. Or a contract that
+/// was never generated here — a scanned NDA, something the customer's lawyer
+/// wrote — gets uploaded, and then this row plus the PDF is all there is.
+/// Both end up as the same record, because "which contracts do I have with
+/// this customer" is one question.
+///
+/// `type` and `status` are plain strings, not Prisma enums: the four sendable
+/// types are the webhook's own vocabulary and the HTML templates' file names
+/// (see services/contracts.ts), and a customer appearing with a kind of
+/// contract nobody foresaw should not need a migration. The allowed values
+/// live in one Zod schema.
+model Contract {
+  id        String  @id @default(cuid())
+  clientId  String
+  projectId String?
+  type      String
+  title     String
+  status    String  @default("entwurf")
+
+  /// The Zoho Sign request this came out of. Unique, so the signing webhook
+  /// arriving twice updates one row instead of making a second.
+  externalId String? @unique
+  /// The "Signatur ausstehend" task, while the signature is outstanding.
+  taskId     String?
+  /// File name inside the contract directory, flat and without a path — see
+  /// resolveSignedPath, which is what makes it safe to open.
+  file       String?
+
+  signedOn DateTime?
+  startsOn DateTime?
+  /// When it runs out. A date in the past is what makes a contract show as
+  /// expired; there is no status for it, because nothing writes one.
+  endsOn   DateTime?
+
+  /// What it is worth, where that is part of the contract.
+  amountCents Int?
+  notes       String?
+
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task    ActionItem? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, archived])
+  @@index([status, endsOn])
 }
 
 enum ProjectStatus {
@@ -127,6 +181,7 @@ model Project {
   leads       Lead[]
   mails       MailMessage[]
 
+  contracts          Contract[]
   automationFlows    AutomationFlow[]
   automationTriggers AutomationTrigger[]
 
@@ -386,6 +441,7 @@ model ActionItem {
 
   timeEntries TimeEntry[]
   links       TaskLink[]
+  contracts   Contract[]
 
   @@index([done, dueOn])
   @@index([done, status, position])

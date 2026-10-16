@@ -14,6 +14,33 @@ const contactFields = {
     .describe('Hauptansprechpartner. Setzt die Markierung bei den anderen des Kunden zurück.'),
 }
 
+/** The seven kinds that may be filed. Four of them soloops can also send. */
+const contractType = z
+  .enum([
+    'nda',
+    'werkvertrag',
+    'dienstvertrag',
+    'freie-mitarbeit',
+    'rahmenvertrag',
+    'avv',
+    'sonstiges',
+  ])
+  .describe('Vertragsart')
+
+/** Everything about a contract that may be set, all of it optional. */
+const contractFields = {
+  status: z
+    .enum(['entwurf', 'versendet', 'signiert', 'abgelehnt', 'beendet'])
+    .optional()
+    .describe('Stand des Vertrags. Ein abgelaufener zeigt sich aus `endsOn`, nicht hier.'),
+  projectId: z.string().optional().describe('Projekt, zu dem der Vertrag gehört'),
+  signedOn: z.string().optional().describe('ISO-Zeitstempel der Unterschrift'),
+  startsOn: z.string().optional().describe('ISO-Zeitstempel, ab wann er gilt'),
+  endsOn: z.string().optional().describe('ISO-Zeitstempel, bis wann er läuft'),
+  amountCents: z.number().int().min(0).optional().describe('Vertragswert in Cent'),
+  notes: z.string().optional(),
+}
+
 /** Everything about a client that may be set, all of it optional. */
 const fields = {
   company: z.string().optional(),
@@ -109,5 +136,52 @@ export function registerClients(server: McpServer): void {
     'Ansprechpartner löschen. Wer noch gebraucht werden könnte, wird besser archiviert — siehe soloops_update_contact.',
     { contactId: z.string() },
     ({ contactId }) => del(`/api/contacts/${contactId}`),
+  )
+
+  // --- the contracts filed at a client ---------------------------------------
+
+  tool(
+    server,
+    'soloops_list_contracts',
+    'Verträge. Ohne `clientId` die aller Kunden, mit `q` nach Titel, Notiz oder Kundenname gesucht. `status` filtert auf entwurf, versendet, signiert, abgelehnt oder beendet.',
+    {
+      clientId: z.string().optional(),
+      projectId: z.string().optional(),
+      status: z.string().optional(),
+      q: z.string().optional(),
+      includeArchived: z.boolean().optional(),
+    },
+    (args) => get('/api/contracts', args),
+  )
+
+  tool(
+    server,
+    'soloops_create_contract',
+    'Vertrag beim Kunden ablegen — NDA, Werkvertrag, Dienstvertrag, freie Mitarbeit, Rahmenvertrag, AV-Vertrag oder sonstiges. Für einen Vertrag, der schon unterschrieben ist: `status: "signiert"` und `signedOn` setzen. Das PDF selbst wird in der App hochgeladen, nicht hier.',
+    { clientId: z.string(), ...contractFields, type: contractType, title: z.string().min(1) },
+    (args) => post('/api/contracts', args),
+  )
+
+  tool(
+    server,
+    'soloops_update_contract',
+    'Vertrag ändern — nur die übergebenen Felder. `archived: true` nimmt ihn aus den Listen, ohne die Historie zu verlieren.',
+    {
+      contractId: z.string(),
+      clientId: z.string().optional().describe('Zu diesem Kunden umhängen'),
+      type: contractType.optional(),
+      title: z.string().min(1).optional(),
+      ...contractFields,
+      archived: z.boolean().optional(),
+    },
+    ({ contractId, ...body }) => patch(`/api/contracts/${contractId}`, body),
+  )
+
+  tool(
+    server,
+    'soloops_delete_contract',
+    'Vertrag löschen, samt hochgeladenem PDF. Wer die Historie behalten will, archiviert ihn über soloops_update_contract.',
+    { contractId: z.string() },
+    ({ contractId }) => del(`/api/contracts/${contractId}`),
   )
 }

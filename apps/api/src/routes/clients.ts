@@ -11,7 +11,9 @@ const routes: FastifyPluginAsyncZod = async (app) => {
     return prisma.client.findMany({
       where: req.query.includeArchived ? {} : { archived: false },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { projects: true, invoices: true, contacts: true } } },
+      include: {
+        _count: { select: { projects: true, invoices: true, contacts: true, contracts: true } },
+      },
     })
   })
 
@@ -22,6 +24,10 @@ const routes: FastifyPluginAsyncZod = async (app) => {
         contacts: {
           where: { archived: false },
           orderBy: [{ primary: 'desc' }, { name: 'asc' }],
+        },
+        contracts: {
+          where: { archived: false },
+          orderBy: { createdAt: 'desc' },
         },
         projects: { orderBy: { name: 'asc' } },
         invoices: { orderBy: { issueDate: 'desc' }, take: 20 },
