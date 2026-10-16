@@ -5,6 +5,8 @@ import IORedis from 'ioredis'
 // rules live in @soloops/core — including the Prisma client, so that the
 // sync log sees the worker's writes too.
 import { env } from '@soloops/core/env.js'
+import { cronSettings, serviceKeys } from '@soloops/core/settings.js'
+import { changedSchedules, type Schedules } from '@soloops/core/services/schedules.js'
 import { initSync, prisma } from '@soloops/core/db.js'
 import { syncUptimeRobot } from '@soloops/core/services/uptimerobot.js'
 import { syncAllRepos, syncRepo } from '@soloops/core/services/pipelines.js'
@@ -290,30 +292,40 @@ const activityQueue = new Queue('activity', { connection })
  * restarting the worker does not create a second schedule, it updates the
  * existing one under the same key.
  */
-async function scheduleRepeatables() {
+async function scheduleRepeatables(): Promise<Schedules> {
+  // Read per run, not at startup: the intervals can be changed in the
+  // interface, and a cron that only takes effect after a restart is a
+  // setting that lies.
+  const crons = await cronSettings()
+  const keys = await serviceKeys()
+  const planned: Schedules = {}
+  const note = (key: string, pattern: string) => {
+    planned[key] = pattern
+    return pattern
+  }
   await calendarQueue.upsertJobScheduler(
     'calendar-sync',
-    { pattern: env.CALENDAR_SYNC_CRON },
+    { pattern: note('calendar-sync', crons.calendar) },
     { name: 'sync-all', opts: { removeOnComplete: 20, removeOnFail: 20 } },
   )
 
   await mailQueue.upsertJobScheduler(
     'mail-sync',
-    { pattern: env.MAIL_POLL_CRON },
+    { pattern: note('mail-sync', crons.mail) },
     { name: 'sync-all', opts: { removeOnComplete: 20, removeOnFail: 20 } },
   )
 
-  if (env.UPTIMEROBOT_API_KEY) {
+  if (keys.uptimerobot) {
     await uptimeQueue.upsertJobScheduler(
       'uptime-sync',
-      { pattern: env.UPTIME_POLL_CRON },
+      { pattern: note('uptime-sync', crons.uptime) },
       { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
-  if (env.GITHUB_TOKEN || env.GITLAB_TOKEN) {
+  if (keys.github || keys.gitlab) {
     await pipelineQueue.upsertJobScheduler(
       'pipeline-sync',
-      { pattern: env.PIPELINE_POLL_CRON },
+      { pattern: note('pipeline-sync', crons.pipelines) },
       { name: 'sync-all', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
     // Slower than the pipelines: a commit that lands in the mirror ten
@@ -321,11 +333,11 @@ async function scheduleRepeatables() {
     // them.
     await commitQueue.upsertJobScheduler(
       'commit-sync',
-      { pattern: env.COMMIT_POLL_CRON },
+      { pattern: note('commit-sync', crons.commits) },
       { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
     )
   }
-  if (env.ANTHROPIC_API_KEY) {
+  if (keys.anthropic) {
     // Weekdays at 7:30: a status report for every active project
     await digestQueue.upsertJobScheduler(
       'project-digests',
@@ -338,7 +350,7 @@ async function scheduleRepeatables() {
     )
   }
 
-  if (env.ANTHROPIC_API_KEY) {
+  if (keys.anthropic) {
     // Leads an hour before the project digests — then the scores are in
     // place when the first look at the pipeline happens.
     await leadQueue.upsertJobScheduler(
@@ -353,7 +365,7 @@ async function scheduleRepeatables() {
   // effect without a worker restart.
   await automationQueue.upsertJobScheduler(
     'automation-sync',
-    { pattern: env.AUTOMATION_POLL_CRON },
+    { pattern: note('automation-sync', crons.automations) },
     { name: 'sync', opts: { removeOnComplete: 10, removeOnFail: 20 } },
   )
 
@@ -370,6 +382,42 @@ async function scheduleRepeatables() {
     { pattern: '0 6 * * *' },
     { name: 'mark-overdue', data: { kind: 'overdue' }, opts: { removeOnComplete: 5 } },
   )
+
+  return planned
+}
+
+/**
+ * Keep the schedule in step with the settings.
+ *
+ * Checked once a minute. Only a changed pattern causes a rewrite —
+ * `upsertJobScheduler` is idempotent, but a write per schedule per minute
+ * would be noise in Redis for nothing.
+ */
+function watchSchedules(planned: Schedules) {
+  setInterval(() => {
+    void (async () => {
+      try {
+        const next = await cronSettings()
+        const wanted: Schedules = {
+          'calendar-sync': next.calendar,
+          'mail-sync': next.mail,
+          'uptime-sync': next.uptime,
+          'pipeline-sync': next.pipelines,
+          'commit-sync': next.commits,
+          'automation-sync': next.automations,
+        }
+        // Only schedules that are actually planned: whether uptime runs at
+        // all is decided by whether there is a key for it.
+        const changed = changedSchedules(planned, wanted).filter((key) => key in planned)
+        if (changed.length === 0) return
+
+        log('worker', `Zeitplaene geaendert: ${changed.join(', ')} — neu geplant`)
+        planned = await scheduleRepeatables()
+      } catch (err) {
+        log('worker', `Zeitplaene nicht pruefbar: ${(err as Error).message}`)
+      }
+    })()
+  }, 60_000)
 }
 
 // Its own device identity, so that digests and calendar runs end up in the
@@ -377,7 +425,7 @@ async function scheduleRepeatables() {
 const { deviceId } = await initSync('worker')
 log('worker', `Sync-Geraet ${deviceId}`)
 
-await scheduleRepeatables()
+watchSchedules(await scheduleRepeatables())
 log('worker', 'bereit')
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

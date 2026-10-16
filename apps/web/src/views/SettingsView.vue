@@ -167,6 +167,13 @@ const featureLabels: Record<string, string> = {
         @saved="auth.load()"
       />
 
+      <SettingsForm
+        group="cron."
+        title="Wie oft nachgesehen wird"
+        note="Cron-Ausdrücke. Eine Änderung greift innerhalb einer Minute — der Worker plant sich selbst um, ohne Neustart."
+        @saved="auth.load()"
+      />
+
       <ClaudeConnection />
       <DeviceSync />
     </div>
