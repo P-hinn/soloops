@@ -19,21 +19,45 @@ pub fn post(
     path: &str,
     body: &str,
 ) -> Result<(u16, String), String> {
+    send(port, token, client, "POST", path, Some(body))
+}
+
+/// A GET, for the things the app reads rather than writes.
+pub fn get(port: u16, token: &str, client: &str, path: &str) -> Result<(u16, String), String> {
+    send(port, token, client, "GET", path, None)
+}
+
+fn send(
+    port: u16,
+    token: &str,
+    client: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+) -> Result<(u16, String), String> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let mut stream =
         TcpStream::connect_timeout(&addr, Duration::from_secs(2)).map_err(|err| err.to_string())?;
     let _ = stream.set_read_timeout(Some(Duration::from_secs(10)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
 
+    // A GET carries neither body nor content type — some proxies and more
+    // than one server read a Content-Length on a GET as a second request.
+    let payload = body.unwrap_or("");
+    let framing = match body {
+        Some(body) => format!(
+            "Content-Type: application/json\r\nContent-Length: {}\r\n",
+            body.len()
+        ),
+        None => String::new(),
+    };
     let request = format!(
-        "POST {path} HTTP/1.0\r\n\
+        "{method} {path} HTTP/1.0\r\n\
          Host: localhost\r\n\
          Authorization: Bearer {token}\r\n\
          X-Soloops-Client: {client}\r\n\
-         Content-Type: application/json\r\n\
-         Content-Length: {}\r\n\
-         Connection: close\r\n\r\n{body}",
-        body.len()
+         {framing}\
+         Connection: close\r\n\r\n{payload}"
     );
     stream
         .write_all(request.as_bytes())

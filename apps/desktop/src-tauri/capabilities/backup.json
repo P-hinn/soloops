@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "backup-window",
+  "description": "Das Backup-Fenster ist eine mitgelieferte lokale Seite und darf genau das, was es anzeigt: Einstellungen und Archivliste lesen, die Einstellungen schreiben, einen Snapshot anstossen, einen wiederherstellen, den Zielordner per Finder-Dialog waehlen und ihn im Finder zeigen. Mehr nicht — pg_dump, tar und psql laufen in Rust, die Seite kennt weder .env noch Datenbank.",
+  "windows": ["backup"],
+  "permissions": [
+    "core:default",
+    "allow-backup-status",
+    "allow-backup-configure",
+    "allow-backup-now",
+    "allow-backup-restore",
+    "allow-backup-choose-folder",
+    "allow-backup-reveal"
+  ]
+}

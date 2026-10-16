@@ -14,7 +14,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+# macos-private-api: the overlay widget is a transparent window, which on
+# macOS Tauri only allows behind that flag. Nothing is shipped through an App
+# Store here, and without it the widget would be a grey rectangle with square
+# corners sitting on top of everything.
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 # Both already come in through tauri — declared so this crate may use them.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -26,3 +30,11 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+# Proc macros and build scripts are dylibs that rustc loads while compiling,
+# and the `strip` above reaches them too: macOS then refuses to dlopen them
+# ("mis-aligned LINKEDIT string pool") and every derive in the dependency
+# tree turns into "can't find crate". The binary stays stripped, the compiler
+# plugins stay loadable.
+[profile.release.build-override]
+strip = false

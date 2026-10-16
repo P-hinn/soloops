@@ -13,7 +13,7 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -28,10 +28,12 @@ use tauri::{
 };
 
 mod activity;
+mod backup;
 mod claude;
 mod followups;
 mod http;
 mod sync;
+mod tracker;
 
 /// The modules in sidebar order — Cmd+1 through Cmd+9.
 const SECTIONS: [(&str, &str, &str); 9] = [
@@ -60,6 +62,38 @@ struct Runtime {
     /// The same switch lives in the menu and in the tray. Both check marks
     /// have to follow when either one is clicked.
     activity_items: Mutex<Vec<CheckMenuItem<Wry>>>,
+    /// The SERVICE_TOKEN out of the .env. The widget talks to the API through
+    /// here and never sees the token itself — it is a local page without a
+    /// login, and a page that holds the service token is a page that can do
+    /// everything.
+    token: Option<String>,
+    /// Where the widget sits, whether it is unfolded, whether it is on.
+    tracker: Mutex<tracker::State>,
+    /// While the widget is being dragged. Unix seconds of the last move, 0
+    /// when it is at rest. The guard thread reads this and keeps its hands
+    /// off — a window being dragged across a screen boundary is reported as
+    /// hidden for a moment, and the guard used to answer that by snapping it
+    /// back to its anchor, every three seconds, which is exactly what a
+    /// flickering widget looks like.
+    ///
+    /// A timestamp and not a flag: if a `pointerup` is ever lost, a flag
+    /// would stay set and disable the guard for the rest of the session.
+    tracker_drag: Arc<AtomicU64>,
+    /// Menu and tray again, same reason as above.
+    tracker_items: Mutex<Vec<CheckMenuItem<Wry>>>,
+    /// Where the snapshots go, how often, and how the last run went.
+    backup: Mutex<backup::State>,
+    /// A snapshot or a restore is running. Both take a while and neither may
+    /// start twice — a second `pg_dump` into the same staging folder would
+    /// write over the first one's dump.
+    backup_busy: Arc<AtomicBool>,
+    /// What to tell the window about the last run, in words. Not persisted:
+    /// it is the answer to a button that was just pressed.
+    backup_note: Mutex<String>,
+    /// The home directory, for the iCloud path. Read once — it does not
+    /// change while the app runs, and `std::env::var` per poll is a syscall
+    /// for nothing.
+    home: PathBuf,
 }
 
 // --- Project and ports ------------------------------------------------------
@@ -227,6 +261,21 @@ fn kill_port(port: u16, state: tauri::State<Runtime>) -> Result<String, String> 
 }
 
 /// A second window, deliberately small. It shows what `npm run ports` shows.
+fn open_backup_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("backup") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.eval("typeof load === 'function' && load()");
+        return;
+    }
+
+    let _ = WebviewWindowBuilder::new(app, "backup", WebviewUrl::App("backup.html".into()))
+        .title("Backup & iCloud")
+        .inner_size(760.0, 620.0)
+        .min_inner_size(560.0, 420.0)
+        .build();
+}
+
 fn open_ports_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("ports") {
         let _ = window.show();
@@ -263,6 +312,492 @@ fn claude_connect(state: tauri::State<Runtime>) -> claude::Report {
 #[tauri::command]
 fn claude_restart_desktop() -> Result<(), String> {
     claude::restart_desktop()
+}
+
+// --- The widget --------------------------------------------------------------
+
+/// Port and token, or the reason there is nothing to talk to.
+fn credentials(state: &Runtime) -> Result<(u16, String), String> {
+    let token = state
+        .token
+        .clone()
+        .ok_or("kein SERVICE_TOKEN in der .env — ohne den nimmt die API nichts an")?;
+    Ok((state.api_port, token))
+}
+
+/// An error from the API reads as the API wrote it: `{ "error": "..." }`.
+/// A status code alone tells the person in front of the widget nothing.
+fn unwrap_api(status: u16, body: String) -> Result<String, String> {
+    if (200..300).contains(&status) {
+        return Ok(body);
+    }
+    let message = serde_json::from_str::<serde_json::Value>(&body)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("error")
+                .and_then(|error| error.as_str())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| format!("API antwortet mit {status}"));
+    Err(message)
+}
+
+fn api_get(state: &Runtime, path: &str) -> Result<String, String> {
+    let (port, token) = credentials(state)?;
+    let (status, body) = http::get(port, &token, "desktop", path)?;
+    unwrap_api(status, body)
+}
+
+fn api_post(state: &Runtime, path: &str, body: &str) -> Result<String, String> {
+    let (port, token) = credentials(state)?;
+    let (status, body) = http::post(port, &token, "desktop", path, body)?;
+    unwrap_api(status, body)
+}
+
+/// Ids go into a path, so they may be ids and nothing else. A cuid is
+/// letters and digits; anything else is not worth asking the API about.
+fn plain_id(id: &str) -> Result<&str, String> {
+    if !id.is_empty() && id.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+        Ok(id)
+    } else {
+        Err("unbrauchbare Kennung".to_string())
+    }
+}
+
+#[tauri::command]
+fn tracker_state(state: tauri::State<Runtime>) -> tracker::State {
+    state.tracker.lock().expect("tracker state").clone()
+}
+
+/// While dragging. Fire and forget from the page — the answer is the window
+/// having moved, and waiting for it would cost a frame per pixel.
+#[tauri::command]
+fn tracker_place(x: f64, y: f64, app: AppHandle) {
+    let state = app.state::<Runtime>();
+    state.tracker_drag.store(now_secs(), Ordering::SeqCst);
+    if let Some(window) = app.get_webview_window("tracker") {
+        tracker::place_at(&window, x, y);
+    }
+}
+
+/// After letting go of the drag: pick the nearest resting place, move there,
+/// remember it.
+#[tauri::command]
+fn tracker_snap(app: AppHandle) -> Result<tracker::Anchor, String> {
+    let window = app
+        .get_webview_window("tracker")
+        .ok_or("das Widget ist nicht offen")?;
+    let state = app.state::<Runtime>();
+    // The drag is over before the snap, so the guard is awake again for
+    // whatever the snap itself does.
+    state.tracker_drag.store(0, Ordering::SeqCst);
+
+    let mut current = state.tracker.lock().expect("tracker state");
+    let (anchor, screen) =
+        tracker::dropped_on(&window, current.expanded).ok_or("kein Bildschirm gefunden")?;
+    current.anchor = anchor;
+    // Which screen it was dropped on, so it comes back there after a restart.
+    current.screen = screen;
+    tracker::snap_to(&window, &current);
+    tracker::save_state(&state.dir, &current);
+    Ok(anchor)
+}
+
+/// Folding out and in. The anchor is reapplied, so a pill in the bottom
+/// right grows upwards instead of off the screen.
+#[tauri::command]
+fn tracker_expand(expanded: bool, app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("tracker")
+        .ok_or("das Widget ist nicht offen")?;
+    let state = app.state::<Runtime>();
+    let mut current = state.tracker.lock().expect("tracker state");
+    current.expanded = expanded;
+    tracker::apply(&window, &current);
+    tracker::save_state(&state.dir, &current);
+    Ok(())
+}
+
+#[tauri::command]
+fn tracker_hide(app: AppHandle) {
+    set_tracker(&app, false);
+}
+
+// --- Backups ----------------------------------------------------------------
+
+/// Everything the backup window shows, in one answer.
+#[derive(serde::Serialize)]
+struct BackupStatus {
+    state: backup::State,
+    /// The folder in use, resolved — the window shows a path, not a `~`.
+    folder: String,
+    suggested: String,
+    /// Does it exist yet? A folder that was never created is the normal
+    /// state before the first run, not an error.
+    folder_exists: bool,
+    snapshots: Vec<backup::Snapshot>,
+    busy: bool,
+    note: String,
+    /// Without Docker there is no database to dump, and saying so beats a
+    /// failing snapshot every day at three in the morning.
+    docker: bool,
+}
+
+#[tauri::command]
+fn backup_status(state: tauri::State<Runtime>) -> BackupStatus {
+    let current = state.backup.lock().expect("backup state").clone();
+    let folder = backup::folder(&current, &state.home);
+    BackupStatus {
+        folder_exists: folder.is_dir(),
+        folder: folder.to_string_lossy().into_owned(),
+        suggested: backup::suggested(&state.home)
+            .to_string_lossy()
+            .into_owned(),
+        snapshots: backup::snapshots(&current, &state.home),
+        busy: state.backup_busy.load(Ordering::SeqCst),
+        note: state
+            .backup_note
+            .lock()
+            .map(|n| n.clone())
+            .unwrap_or_default(),
+        docker: docker_bin().is_some(),
+        state: current,
+    }
+}
+
+/// Change the settings. Every field is sent every time — the window holds
+/// the whole form, so a partial update would only invite the two to drift.
+#[tauri::command]
+fn backup_configure(
+    enabled: bool,
+    folder: String,
+    every_hours: u64,
+    keep: usize,
+    state: tauri::State<Runtime>,
+) -> Result<(), String> {
+    let mut current = state.backup.lock().expect("backup state");
+    current.enabled = enabled;
+    current.folder = folder.trim().to_string();
+    // A day at most of lost work, and at least a quarter of an hour between
+    // runs: an interval of zero would mean "every tick".
+    current.every_hours = every_hours.clamp(0, 24 * 7);
+    // Never zero — see backup::rotate, which would then delete everything.
+    current.keep = keep.clamp(1, 365);
+    backup::save_state(&state.dir, &current);
+    Ok(())
+}
+
+/// What a run needs, assembled from the state. Fails while Docker is away:
+/// a snapshot without the database is not a snapshot.
+fn backup_plan(state: &Runtime) -> Result<backup::Plan, String> {
+    Ok(backup::Plan {
+        dir: state.dir.clone(),
+        home: state.home.clone(),
+        docker: docker_bin().ok_or("Docker nicht gefunden")?,
+    })
+}
+
+/// Take a snapshot now, on a thread.
+///
+/// `pg_dump` and `tar` take seconds to tens of seconds. Doing that in the
+/// command would block the main thread, and a frozen window during a backup
+/// is how you end up never making one.
+#[tauri::command]
+fn backup_now(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<Runtime>();
+    if state.backup_busy.swap(true, Ordering::SeqCst) {
+        return Err("laeuft schon".to_string());
+    }
+    let plan = match backup_plan(&state) {
+        Ok(plan) => plan,
+        Err(err) => {
+            state.backup_busy.store(false, Ordering::SeqCst);
+            return Err(err);
+        }
+    };
+    let current = state.backup.lock().expect("backup state").clone();
+
+    thread::spawn(move || {
+        let outcome = backup::run(&plan, &current);
+        let state = app.state::<Runtime>();
+        finish_backup(&state, outcome);
+    });
+    Ok(())
+}
+
+/// Put a snapshot back. Destructive, and the window asks twice before it
+/// gets here.
+#[tauri::command]
+fn backup_restore(name: String, app: AppHandle) -> Result<(), String> {
+    if !backup::is_snapshot(&name) {
+        return Err("kein Snapshot dieser App".to_string());
+    }
+    let state = app.state::<Runtime>();
+    if state.backup_busy.swap(true, Ordering::SeqCst) {
+        return Err("laeuft schon".to_string());
+    }
+    let plan = match backup_plan(&state) {
+        Ok(plan) => plan,
+        Err(err) => {
+            state.backup_busy.store(false, Ordering::SeqCst);
+            return Err(err);
+        }
+    };
+    let current = state.backup.lock().expect("backup state").clone();
+
+    thread::spawn(move || {
+        let result = backup::restore(&plan, Path::new(&name), &current);
+        let state = app.state::<Runtime>();
+        if let Ok(mut note) = state.backup_note.lock() {
+            *note = match &result {
+                Ok(()) => format!("{name} wiederhergestellt — Oberflaeche neu laden"),
+                Err(err) => format!("Wiederherstellung fehlgeschlagen: {err}"),
+            };
+        }
+        if let Err(err) = &result {
+            eprintln!("[backup] restore: {err}");
+        }
+        state.backup_busy.store(false, Ordering::SeqCst);
+    });
+    Ok(())
+}
+
+/// Write down how a run went, in the state file and in words.
+fn finish_backup(state: &Runtime, outcome: Result<u64, String>) {
+    {
+        let mut current = state.backup.lock().expect("backup state");
+        match &outcome {
+            Ok(bytes) => {
+                current.last_run = now_secs();
+                current.last_bytes = *bytes;
+                current.last_error = String::new();
+            }
+            // The timestamp stays where it was: a failed attempt is not a
+            // backup, and the next tick should try again rather than wait
+            // out the interval.
+            Err(err) => current.last_error = err.clone(),
+        }
+        backup::save_state(&state.dir, &current);
+    }
+    if let Ok(mut note) = state.backup_note.lock() {
+        *note = match &outcome {
+            Ok(bytes) => format!("Snapshot abgelegt ({})", human_bytes(*bytes)),
+            Err(err) => format!("Fehlgeschlagen: {err}"),
+        };
+    }
+    if let Err(err) = &outcome {
+        eprintln!("[backup] {err}");
+    }
+    state.backup_busy.store(false, Ordering::SeqCst);
+}
+
+/// A Finder dialog for the folder, through AppleScript.
+///
+/// `async` on purpose: the dialog blocks until something is clicked, and a
+/// synchronous command would block the main thread with it — which would
+/// freeze the window the dialog was opened from.
+#[tauri::command]
+async fn backup_choose_folder() -> Result<String, String> {
+    let out = Command::new("/usr/bin/osascript")
+        .args([
+            "-e",
+            "POSIX path of (choose folder with prompt \"Ordner fuer die soloops-Backups\")",
+        ])
+        .output()
+        .map_err(|err| format!("Dialog nicht startbar: {err}"))?;
+    if !out.status.success() {
+        // Cancelling is not a failure, and it is the usual way out.
+        return Ok(String::new());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// Show the backup folder in the Finder — the one thing this window cannot
+/// do itself, and the quickest way to check that iCloud has it.
+#[tauri::command]
+fn backup_reveal(state: tauri::State<Runtime>) -> Result<(), String> {
+    let current = state.backup.lock().expect("backup state").clone();
+    let folder = backup::folder(&current, &state.home);
+    std::fs::create_dir_all(&folder).map_err(|err| format!("Ordner nicht nutzbar: {err}"))?;
+    Command::new("/usr/bin/open")
+        .arg(&folder)
+        .spawn()
+        .map_err(|err| format!("Finder nicht startbar: {err}"))?;
+    Ok(())
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Bytes as something a person reads off a window.
+fn human_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
+/// The clock behind the automatic snapshot.
+///
+/// Checks every minute rather than sleeping out the interval: the folder may
+/// be chosen, or the schedule changed, without the app being restarted, and
+/// a thread that is asleep for a day would not notice until tomorrow.
+fn spawn_backup_schedule(app: AppHandle) {
+    thread::spawn(move || loop {
+        thread::sleep(backup::TICK);
+        let state = app.state::<Runtime>();
+        if state.backup_busy.load(Ordering::SeqCst) {
+            continue;
+        }
+        let current = match state.backup.lock() {
+            Ok(current) => current.clone(),
+            Err(_) => continue,
+        };
+        if !backup::due(&current, now_secs()) {
+            continue;
+        }
+        let Ok(plan) = backup_plan(&state) else {
+            // Docker is not running. Normal while the Mac has just started,
+            // so the next tick simply tries again.
+            continue;
+        };
+        state.backup_busy.store(true, Ordering::SeqCst);
+        let outcome = backup::run(&plan, &current);
+        finish_backup(&state, outcome);
+    });
+}
+
+#[tauri::command]
+fn timer_status(state: tauri::State<Runtime>) -> Result<String, String> {
+    api_get(&state, "/api/time/running")
+}
+
+/// Clients and their projects, with the hours that are not on an invoice
+/// yet — the list the widget unfolds into.
+#[tauri::command]
+fn timer_projects(state: tauri::State<Runtime>) -> Result<String, String> {
+    api_get(&state, "/api/projects?status=ACTIVE")
+}
+
+#[tauri::command]
+fn timer_start(
+    project_id: String,
+    description: String,
+    state: tauri::State<Runtime>,
+) -> Result<String, String> {
+    let body = serde_json::json!({
+        "projectId": project_id,
+        "description": description,
+        "source": "TIMER",
+    })
+    .to_string();
+    api_post(&state, "/api/time/start", &body)
+}
+
+#[tauri::command]
+fn timer_stop(state: tauri::State<Runtime>) -> Result<String, String> {
+    api_post(&state, "/api/time/stop", "{}")
+}
+
+/// What has been committed in the window of this booking. The widget shows
+/// the count while the clock runs — that is the repository half of the
+/// feature made visible.
+#[tauri::command]
+fn timer_commits(entry_id: String, state: tauri::State<Runtime>) -> Result<String, String> {
+    let id = plain_id(&entry_id)?;
+    api_get(&state, &format!("/api/time/{id}/commits"))
+}
+
+/// Is the widget on screen? Asked of macOS, not of the state file.
+fn tracker_on_screen(app: &AppHandle) -> bool {
+    app.get_webview_window("tracker")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
+}
+
+/// Bring the widget back when macOS took it away.
+///
+/// It is a normal window, and macOS hides an app's windows all together:
+/// Cmd+H, "Hide Others" from another app, an app going fullscreen. A status
+/// widget that has to be fetched back by hand is one nobody trusts, so it
+/// returns on its own — but only while it is switched on. Switching it off
+/// stays a decision, and `State.visible` is where that decision lives.
+/// How long after the last drag event the guard stays out of the way. Long
+/// enough to cover the gap between two pointer moves, short enough that a
+/// lost `pointerup` costs one cycle and not the session.
+const DRAG_GRACE_SECS: u64 = 3;
+
+fn spawn_tracker_guard(app: AppHandle) {
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(3));
+        let state = app.state::<Runtime>();
+        let wanted = state
+            .tracker
+            .lock()
+            .map(|current| current.visible)
+            .unwrap_or(false);
+        if !wanted {
+            continue;
+        }
+        if tracker_on_screen(&app) {
+            continue;
+        }
+        // Being dragged — including across a screen boundary, where macOS
+        // reports the window as hidden for a moment. Putting it back on its
+        // anchor now would take it out from under the pointer.
+        let last_move = state.tracker_drag.load(Ordering::SeqCst);
+        if last_move > 0 && now_secs().saturating_sub(last_move) < DRAG_GRACE_SECS {
+            continue;
+        }
+        // Build it when it is missing entirely, not only when it is hidden:
+        // a window that failed to open once would otherwise stay missing for
+        // the rest of the session, with the menu insisting it is on.
+        let dir = app.state::<Runtime>().dir.clone();
+        if let Err(err) = tracker::open(&app, &dir) {
+            eprintln!("[widget] kommt nicht zurueck: {err}");
+        }
+    });
+}
+
+/// Show or hide the widget, and keep both check marks and the file in step.
+fn set_tracker(app: &AppHandle, visible: bool) {
+    let state = app.state::<Runtime>();
+    let mut current = state.tracker.lock().expect("tracker state");
+    current.visible = visible;
+    tracker::save_state(&state.dir, &current);
+
+    if let Ok(items) = state.tracker_items.lock() {
+        for item in items.iter() {
+            let _ = item.set_checked(visible);
+        }
+    }
+
+    if visible {
+        let dir = state.dir.clone();
+        drop(current);
+        match tracker::open(app, &dir) {
+            Ok(_) => eprintln!("[widget] sichtbar"),
+            // Silently doing nothing is what made this look like a dead
+            // menu entry; a window that refuses to be built says so.
+            Err(err) => eprintln!("[widget] laesst sich nicht oeffnen: {err}"),
+        }
+    } else if let Some(window) = app.get_webview_window("tracker") {
+        let _ = window.hide();
+        eprintln!("[widget] ausgeblendet");
+    }
 }
 
 // --- Talking to the interface -----------------------------------------------
@@ -372,7 +907,32 @@ fn handle_menu(app: &AppHandle, id: &str) {
         return;
     }
 
+    // Its own window, like the ports: it has to work while the containers
+    // are still starting — a restore is what you do before they can.
+    if id == "backup" {
+        open_backup_window(app);
+        return;
+    }
+
+    // From the tray, and it may not wait for the interface to be there.
+    if id == "quit" {
+        app.exit(0);
+        return;
+    }
+
     let state = app.state::<Runtime>();
+
+    // The widget is its own window and needs neither the interface nor a
+    // loaded page — from the tray it has to work while the containers are
+    // still starting.
+    if id == "tracker-toggle" {
+        // Against what is on screen, not against what the file remembers.
+        // The two can drift apart — a window hidden with the rest of the app,
+        // a check mark macOS flipped on its own — and then a toggle that
+        // trusts the file switches in the direction nothing happens in.
+        set_tracker(app, !tracker_on_screen(app));
+        return;
+    }
 
     // The switch needs no window — it should work from the tray even while
     // the interface has not loaded yet.
@@ -471,6 +1031,19 @@ fn activity_item(app: &AppHandle) -> tauri::Result<CheckMenuItem<Wry>> {
     Ok(item)
 }
 
+/// The "Zeit-Widget" check mark, in the menu and in the tray.
+fn tracker_item(app: &AppHandle) -> tauri::Result<CheckMenuItem<Wry>> {
+    let state = app.state::<Runtime>();
+    let checked = state.tracker.lock().expect("tracker state").visible;
+    let item = CheckMenuItemBuilder::with_id("tracker-toggle", "Zeit-Widget")
+        .checked(checked)
+        .build(app)?;
+    if let Ok(mut items) = state.tracker_items.lock() {
+        items.push(item.clone());
+    }
+    Ok(item)
+}
+
 fn build_menu(app: &AppHandle) -> tauri::Result<()> {
     let about = AboutMetadata {
         name: Some("soloops".into()),
@@ -512,12 +1085,17 @@ fn build_menu(app: &AppHandle) -> tauri::Result<()> {
     let ports = MenuItemBuilder::with_id("ports", "Offene Ports …")
         .accelerator("CmdOrCtrl+Shift+P")
         .build(app)?;
+    let backup = MenuItemBuilder::with_id("backup", "Backup & iCloud …").build(app)?;
     let track = activity_item(app)?;
+    let widget = tracker_item(app)?;
+    widget.set_accelerator(Some("CmdOrCtrl+Shift+Z"))?;
     let view_menu = SubmenuBuilder::new(app, "Ansicht")
         .item(&reload)
         .item(&home)
         .separator()
         .item(&ports)
+        .item(&backup)
+        .item(&widget)
         .item(&track)
         .separator()
         .fullscreen()
@@ -553,14 +1131,16 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let sync = MenuItemBuilder::with_id("sync-mail", "Postfach abrufen").build(app)?;
     let reload = MenuItemBuilder::with_id("reload", "Neu laden").build(app)?;
     let ports = MenuItemBuilder::with_id("ports", "Offene Ports …").build(app)?;
+    let backup = MenuItemBuilder::with_id("backup", "Backup & iCloud …").build(app)?;
     let track = activity_item(app)?;
+    let widget = tracker_item(app)?;
     let stop = MenuItemBuilder::with_id("stack-stop", "Container stoppen").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "soloops beenden").build(app)?;
 
     let menu = MenuBuilder::new(app)
-        .items(&[&show, &sync, &reload, &ports])
+        .items(&[&show, &sync, &reload, &ports, &backup])
         .separator()
-        .item(&track)
+        .items(&[&widget, &track])
         .separator()
         .items(&[&stop, &quit])
         .build()?;
@@ -569,14 +1149,13 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     if let Some(icon) = app.default_window_icon() {
         tray = tray.icon(icon.clone());
     }
-    tray.on_menu_event(|app, event| {
-        if event.id().as_ref() == "quit" {
-            app.exit(0);
-            return;
-        }
-        handle_menu(app, event.id().as_ref());
-    })
-    .build(app)?;
+    // No `on_menu_event` here on purpose. Tauri keeps one list of menu
+    // listeners for the whole app and calls every one of them for every
+    // event, wherever the menu sits — a handler on the tray as well as the
+    // one on the builder means each click is handled twice. For "Neu laden"
+    // that is merely wasteful; for a check mark it is the difference between
+    // switching and not, which is why the widget could not be switched off.
+    tray.build(app)?;
     Ok(())
 }
 
@@ -604,13 +1183,37 @@ pub fn run() {
             kill_port,
             claude_status,
             claude_connect,
-            claude_restart_desktop
+            claude_restart_desktop,
+            tracker_state,
+            tracker_place,
+            tracker_snap,
+            tracker_expand,
+            tracker_hide,
+            backup_status,
+            backup_configure,
+            backup_now,
+            backup_restore,
+            backup_choose_folder,
+            backup_reveal,
+            timer_status,
+            timer_projects,
+            timer_start,
+            timer_stop,
+            timer_commits
         ])
         .on_menu_event(|app, event| handle_menu(app, event.id().as_ref()))
         .on_window_event(|window, event| {
             // The red cross closes the window but does not end the
             // background — that keeps the tray reachable. Quit: Cmd+Q.
             if let WindowEvent::CloseRequested { api, .. } = event {
+                // Cmd+W on the widget means "put it away", not "throw it
+                // out" — and the check marks have to agree, otherwise the
+                // menu claims it is on while nothing is on screen.
+                if window.label() == "tracker" {
+                    api.prevent_close();
+                    set_tracker(&window.app_handle().clone(), false);
+                    return;
+                }
                 // Only the main window lives on in the background; the ports
                 // window may close like any other.
                 if window.label() != "main" {
@@ -635,6 +1238,17 @@ pub fn run() {
             );
             let activity = Arc::new(AtomicBool::new(tracking));
 
+            // Read once at startup: the widget asks the API several times a
+            // minute, and re-reading the .env for every poll would be a file
+            // read for nothing.
+            let token = env_value(&dir, "SERVICE_TOKEN");
+            let widget = tracker::load_state(&dir);
+            let widget_visible = widget.visible;
+            let snapshots = backup::load_state(&dir);
+            let home = std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_default();
+
             app.manage(Runtime {
                 dir: dir.clone(),
                 web_port,
@@ -642,10 +1256,27 @@ pub fn run() {
                 loaded: loaded.clone(),
                 activity: activity.clone(),
                 activity_items: Mutex::new(Vec::new()),
+                token,
+                tracker: Mutex::new(widget),
+                tracker_items: Mutex::new(Vec::new()),
+                backup: Mutex::new(snapshots),
+                tracker_drag: Arc::new(AtomicU64::new(0)),
+                backup_busy: Arc::new(AtomicBool::new(false)),
+                backup_note: Mutex::new(String::new()),
+                home,
             });
 
             build_menu(&handle)?;
             build_tray(&handle)?;
+
+            // The widget comes back the way it was left. Before the boot
+            // thread, deliberately: it says "no timer" until the API answers,
+            // which is more honest than an empty screen.
+            if widget_visible {
+                let _ = tracker::open(&handle, &dir);
+            }
+            spawn_tracker_guard(handle.clone());
+            spawn_backup_schedule(handle.clone());
 
             start_sampler(&dir, api_port, activity);
 

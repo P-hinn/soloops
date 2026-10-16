@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "tracker-widget",
+  "description": "Das Overlay-Widget ist eine mitgelieferte lokale Seite und darf genau das, was es anzeigt: Timer lesen, starten, stoppen, die Projektliste holen, die Commits eines Eintrags lesen, sich selbst ein- und ausklappen, einrasten und verschwinden. Gezogen wird es durch tracker_place, nicht durch Tauris nativen Drag: ein nativer Drag endet, wo die Maus losgelassen wird, und dieses Fenster muss auf einem Rastpunkt enden. Die Befehle haengen an diesem Fenster und an keinem anderen: der Service-Token liegt in Rust, nicht in der Seite.",
+  "windows": ["tracker"],
+  "permissions": [
+    "core:default",
+    "allow-tracker-state",
+    "allow-tracker-place",
+    "allow-tracker-snap",
+    "allow-tracker-expand",
+    "allow-tracker-hide",
+    "allow-timer-status",
+    "allow-timer-projects",
+    "allow-timer-start",
+    "allow-timer-stop",
+    "allow-timer-commits"
+  ]
+}

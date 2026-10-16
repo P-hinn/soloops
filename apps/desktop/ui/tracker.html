@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Zeit</title>
+    <style>
+      /*
+        The widget.
+
+        Collapsed it is a pill: a dot, a project, a clock. Unfolded it is the
+        list of clients and their projects, and while the clock runs it shows
+        what has been committed since it started — the commits are what ends
+        up on the invoice, so they belong where the time is started, not two
+        clicks away.
+
+        Unobtrusive through size, not through transparency: a status one has
+        to squint at is one that gets ignored. So it stays opaque and small,
+        with a hairline and a shadow to keep it off whatever is behind it.
+      */
+      :root {
+        color-scheme: light;
+        --paper: #f1efe8;
+        --raised: #fbfaf7;
+        --ink: #171714;
+        --soft: #575750;
+        --muted: #6c6b64;
+        --acid: #d8ff55;
+        --blue: #5c76ff;
+        --line: rgba(23, 23, 20, 0.15);
+        --good: #1f7a3d;
+        --bad: #b3261e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: transparent;
+        color: var(--ink);
+        font:
+          12px/1.45 -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        font-variant-numeric: tabular-nums;
+        -webkit-user-select: none;
+        user-select: none;
+        overflow: hidden;
+      }
+
+      #widget {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: var(--paper);
+        border: 1px solid var(--ink);
+        box-shadow: 0 10px 30px -12px rgba(23, 23, 20, 0.45);
+      }
+
+      /* --- the pill ------------------------------------------------------- */
+      #pill {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 42px;
+        padding: 0 0.3rem 0 0.6rem;
+        cursor: grab;
+      }
+      #pill.dragging {
+        cursor: grabbing;
+      }
+      #dot {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border: 1px solid var(--ink);
+        background: transparent;
+      }
+      #widget.live #dot {
+        background: var(--acid);
+      }
+      #label {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        letter-spacing: 0.02em;
+      }
+      #clock {
+        flex: none;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      #widget:not(.live) #clock {
+        color: var(--muted);
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--ink);
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: rgba(23, 23, 20, 0.07);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .icon {
+        border: 0;
+        padding: 0.1rem 0.3rem;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      button.icon:hover {
+        color: var(--ink);
+        background: transparent;
+      }
+      #fold {
+        flex: none;
+      }
+      button.primary {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      button.primary:hover {
+        background: #000;
+      }
+
+      /* --- the panel ------------------------------------------------------ */
+      /* Anchored at the bottom the pill sits at the bottom of the window and
+         the panel opens above it — the window grows up and to the side, so
+         the pill stays under the pointer that just clicked it. */
+      #widget.up {
+        flex-direction: column-reverse;
+      }
+
+      #panel {
+        display: none;
+        flex: 1;
+        min-height: 0;
+        flex-direction: column;
+        border-top: 1px solid var(--ink);
+        background: var(--raised);
+      }
+      #widget.open #panel {
+        display: flex;
+      }
+      #widget.up #panel {
+        border-top: 0;
+        border-bottom: 1px solid var(--ink);
+      }
+
+      .eyebrow {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+
+      #running {
+        display: none;
+        padding: 0.6rem 0.7rem;
+        border-bottom: 1px solid var(--line);
+      }
+      #widget.live #running {
+        display: block;
+      }
+      #running .what {
+        margin: 0.15rem 0 0.4rem;
+        color: var(--soft);
+      }
+      #commits {
+        margin: 0.35rem 0 0;
+        padding: 0;
+        list-style: none;
+        max-height: 92px;
+        overflow-y: auto;
+      }
+      #commits li {
+        padding: 0.15rem 0;
+        border-top: 1px solid var(--line);
+        color: var(--soft);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #commits li .sha {
+        color: var(--muted);
+        margin-right: 0.35rem;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      #picker {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        flex-direction: column;
+        padding: 0.6rem 0.7rem 0;
+      }
+      input[type='text'] {
+        font: inherit;
+        color: inherit;
+        width: 100%;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 0;
+        padding: 0.3rem 0.4rem;
+        margin: 0.35rem 0 0.1rem;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      input[type='text']:focus {
+        outline: 0;
+        border-color: var(--ink);
+      }
+      #projects {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        margin: 0.4rem -0.7rem 0;
+      }
+      .client {
+        padding: 0.45rem 0.7rem 0.1rem;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .project {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+        padding: 0.35rem 0.7rem;
+      }
+      .project:hover {
+        background: var(--acid);
+      }
+      .project .key {
+        flex: none;
+        font-weight: 600;
+      }
+      .project .name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--soft);
+      }
+      .project .open {
+        flex: none;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      footer {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.4rem 0.5rem 0.5rem 0.7rem;
+        color: var(--muted);
+      }
+      #note {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #note.bad {
+        color: var(--bad);
+      }
+      #away {
+        flex: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="widget">
+      <!-- The whole pill is both handle and switch: drag it and it moves,
+           click it and it folds out. No close button up here — it sat a few
+           pixels from the fold arrow, and hitting it by accident made the
+           widget look like it had crashed. -->
+      <div id="pill" title="ziehen zum Verschieben, klicken zum Aufklappen">
+        <span id="dot"></span>
+        <span id="label">keine Zeit</span>
+        <span id="clock">–:–</span>
+        <span id="fold" class="icon">▴</span>
+      </div>
+
+      <section id="panel">
+        <div id="running">
+          <div class="row">
+            <span class="eyebrow">läuft</span>
+            <button id="stop">Stoppen</button>
+          </div>
+          <p class="what" id="what"></p>
+          <span class="eyebrow" id="commit-head">Commits</span>
+          <ul id="commits"></ul>
+        </div>
+
+        <div id="picker">
+          <span class="eyebrow">Zeit starten auf</span>
+          <input id="filter" type="text" placeholder="Kunde oder Projekt" autocomplete="off" />
+          <div id="projects"></div>
+        </div>
+
+        <footer>
+          <span id="note"></span>
+          <button id="away" class="icon">ausblenden</button>
+        </footer>
+      </section>
+    </div>
+
+    <script>
+      const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args)
+      const el = (id) => document.getElementById(id)
+      const widget = el('widget')
+
+      /** The running entry, as the API returns it — or null. */
+      let running = null
+      let projects = []
+      let expanded = false
+      /** Where it rests. Decides which way it folds out. */
+      let anchor = 'bottom-right'
+
+      function say(text, bad) {
+        el('note').textContent = text ?? ''
+        el('note').classList.toggle('bad', !!bad)
+      }
+
+      // --- the clock ---------------------------------------------------------
+
+      /** h:mm:ss, hours uncapped — a day of tracking is still one number. */
+      function duration(seconds) {
+        const s = Math.max(0, Math.floor(seconds))
+        const parts = [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
+        return `${parts[0]}:${String(parts[1]).padStart(2, '0')}:${String(parts[2]).padStart(2, '0')}`
+      }
+
+      function tick() {
+        if (!running) {
+          el('clock').textContent = '–:–'
+          return
+        }
+        el('clock').textContent = duration((Date.now() - Date.parse(running.startedAt)) / 1000)
+      }
+
+      // --- what the API says -------------------------------------------------
+
+      async function readStatus() {
+        try {
+          const body = await invoke('timer_status')
+          running = body && body !== 'null' ? JSON.parse(body) : null
+          say('')
+        } catch (err) {
+          running = null
+          say(String(err), true)
+        }
+        render()
+        if (running && expanded) readCommits()
+      }
+
+      async function readProjects() {
+        try {
+          projects = JSON.parse(await invoke('timer_projects'))
+          renderProjects()
+        } catch (err) {
+          say(String(err), true)
+        }
+      }
+
+      async function readCommits() {
+        const list = el('commits')
+        if (!running) return
+        try {
+          const commits = JSON.parse(await invoke('timer_commits', { entryId: running.id }))
+          el('commit-head').textContent =
+            commits.length === 1
+              ? '1 Commit im Zeitfenster'
+              : `${commits.length} Commits im Zeitfenster`
+          list.replaceChildren()
+          // Newest first: what just happened is what is being looked for.
+          for (const commit of commits.slice().reverse()) {
+            const item = document.createElement('li')
+            const sha = document.createElement('span')
+            sha.className = 'sha'
+            sha.textContent = commit.sha.slice(0, 7)
+            item.append(sha, document.createTextNode(commit.subject))
+            item.title = `${commit.repo}: ${commit.subject}`
+            list.append(item)
+          }
+          if (!commits.length) {
+            const item = document.createElement('li')
+            item.textContent = 'noch nichts — oder noch nicht gepusht'
+            list.append(item)
+          }
+        } catch (err) {
+          el('commit-head').textContent = 'Commits'
+          list.replaceChildren()
+          say(String(err), true)
+        }
+      }
+
+      // --- drawing -----------------------------------------------------------
+
+      function render() {
+        widget.classList.toggle('live', !!running)
+        el('label').textContent = running ? (running.project?.key ?? 'Projekt') : 'keine Zeit'
+        el('label').title = running
+          ? `${running.project?.name ?? ''}${running.description ? ' — ' + running.description : ''}`
+          : 'kein Timer läuft'
+        el('what').textContent = running
+          ? [running.project?.name, running.description || null].filter(Boolean).join(' — ')
+          : ''
+        tick()
+      }
+
+      function hours(seconds) {
+        return `${(seconds / 3600).toFixed(1).replace('.', ',')} h`
+      }
+
+      function renderProjects() {
+        const needle = el('filter').value.trim().toLowerCase()
+        const matches = projects.filter((project) => {
+          if (!needle) return true
+          const haystack = [
+            project.key,
+            project.name,
+            project.client?.name,
+            project.client?.company,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+          return haystack.includes(needle)
+        })
+
+        const host = el('projects')
+        host.replaceChildren()
+        if (!matches.length) {
+          const empty = document.createElement('p')
+          empty.className = 'client'
+          empty.textContent = projects.length ? 'nichts gefunden' : 'keine aktiven Projekte'
+          host.append(empty)
+          return
+        }
+
+        // Grouped by client, because that is how the work is thought about —
+        // and a project without one is still a project.
+        const groups = new Map()
+        for (const project of matches) {
+          const name = project.client?.company || project.client?.name || 'Ohne Kunde'
+          const list = groups.get(name) ?? []
+          list.push(project)
+          groups.set(name, list)
+        }
+
+        for (const [client, list] of groups) {
+          const head = document.createElement('p')
+          head.className = 'client'
+          head.textContent = client
+          host.append(head)
+          for (const project of list) host.append(projectRow(project))
+        }
+      }
+
+      function projectRow(project) {
+        const button = document.createElement('button')
+        button.className = 'project'
+        button.title = project.name
+
+        const key = document.createElement('span')
+        key.className = 'key'
+        key.textContent = project.key
+        const name = document.createElement('span')
+        name.className = 'name'
+        name.textContent = project.name
+        const open = document.createElement('span')
+        open.className = 'open'
+        // Unbilled hours: the number that decides whether an invoice is due.
+        open.textContent = project.unbilledSec ? hours(project.unbilledSec) : ''
+        open.title = 'noch nicht abgerechnet'
+
+        button.append(key, name, open)
+        button.addEventListener('click', () => start(project))
+        return button
+      }
+
+      // --- what the buttons do ------------------------------------------------
+
+      async function start(project) {
+        say('starte …')
+        try {
+          running = JSON.parse(
+            await invoke('timer_start', { projectId: project.id, description: '' }),
+          )
+          say('')
+          render()
+          readCommits()
+        } catch (err) {
+          say(String(err), true)
+        }
+      }
+
+      async function stop() {
+        say('stoppe …')
+        try {
+          await invoke('timer_stop')
+          running = null
+          render()
+          // The commits of the last stretch are usually pushed after the
+          // clock stops, so the text is filled in a few minutes later.
+          say('gestoppt — Commits werden nachgetragen')
+          readProjects()
+        } catch (err) {
+          say(String(err), true)
+        }
+      }
+
+      /** The pill's edge, and with it the direction everything opens in. */
+      function layout(next) {
+        if (next) anchor = next
+        const up = anchor.startsWith('bottom')
+        widget.classList.toggle('up', up)
+        // The arrow points the way it is about to go, which is the opposite
+        // way when the thing hangs on the bottom edge.
+        el('fold').textContent = expanded === up ? '▾' : '▴'
+      }
+
+      async function fold(open) {
+        expanded = open
+        widget.classList.toggle('open', open)
+        layout()
+        try {
+          await invoke('tracker_expand', { expanded: open })
+        } catch (err) {
+          say(String(err), true)
+        }
+        if (open) {
+          readProjects()
+          if (running) readCommits()
+        }
+      }
+
+      el('away').addEventListener('click', () => invoke('tracker_hide'))
+      el('stop').addEventListener('click', stop)
+      el('filter').addEventListener('input', renderProjects)
+
+      // --- dragging, snapping, folding ---------------------------------------
+
+      // One gesture, two outcomes: moved means dragged, not moved means
+      // clicked. So the pill can be the handle and the switch at once, and
+      // nothing on it has to be hit precisely.
+      const MOVED_ENOUGH = 4
+
+      // Where the pointer sits inside the window. The page sends absolute
+      // positions — pointer minus that offset — rather than deltas: a sum of
+      // deltas drifts, a position cannot.
+      let drag = null
+
+      el('pill').addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return
+        drag = {
+          offsetX: event.clientX,
+          offsetY: event.clientY,
+          startX: event.screenX,
+          startY: event.screenY,
+          moved: false,
+        }
+        el('pill').setPointerCapture(event.pointerId)
+      })
+
+      el('pill').addEventListener('pointermove', (event) => {
+        if (!drag) return
+        if (!drag.moved) {
+          const far = Math.hypot(event.screenX - drag.startX, event.screenY - drag.startY)
+          // A click with a shaky hand is still a click.
+          if (far < MOVED_ENOUGH) return
+          drag.moved = true
+          el('pill').classList.add('dragging')
+        }
+        // Not awaited: the answer is the window having moved.
+        invoke('tracker_place', {
+          x: event.screenX - drag.offsetX,
+          y: event.screenY - drag.offsetY,
+        }).catch(() => {})
+      })
+
+      function release(event) {
+        if (!drag) return
+        const dragged = drag.moved
+        drag = null
+        el('pill').classList.remove('dragging')
+        if (event?.pointerId !== undefined && el('pill').hasPointerCapture(event.pointerId)) {
+          el('pill').releasePointerCapture(event.pointerId)
+        }
+        if (dragged) {
+          // The resting place it landed on decides where the panel opens.
+          invoke('tracker_snap')
+            .then(layout)
+            .catch((err) => say(String(err), true))
+        } else {
+          fold(!expanded)
+        }
+      }
+
+      el('pill').addEventListener('pointerup', release)
+      el('pill').addEventListener('pointercancel', release)
+      // A pointer that leaves the webview mid-drag never comes back — without
+      // this the widget would stay stuck to the cursor. Snapping is right
+      // here either way, folding is not, so an interrupted gesture counts as
+      // a drag.
+      window.addEventListener('blur', () => {
+        if (drag) drag.moved = true
+        release()
+      })
+
+      // --- the beat -----------------------------------------------------------
+
+      async function boot() {
+        try {
+          const state = await invoke('tracker_state')
+          layout(state.anchor)
+          await fold(!!state.expanded)
+        } catch {
+          // No state is no reason not to show: collapsed is the default.
+        }
+        await readStatus()
+      }
+
+      setInterval(tick, 1000)
+      // The timer can also be started in the interface or by Claude, so the
+      // widget asks rather than assumes.
+      setInterval(readStatus, 15000)
+      boot()
+    </script>
+  </body>
+</html>

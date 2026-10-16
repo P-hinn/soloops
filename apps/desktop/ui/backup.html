@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Backup &amp; iCloud</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f1efe8;
+        --ink: #171714;
+        --soft: #6b6a63;
+        --muted: #8e8d85;
+        --line: rgba(23, 23, 20, 0.14);
+        --raised: #f7f6f1;
+        --bad: #a3341f;
+        --good: #2f6b3f;
+        --blue: #27508c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem 1.5rem 2rem;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          13px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--ink);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      h2 {
+        margin: 1.5rem 0 0.5rem;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--soft);
+        font-weight: 500;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--ink);
+        padding: 0.15rem 0.6rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: rgba(23, 23, 20, 0.06);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      button.primary {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: var(--paper);
+      }
+      button.armed {
+        background: var(--bad);
+        border-color: var(--bad);
+        color: #fff;
+      }
+      input[type='text'],
+      input[type='number'] {
+        font: inherit;
+        color: inherit;
+        background: var(--raised);
+        border: 1px solid var(--line);
+        padding: 0.2rem 0.4rem;
+      }
+      input[type='text'] {
+        width: 100%;
+      }
+      input[type='number'] {
+        width: 4.5rem;
+      }
+      label.row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.4rem 0;
+      }
+      .field {
+        margin-bottom: 0.6rem;
+      }
+      .field > span {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--soft);
+        margin-bottom: 0.2rem;
+      }
+      .inline {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.8rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--soft);
+        font-weight: 500;
+        padding: 0.6rem 0.5rem 0.3rem 0;
+      }
+      td {
+        padding: 0.45rem 0.5rem 0.45rem 0;
+        border-top: 1px solid var(--line);
+        vertical-align: baseline;
+      }
+      td.size {
+        font-variant-numeric: tabular-nums;
+        color: var(--soft);
+        width: 6rem;
+      }
+      td.action {
+        text-align: right;
+        white-space: nowrap;
+        width: 9rem;
+      }
+      .hint {
+        color: var(--soft);
+        font-size: 12px;
+      }
+      #note {
+        min-height: 1.4em;
+        margin: 0.6rem 0 0;
+      }
+      #note.bad {
+        color: var(--bad);
+      }
+      #note.good {
+        color: var(--good);
+      }
+      #last {
+        color: var(--soft);
+      }
+      .warn {
+        border: 1px solid var(--bad);
+        background: rgba(163, 52, 31, 0.06);
+        padding: 0.5rem 0.7rem;
+        margin-bottom: 1rem;
+        color: var(--bad);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Backup &amp; iCloud</h1>
+      <div class="inline">
+        <button id="reveal">Im Finder zeigen</button>
+        <button id="now" class="primary">Jetzt sichern</button>
+      </div>
+    </header>
+
+    <div id="nodocker" class="warn" hidden>
+      Docker ist nicht da. Ein Snapshot braucht die Datenbank — ohne laufenden Stack geht nur
+      Wiederherstellen von einem vorhandenen Archiv, und auch das erst, wenn Postgres läuft.
+    </div>
+
+    <div class="field">
+      <span>Ordner</span>
+      <div class="inline">
+        <input id="folder" type="text" spellcheck="false" />
+        <button id="pick">Wählen …</button>
+      </div>
+      <p class="hint" id="folderhint"></p>
+    </div>
+
+    <label class="row">
+      <input id="enabled" type="checkbox" />
+      Automatisch sichern
+    </label>
+
+    <div class="inline">
+      <label class="row">
+        alle <input id="hours" type="number" min="0" max="168" step="1" /> Stunden
+      </label>
+      <label class="row">
+        <input id="keep" type="number" min="1" max="365" step="1" /> Archive behalten
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="save" class="primary">Speichern</button>
+      <span id="last" class="hint"></span>
+    </div>
+
+    <p id="note"></p>
+
+    <h2>Archive</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Snapshot</th>
+          <th>Größe</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <p class="hint">
+      Ein Archiv enthält einen Dump der Datenbank und den Ordner <code>data/</code>. Die Datenbank
+      selbst bleibt lokal: ein Postgres-Verzeichnis in iCloud überlebt den ersten Konflikt nicht.
+      Auf einem neuen Mac also das Repository holen, den Stack starten und hier das jüngste Archiv
+      wiederherstellen.
+    </p>
+
+    <script>
+      const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args)
+      const el = (id) => document.getElementById(id)
+      const note = el('note')
+
+      /** Is a snapshot or a restore running? Then the form stays locked. */
+      let busy = false
+
+      function say(text, kind) {
+        note.textContent = text
+        note.classList.toggle('bad', kind === 'bad')
+        note.classList.toggle('good', kind === 'good')
+      }
+
+      function fill(status) {
+        busy = status.busy
+        el('nodocker').hidden = status.docker
+        // Not while typing: the poll would otherwise take the cursor out of
+        // the path the moment it is being edited.
+        if (document.activeElement !== el('folder')) {
+          el('folder').value = status.state.folder
+        }
+        el('folder').placeholder = status.suggested
+        el('enabled').checked = status.state.enabled
+        el('hours').value = status.state.every_hours
+        el('keep').value = status.state.keep
+
+        el('folderhint').textContent = status.folder_exists
+          ? status.folder
+          : `${status.folder} — wird beim ersten Sichern angelegt`
+
+        el('last').textContent = status.state.last_run
+          ? `zuletzt ${new Date(status.state.last_run * 1000).toLocaleString('de-DE')}`
+          : 'noch kein Snapshot'
+
+        el('now').disabled = busy || !status.docker
+        el('save').disabled = busy
+        el('now').textContent = busy ? 'läuft …' : 'Jetzt sichern'
+
+        if (status.note) say(status.note, status.note.startsWith('Snapshot') ? 'good' : 'bad')
+        else if (status.state.last_error) say(status.state.last_error, 'bad')
+        else if (!busy) say('')
+
+        rows(status.snapshots)
+      }
+
+      function rows(list) {
+        const body = el('rows')
+        body.replaceChildren()
+        for (const snapshot of list) body.append(row(snapshot))
+        if (!list.length) {
+          const tr = document.createElement('tr')
+          const td = document.createElement('td')
+          td.colSpan = 3
+          td.className = 'hint'
+          td.textContent = 'Noch keine Archive in diesem Ordner.'
+          tr.append(td)
+          body.append(tr)
+        }
+      }
+
+      function row(snapshot) {
+        const tr = document.createElement('tr')
+        const name = document.createElement('td')
+        name.textContent = snapshot.name
+        const size = document.createElement('td')
+        size.className = 'size'
+        size.textContent = bytes(snapshot.bytes)
+        const action = document.createElement('td')
+        action.className = 'action'
+        action.append(restoreButton(snapshot))
+        tr.append(name, size, action)
+        return tr
+      }
+
+      function bytes(value) {
+        const units = ['B', 'KB', 'MB', 'GB']
+        let n = value
+        let unit = 0
+        while (n >= 1024 && unit < units.length - 1) {
+          n /= 1024
+          unit++
+        }
+        return unit === 0 ? `${value} B` : `${n.toFixed(1)} ${units[unit]}`
+      }
+
+      // Two clicks, not a dialog — the same gesture as killing a port, and a
+      // restore overwrites everything that is there, so a misclick may not
+      // be enough.
+      function restoreButton(snapshot) {
+        const button = document.createElement('button')
+        button.textContent = 'Wiederherstellen'
+        let armed = false
+
+        button.addEventListener('click', async () => {
+          if (!armed) {
+            armed = true
+            button.classList.add('armed')
+            button.textContent = 'Alles überschreiben?'
+            setTimeout(() => {
+              if (!armed) return
+              armed = false
+              button.classList.remove('armed')
+              button.textContent = 'Wiederherstellen'
+            }, 5000)
+            return
+          }
+          armed = false
+          button.disabled = true
+          try {
+            await invoke('backup_restore', { name: snapshot.name })
+            say(`stelle ${snapshot.name} wieder her …`)
+          } catch (err) {
+            say(String(err), 'bad')
+          }
+          await load()
+        })
+        return button
+      }
+
+      async function load() {
+        try {
+          fill(await invoke('backup_status'))
+        } catch (err) {
+          say(String(err), 'bad')
+        }
+      }
+
+      el('save').addEventListener('click', async () => {
+        try {
+          await invoke('backup_configure', {
+            enabled: el('enabled').checked,
+            folder: el('folder').value,
+            everyHours: Number(el('hours').value),
+            keep: Number(el('keep').value),
+          })
+          say('gespeichert', 'good')
+        } catch (err) {
+          say(String(err), 'bad')
+        }
+        await load()
+      })
+
+      el('pick').addEventListener('click', async () => {
+        try {
+          const chosen = await invoke('backup_choose_folder')
+          // An empty answer is a cancelled dialog, not a cleared folder.
+          if (chosen) {
+            el('folder').value = chosen
+            say('Ordner gewählt — noch nicht gespeichert')
+          }
+        } catch (err) {
+          say(String(err), 'bad')
+        }
+      })
+
+      el('now').addEventListener('click', async () => {
+        try {
+          await invoke('backup_now')
+          say('Snapshot läuft …')
+        } catch (err) {
+          say(String(err), 'bad')
+        }
+        await load()
+      })
+
+      el('reveal').addEventListener('click', async () => {
+        try {
+          await invoke('backup_reveal')
+        } catch (err) {
+          say(String(err), 'bad')
+        }
+      })
+
+      // A run takes seconds to tens of seconds and happens on a thread, so
+      // the window asks rather than waits.
+      setInterval(load, 2000)
+      load()
+    </script>
+  </body>
+</html>
