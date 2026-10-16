@@ -28,22 +28,27 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # `npm install` and not `npm ci`, on purpose.
+      # Installed without the lock file, which is what npm's own error
+      # message asks for and the only thing that actually works here.
       #
-      # The lock file only carries the platform binaries of the machine that
+      # The lock file carries only the platform binaries of the machine that
       # wrote it (npm/cli#4828), and this one is written on an arm64 Mac. The
       # dev server needs three of them on Linux — rolldown for vite 8,
-      # @tailwindcss/oxide, and lightningcss in two different versions — and
-      # `npm ci` installs exactly what the lock file says, so it cannot fill
-      # holes the lock file does not know about. That is why every run of this
-      # workflow failed from the vite 8 upgrade onwards: "Cannot find native
-      # binding", and Playwright never got a server.
+      # @tailwindcss/oxide, and lightningcss in two versions, because vite
+      # brings its own. `npm ci` installs exactly what the lock file says;
+      # `npm install` keeps resolving against it. Both leave the hole, and
+      # vite then dies with "Cannot find native binding" before Playwright
+      # ever gets a server — which is why every run of this workflow failed
+      # from the vite 8 upgrade onwards.
       #
-      # `npm install` resolves optional dependencies for the platform it runs
-      # on. It costs the exactness of `ci`, which these browser tests do not
-      # depend on; the check workflow next door keeps `npm ci`.
-      - run: npm install --no-audit --no-fund
+      # So: resolve fresh for this platform. These are browser smoke tests
+      # against a mocked API; they do not depend on the exactness of `ci`,
+      # and the check workflow next door keeps it.
+      - name: Abhängigkeiten für diese Plattform
         working-directory: .
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
       - name: Install browsers
         run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Run tests
