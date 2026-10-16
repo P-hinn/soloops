@@ -29,7 +29,7 @@ function check(name: string, got: unknown, want: unknown) {
   }
 }
 
-const ROOT = join(import.meta.dirname, '../../../vertragsautomatisierung')
+const ROOT = join(import.meta.dirname, '../../../packages/core/src/automations/contracts')
 
 const sendWorkflow = JSON.parse(
   readFileSync(join(ROOT, 'n8n-vertrag-versenden.json'), 'utf8'),
@@ -221,7 +221,7 @@ for (const [name, wf] of [
   )
 }
 
-// Die Schranken vor den beiden Webhooks — siehe vertragsautomatisierung/README.md.
+// Die Schranken vor den beiden Webhooks — siehe packages/core/src/automations/contracts/README.md.
 const sendHook = nodeOf(sendWorkflow, 'Webhook: Vertrag versenden')
 check(
   'der Versand-Webhook verlangt einen Header',

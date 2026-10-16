@@ -178,7 +178,7 @@ and the signed PDF shows up under _Verträge_ with everything else that is out
 and everything that came back. There is no contracts table: a contract is two
 notes and a task, which means it syncs to the phone and shows up in search
 without anything new being built for it. See
-[vertragsautomatisierung/README.md](../vertragsautomatisierung/README.md).
+[packages/core/src/automations/contracts/README.md](../packages/core/src/automations/contracts/README.md).
 
 **Automations.** A full n8n under _Automatisierungen_ — its drag-and-drop
 canvas embedded in soloops, soloops nodes in its palette, templates to start

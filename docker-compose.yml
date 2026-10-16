@@ -95,7 +95,7 @@ services:
   # lets the editor sit in an iframe inside soloops, and it keeps webhook
   # URLs on the one address the browser already trusts.
   n8n:
-    image: docker.n8n.io/n8nio/n8n:${N8N_IMAGE_TAG:-latest}
+    image: docker.n8n.io/n8nio/n8n:${N8N_IMAGE_TAG:-2.42.4}
     restart: unless-stopped
     # Deliberately no `env_file: .env` — n8n has no business holding the
     # database URL, the JWT secret or the Anthropic key. Everything it needs
@@ -143,7 +143,7 @@ services:
       # path the workflow reads. Copying them into ./data would work too and
       # would go stale the first time one is edited; `data/` is runtime state
       # and not in git, so the copy nobody updated would be the only one left.
-      - ./vertragsautomatisierung/templates:/data/vertraege/templates:ro
+      - ./packages/core/src/automations/contracts/templates:/data/vertraege/templates:ro
     ports:
       # Also reachable directly — handy when the editor misbehaves behind the
       # proxy and you want to rule the proxy out.

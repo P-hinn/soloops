@@ -163,3 +163,14 @@ pipeline digest. One click creates one in n8n.
 They land **inactive** on purpose: a template cannot know which credential to
 use — n8n credentials live in n8n — so the honest end of an import is "here it
 is, open it".
+
+## Die Vertrags-Workflows
+
+Sie liegen bei dem Code, der sie auslöst:
+[`packages/core/src/automations/contracts/`](../packages/core/src/automations/contracts/) —
+die beiden n8n-Workflows als JSON, die vier HTML-Vorlagen und ein README, das
+die Kette NDA → PDF → Zoho Sign → zurück in soloops beschreibt. Der
+Templates-Ordner wird read-only in den n8n-Container gemountet
+(`docker-compose.yml`), und `apps/web/test/contracts.test.ts` liest dieselben
+Dateien — eine Verschiebung des Ordners bricht also sofort `npm run check`
+und nicht erst den nächsten Vertragsversand.

@@ -8,6 +8,11 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "src",
+    "templates",
+    "README.md"
+  ],
   "bin": {
     "soloops-e2e": "src/cli.ts"
   },

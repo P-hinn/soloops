@@ -35,9 +35,12 @@ jobs:
           --health-retries 20
 
     env:
-      # Enough to satisfy env.ts; nothing here reaches a real service.
+      # Enough to satisfy env.ts, which validates on import and exits when it
+      # cannot — so a test that only needs a pure function still drags the
+      # whole configuration in. Nothing here reaches a real service.
       JWT_SECRET: github-actions-secret-0123456789
       SERVICE_TOKEN: github-actions-token
+      DATABASE_URL: postgresql://test:test@localhost:5432/synctest?schema=public
       TZ: Europe/Berlin
 
     steps:

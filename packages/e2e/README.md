@@ -90,3 +90,12 @@ In CI: `--project=<browser>` pro Job, zwei Wiederholungen, Trace beim ersten
 Wiederholungsversuch, Video und Screenshot bei Fehlern, HTML-Report und
 JUnit-XML als Artefakt. Im GitHub-Workflow lässt sich über „Run workflow" eine
 `base_url` eingeben, um eine deployte Umgebung zu testen.
+
+## Eigenständig veröffentlichen
+
+Das Paket hängt an nichts aus `apps/` — es kennt nur Playwright, axe-core und
+Node. `files` nennt, was in ein Tarball gehört (`src`, `templates`,
+`README.md`), und `version` ist gepflegt. Fehlt noch genau eine Sache: die
+Zeile `"private": true` muss weg. Sie steht absichtlich noch da, solange das
+Paket nicht veröffentlicht wird — mit ihr ist `files` wirkungslos, ohne sie
+würde ein `npm publish` im Monorepo sofort durchgehen.

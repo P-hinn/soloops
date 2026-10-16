@@ -145,7 +145,7 @@ services:
   # The automation editor. Reachable only through nginx under /n8n/ — no port
   # of its own, same as Postgres and Redis.
   n8n:
-    image: docker.n8n.io/n8nio/n8n:${N8N_IMAGE_TAG:-latest}
+    image: docker.n8n.io/n8nio/n8n:${N8N_IMAGE_TAG:-2.42.4}
     restart: unless-stopped
     environment:
       N8N_PORT: 5678

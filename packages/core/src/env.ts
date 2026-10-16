@@ -23,7 +23,10 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16),
   SERVICE_TOKEN: z.string().min(8),
 
-  OWNER_EMAIL: z.string().email().default('owner@localhost'),
+  // A default that its own rule rejects is not a default: Zod wants a dot in
+  // the domain, so `owner@localhost` made the API refuse to start with
+  // "Invalid email" — the one case this default exists to prevent.
+  OWNER_EMAIL: z.string().email().default('owner@example.com'),
   OWNER_NAME: z.string().default('Owner'),
   OWNER_PASSWORD: z.string().default('changeme'),
 
