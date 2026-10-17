@@ -43,6 +43,7 @@ const navGroups = [
       { to: '/time', label: 'Zeiten' },
       { to: '/invoices', label: 'Rechnungen' },
       { to: '/accounting', label: 'Buchhaltung' },
+      { to: '/reserve', label: 'Rücklage' },
       { to: '/contracts', label: 'Verträge' },
       { to: '/clients', label: 'Kunden' },
     ],

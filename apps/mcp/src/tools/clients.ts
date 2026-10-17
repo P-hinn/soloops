@@ -184,4 +184,43 @@ export function registerClients(server: McpServer): void {
     { contractId: z.string() },
     ({ contractId }) => del(`/api/contracts/${contractId}`),
   )
+
+  // --- the files filed at a client -------------------------------------------
+  //
+  // Reading and tidying up, not uploading: the bytes come from a file picker
+  // or a drop, and neither fits through a tool call. "Was liegt beim Kunden?"
+  // and "benenn das um" do.
+
+  tool(
+    server,
+    'soloops_list_attachments',
+    'Dateien, die beim Kunden liegen — alles außer Verträgen. Ohne `clientId` die aller Kunden, mit `q` nach Name, Dateiname oder Notiz gesucht. Hochgeladen werden sie in der App.',
+    {
+      clientId: z.string().optional(),
+      projectId: z.string().optional(),
+      q: z.string().optional(),
+    },
+    (args) => get('/api/attachments', args),
+  )
+
+  tool(
+    server,
+    'soloops_update_attachment',
+    'Datei umbenennen, einem Projekt zuordnen oder mit einer Notiz versehen — nur die übergebenen Felder. Die Datei selbst bleibt, wie sie hochgeladen wurde.',
+    {
+      attachmentId: z.string(),
+      title: z.string().min(1).optional().describe('Name in soloops, z. B. "Briefing"'),
+      projectId: z.string().optional().describe('Projekt, zu dem sie gehört'),
+      notes: z.string().optional(),
+    },
+    ({ attachmentId, ...body }) => patch(`/api/attachments/${attachmentId}`, body),
+  )
+
+  tool(
+    server,
+    'soloops_delete_attachment',
+    'Datei löschen, samt Inhalt aus der Ablage. Es gibt kein Archiv dafür: ohne die Datei sagt der Eintrag nichts.',
+    { attachmentId: z.string() },
+    ({ attachmentId }) => del(`/api/attachments/${attachmentId}`),
+  )
 }

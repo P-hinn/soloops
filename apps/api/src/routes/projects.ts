@@ -108,13 +108,16 @@ const routes: FastifyPluginAsyncZod = async (app) => {
 
   app.patch('/:id', { schema: { params: idParam, body: projectInput.partial() } }, async (req) => {
     const { id } = req.params
-    const data = req.body
+    const { startsOn, dueOn, ...rest } = req.body
+    // A date the form cleared arrives as null and has to land as null. Only a
+    // field that was left out keeps its old value — `undefined` for both read
+    // as "the deadline you removed is still there".
     return prisma.project.update({
       where: { id },
       data: {
-        ...data,
-        startsOn: data.startsOn ? new Date(data.startsOn) : undefined,
-        dueOn: data.dueOn ? new Date(data.dueOn) : undefined,
+        ...rest,
+        ...(startsOn !== undefined ? { startsOn: startsOn ? new Date(startsOn) : null } : {}),
+        ...(dueOn !== undefined ? { dueOn: dueOn ? new Date(dueOn) : null } : {}),
       },
     })
   })

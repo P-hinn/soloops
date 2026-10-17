@@ -9,8 +9,9 @@
  * I have with this customer" is one question.
  *
  * What lives here is what has to be right in exactly one place: the file name
- * both the upload and the signing workflow produce, and the check that turns
- * a stored name back into a path that may be opened.
+ * both the upload and the signing workflow produce, and what a contract's PDF
+ * is allowed to be on disk. The path check itself is in services/files.ts,
+ * because the files filed at a customer by hand need the same one.
  *
  * The signing workflow cannot import this file — it runs inside n8n as plain
  * JavaScript. `signedFileName` is therefore mirrored in the workflow's
@@ -18,11 +19,13 @@
  * the two against each other.
  */
 
-import { mkdir, unlink, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join, normalize, resolve } from 'node:path'
+import { removeFile, resolveStoredPath, slug, storeFile } from './files.js'
 
 /** Where the PDFs live. Inside /data, a volume the API and n8n share. */
 export const SIGNED_ROOT = '/data/vertraege/signiert'
+
+/** A contract is a PDF. The upload checks the bytes too, see `isPdf`. */
+const RULES = { extensions: ['.pdf'] } as const
 
 /**
  * Turn a stored file name into a path that may be opened.
@@ -38,15 +41,7 @@ export const SIGNED_ROOT = '/data/vertraege/signiert'
  * check.
  */
 export function resolveSignedPath(value: string, root = SIGNED_ROOT): string | null {
-  const trimmed = value.trim()
-  if (!trimmed || trimmed.includes('\0')) return null
-
-  const full = resolve(isAbsolute(trimmed) ? normalize(trimmed) : join(root, normalize(trimmed)))
-  if (!full.startsWith(`${root}/`)) return null
-  if (!full.toLowerCase().endsWith('.pdf')) return null
-  // One directory deep at most — the directory is flat.
-  if (full.slice(root.length + 1).includes('/')) return null
-  return full
+  return resolveStoredPath(value, { ...RULES, root })
 }
 
 /**
@@ -68,32 +63,17 @@ export function signedFileName(input: {
   on: Date
 }): string {
   const stamp = input.on.toISOString().slice(0, 10)
-  return `${input.clientId}-${stamp}-${slug(input.title)}-${input.unique}.pdf`
-}
-
-/** Letters, digits and dashes. Everything else is somebody else's problem. */
-function slug(title: string): string {
-  const cleaned = title
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-  // Long enough to recognise, short enough to leave room for the rest of the
-  // name inside a file system's 255 bytes.
-  return cleaned.slice(0, 60) || 'vertrag'
+  return `${input.clientId}-${stamp}-${slug(input.title, 'vertrag')}-${input.unique}.pdf`
 }
 
 // ---------------------------------------------------------------------------
 // The directory
 //
-// Writing and deleting live here rather than in the route because they are
-// the two places the path check has to hold, and because a route that calls
-// `writeFile` is a route that cannot be tested without an HTTP server.
+// Writing and deleting go through here rather than through the route because
+// they are the two places the path check has to hold, and because a route
+// that calls `writeFile` is a route that cannot be tested without an HTTP
+// server. The mechanics are in services/files.ts, which the customer files
+// share; what is specific to a contract is that it is a PDF.
 // ---------------------------------------------------------------------------
 
 /** The five bytes every PDF starts with. Catches the wrong file, not a liar. */
@@ -114,12 +94,7 @@ export async function storeContractFile(
   bytes: Buffer,
   root = SIGNED_ROOT,
 ): Promise<string> {
-  const target = resolveSignedPath(name, root)
-  if (!target) throw new Error(`Dateiname nicht zulässig: ${name}`)
-
-  await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, bytes)
-  return name
+  return storeFile(name, bytes, { ...RULES, root })
 }
 
 /**
@@ -133,14 +108,5 @@ export async function removeContractFile(
   name: string | null | undefined,
   root = SIGNED_ROOT,
 ): Promise<boolean> {
-  if (!name) return false
-  const target = resolveSignedPath(name, root)
-  if (!target) return false
-  try {
-    await unlink(target)
-    return true
-  } catch {
-    // Missing, or a directory somebody made read-only.
-    return false
-  }
+  return removeFile(name, { ...RULES, root })
 }

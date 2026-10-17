@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test'
+import { reserveLine, sumReserveLines } from '@soloops/shared'
 
 /**
  * The API as a stub, so the interface can be tested in every browser without
@@ -21,6 +22,65 @@ export const PASSWORD = 'richtig'
 
 const PROJECT = { id: 'p1', key: 'WEB', name: 'Website Relaunch', color: '#5c76ff' }
 const CLIENT = { id: 'c1', name: 'Beispiel GmbH', company: 'Beispiel GmbH' }
+
+/**
+ * The project as its own endpoint answers it — rate, budget and description
+ * included. The list does not carry them, and the edit form reads them from
+ * here precisely for that reason.
+ */
+const PROJECT_DETAIL = {
+  ...PROJECT,
+  description: 'Neue Startseite, neues CMS.',
+  status: 'ACTIVE',
+  clientId: CLIENT.id,
+  hourlyRateCents: 9500,
+  budgetCents: 1_800_000,
+  startsOn: iso(-30 * 1440),
+  dueOn: iso(30 * 1440),
+  client: CLIENT,
+  trackedSec: 72_000,
+  unbilledSec: 36_000,
+  invoicedCents: 450_000,
+  monitors: [],
+  repos: [],
+  notes_: [],
+  meetings: [],
+  actionItems: [{ id: 'a1', title: 'Angebot schicken', dueOn: null, done: false, status: 'TODO' }],
+  digests: [],
+}
+
+/**
+ * Die Rücklagenrechnung eines Jahres, so wie `/api/reserve/:year` sie liefert:
+ * Sätze, ein Kostenposten und zwölf Monate, von denen einer gefüllt ist.
+ * Gerechnet wird mit derselben Funktion wie in der Anwendung — eine zweite
+ * Formel im Stub würde Fehler in der echten verdecken.
+ */
+const RESERVE_YEAR = new Date().getFullYear()
+const RESERVE_RATES = { vatRate: 19, incomeTaxRate: 35, discountRate: 0 }
+const RESERVE_COST_CENTS = 50_000
+
+function reserveView() {
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    month: i + 1,
+    note: null,
+    // Der Januar hat Rechnungen, aber noch keinen eingetragenen Umsatz — genau
+    // der Fall, für den es den Übernehmen-Knopf gibt.
+    invoicedGrossCents: i === 0 ? 595_000 : 0,
+    ...reserveLine(i === 2 ? 1_190_000 : 0, RESERVE_COST_CENTS, RESERVE_RATES),
+  }))
+  return {
+    year: RESERVE_YEAR,
+    exists: true,
+    rates: RESERVE_RATES,
+    note: null,
+    costs: [
+      { id: 'rc1', label: 'Büro', monthlyCents: RESERVE_COST_CENTS, note: null, position: 0 },
+    ],
+    costPerMonthCents: RESERVE_COST_CENTS,
+    months,
+    total: sumReserveLines(months),
+  }
+}
 
 type Handler = (route: Route, body: unknown) => unknown
 export type Mocks = Record<string, unknown | Handler>
@@ -251,6 +311,15 @@ export const DEFAULT_MOCKS: Mocks = {
       unbilledSec: 36_000,
     },
   ],
+  'GET /api/projects/p1': PROJECT_DETAIL,
+  'PATCH /api/projects/p1': ((_route, body) => ({
+    ...PROJECT_DETAIL,
+    ...(body as object),
+  })) satisfies Handler,
+  'GET /api/reserve': [{ year: RESERVE_YEAR, payoutCents: 50_000 }],
+  [`GET /api/reserve/${RESERVE_YEAR}`]: reserveView(),
+  [`PATCH /api/reserve/${RESERVE_YEAR}`]: (() => reserveView()) satisfies Handler,
+  [`PUT /api/reserve/${RESERVE_YEAR}/months/1`]: (() => reserveView()) satisfies Handler,
   'GET /api/clients': [
     {
       ...CLIENT,
@@ -264,7 +333,7 @@ export const DEFAULT_MOCKS: Mocks = {
       paymentTermDays: 14,
       lexofficeContactId: null,
       archived: false,
-      _count: { projects: 1, invoices: 2, contacts: 2, contracts: 2 },
+      _count: { projects: 1, invoices: 2, contacts: 2, contracts: 2, attachments: 2 },
     },
   ],
   'GET /api/meetings': [
@@ -293,6 +362,17 @@ export const DEFAULT_MOCKS: Mocks = {
     },
   ],
   'GET /api/notes/tags': [{ tag: 'relaunch', count: 1 }],
+  'POST /api/notes': ((_route, body) => ({
+    id: 'n2',
+    ...(body as object),
+    updatedAt: iso(),
+  })) satisfies Handler,
+  'PATCH /api/notes/n1': ((_route, body) => ({
+    id: 'n1',
+    ...(body as object),
+    updatedAt: iso(),
+  })) satisfies Handler,
+  'DELETE /api/notes/n1': (() => ({})) satisfies Handler,
   'GET /api/time': [
     {
       id: 't1',
@@ -501,6 +581,36 @@ export const DEFAULT_MOCKS: Mocks = {
       client: { id: CLIENT.id, name: CLIENT.name, company: CLIENT.company },
       project: null,
       task: null,
+    },
+  ],
+  // Two files at the customer: one the browser may show in place, one it has
+  // to download — the two branches the list distinguishes.
+  'GET /api/attachments': [
+    {
+      id: 'at1',
+      clientId: CLIENT.id,
+      title: 'Briefing Relaunch',
+      file: 'c1-2026-02-03-briefing-relaunch-at1.pdf',
+      originalName: 'Briefing_Relaunch_final.pdf',
+      mime: 'application/pdf',
+      sizeBytes: 1_842_000,
+      notes: null,
+      createdAt: iso(-60 * 1440),
+      client: { id: CLIENT.id, name: CLIENT.name, company: CLIENT.company },
+      project: { id: PROJECT.id, key: PROJECT.key, name: PROJECT.name },
+    },
+    {
+      id: 'at2',
+      clientId: CLIENT.id,
+      title: 'Logo-Paket',
+      file: 'c1-2026-02-03-logo-paket-at2.zip',
+      originalName: 'logo.zip',
+      mime: 'application/zip',
+      sizeBytes: 8_400_000,
+      notes: 'SVG und PNG, beide Varianten.',
+      createdAt: iso(-30 * 1440),
+      client: { id: CLIENT.id, name: CLIENT.name, company: CLIENT.company },
+      project: null,
     },
   ],
   'GET /api/automations/status': {

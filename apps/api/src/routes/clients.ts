@@ -20,6 +20,9 @@ const routes: FastifyPluginAsyncZod = async (app) => {
             invoices: true,
             contacts: { where: { archived: false } },
             contracts: { where: { archived: false } },
+            // No archived flag on a file — the row is the file, see the
+            // Attachment model.
+            attachments: true,
           },
         },
       },
@@ -38,6 +41,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
           where: { archived: false },
           orderBy: { createdAt: 'desc' },
         },
+        attachments: { orderBy: { createdAt: 'desc' } },
         projects: { orderBy: { name: 'asc' } },
         invoices: { orderBy: { issueDate: 'desc' }, take: 20 },
       },

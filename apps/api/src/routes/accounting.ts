@@ -3,6 +3,7 @@ import { serviceKeys } from '@soloops/core/settings.js'
 import { z } from 'zod'
 import { prisma } from '@soloops/core/db.js'
 import { lexoffice } from '@soloops/core/services/lexoffice.js'
+import { revenueByMonth } from '@soloops/core/services/revenue.js'
 
 const routes: FastifyPluginAsyncZod = async (app) => {
   app.addHook('onRequest', app.authenticate)
@@ -120,44 +121,7 @@ const routes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const q = req.query
-      const invoices = await prisma.invoice.findMany({
-        where: {
-          status: { in: ['SENT', 'PAID', 'OVERDUE'] },
-          issueDate: { gte: new Date(q.year, 0, 1), lt: new Date(q.year + 1, 0, 1) },
-        },
-        select: {
-          issueDate: true,
-          subtotalCents: true,
-          taxCents: true,
-          totalCents: true,
-          status: true,
-        },
-      })
-
-      const months = Array.from({ length: 12 }, (_, i) => ({
-        month: i + 1,
-        netCents: 0,
-        taxCents: 0,
-        grossCents: 0,
-        count: 0,
-      }))
-      for (const inv of invoices) {
-        const m = months[inv.issueDate.getMonth()]
-        if (!m) continue
-        m.netCents += inv.subtotalCents
-        m.taxCents += inv.taxCents
-        m.grossCents += inv.totalCents
-        m.count += 1
-      }
-
-      return {
-        year: q.year,
-        months,
-        totalNetCents: months.reduce((s, m) => s + m.netCents, 0),
-        totalTaxCents: months.reduce((s, m) => s + m.taxCents, 0),
-        totalGrossCents: months.reduce((s, m) => s + m.grossCents, 0),
-      }
+      return revenueByMonth(req.query.year)
     },
   )
 }

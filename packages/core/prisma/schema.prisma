@@ -46,6 +46,7 @@ model Client {
 
   contacts    Contact[]
   contracts   Contract[]
+  attachments Attachment[]
   projects    Project[]
   invoices    Invoice[]
   timeEntries TimeEntry[]
@@ -140,6 +141,48 @@ model Contract {
   @@index([status, endsOn])
 }
 
+/// A file filed at a customer, for everything that is not a contract.
+///
+/// The briefing as a PDF, the logo the customer sent, the scan of a signed
+/// handover protocol, the screenshot from the bug report. A contract is the
+/// one document type soloops knows something about — it has a term, a value
+/// and a signature. Everything else has a name and a date, and forcing it
+/// into `Contract` would mean a contract list that is mostly not contracts.
+///
+/// The row is the file: unlike a contract there is nothing to keep once the
+/// bytes are gone, so there is no `archived` here and deleting takes both.
+model Attachment {
+  id        String  @id @default(cuid())
+  clientId  String
+  /// Which project it belongs to, where it belongs to one.
+  projectId String?
+
+  /// What it is called in the interface. Defaults to the uploaded file's own
+  /// name and can be renamed afterwards, because "Scan_0043.pdf" says nothing.
+  title String
+  /// File name inside the file directory, flat and without a path — see
+  /// resolveAttachmentPath, which is what makes it safe to open.
+  file  String
+
+  /// The name it arrived under. Kept for the download: that is the name
+  /// whoever uploaded it recognises, the stored one carries ids.
+  originalName String
+  /// What the browser said it was. Not trusted for anything but the
+  /// Content-Type on the way back out, and only from an allowlist at that.
+  mime         String  @default("application/octet-stream")
+  sizeBytes    Int
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, createdAt])
+  @@index([projectId])
+}
+
 enum ProjectStatus {
   LEAD
   ACTIVE
@@ -182,6 +225,7 @@ model Project {
   mails       MailMessage[]
 
   contracts          Contract[]
+  attachments        Attachment[]
   automationFlows    AutomationFlow[]
   automationTriggers AutomationTrigger[]
 
@@ -804,6 +848,68 @@ model InvoiceItem {
   timeEntries TimeEntry[]
 
   @@index([invoiceId, position])
+}
+
+// ---------------------------------------------------------------------------
+// Steuerrücklage: was vom Umsatz übrig bleibt
+// ---------------------------------------------------------------------------
+
+/// Ein Jahr der Rücklagenrechnung: die Sätze, mit denen gerechnet wird.
+///
+/// Bewusst pro Jahr und nicht in den Einstellungen: Steuersätze ändern sich,
+/// und ein 2026 geänderter Satz darf die Dokumentation von 2025 nicht
+/// rückwirkend umschreiben. Deshalb trägt jedes Jahr seine eigene Kopie.
+model ReserveYear {
+  id            String   @id @default(cuid())
+  year          Int      @unique
+  /// Umsatzsteuer in Prozent. 0 bei Kleinunternehmern (§19 UStG).
+  vatRate       Float    @default(19)
+  /// Einkommen- und Gewerbesteuer zusammen.
+  incomeTaxRate Float    @default(35)
+  /// Skonto, das Kunden gewährt wird. Meist 0.
+  discountRate  Float    @default(0)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  costs  ReserveCost[]
+  months ReserveMonth[]
+}
+
+/// Ein fester Geschäftskostenposten mit Monatsbetrag — Miete, Strom, Software.
+/// Die Summe zieht jeder Monat des Jahres ab, auch ein Monat ohne Umsatz.
+model ReserveCost {
+  id           String  @id @default(cuid())
+  yearId       String
+  label        String
+  monthlyCents Int     @default(0)
+  note         String?
+  position     Int     @default(0)
+
+  year ReserveYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+
+  @@index([yearId, position])
+}
+
+/// Der Umsatz eines Monats, brutto, von Hand eingetragen.
+///
+/// Nur der Eingabewert steht hier. Alles andere — Umsatzsteuer, Rücklage,
+/// Auszahlung — wird aus den Sätzen des Jahres gerechnet; gespeicherte
+/// Ergebnisse würden beim nächsten Satzwechsel zu Zahlen, die zu nichts mehr
+/// passen.
+model ReserveMonth {
+  id         String   @id @default(cuid())
+  yearId     String
+  /// 1 bis 12.
+  month      Int
+  grossCents Int      @default(0)
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  year ReserveYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+
+  @@unique([yearId, month])
 }
 
 // ---------------------------------------------------------------------------

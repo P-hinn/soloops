@@ -26,6 +26,7 @@ smokeTest(
     { path: '/time', name: 'Zeiten' },
     { path: '/invoices', name: 'Rechnungen' },
     { path: '/accounting', name: 'Buchhaltung' },
+    { path: '/reserve', name: 'Rücklage' },
     { path: '/contracts', name: 'Verträge' },
     { path: '/clients', name: 'Kunden' },
     { path: '/automations', name: 'Automatisierungen' },

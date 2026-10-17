@@ -52,6 +52,7 @@ const routes = [
     name: 'accounting',
     component: () => import('@/views/AccountingView.vue'),
   },
+  { path: '/reserve', name: 'reserve', component: () => import('@/views/ReserveView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

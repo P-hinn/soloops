@@ -5,7 +5,8 @@ npm run check      # format, lint, types and tests in one run
 npm run format     # Prettier over everything
 npm run lint:fix   # ESLint with autofix
 npm run test       # RRULE, sales logic, activity, the op log, automations,
-                   # the task board, follow-up tickets, repository links and contracts (350 cases)
+                   # the task board, follow-up tickets, repository links,
+                   # contracts and the files at a customer (420 cases)
 npm -w @soloops/desktop run test   # the Rust side of the macOS app (6 cases)
 ```
 

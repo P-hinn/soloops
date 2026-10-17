@@ -6,6 +6,9 @@ import { formatDuration, formatMoney } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import MarkdownBlock from '@/components/MarkdownBlock.vue'
+import ProjectForm from '@/components/projects/ProjectForm.vue'
+import ProjectNotes from '@/components/projects/ProjectNotes.vue'
+import { statusLabel, statusTone } from '@/lib/projects'
 import { useTimer } from '@/stores/timer'
 import { useAuth } from '@/stores/auth'
 
@@ -29,6 +32,11 @@ type Project = {
   description: string | null
   status: string
   color: string
+  clientId: string | null
+  hourlyRateCents: number | null
+  budgetCents: number | null
+  startsOn: string | null
+  dueOn: string | null
   client: { id: string; name: string } | null
   trackedSec: number
   unbilledSec: number
@@ -39,7 +47,6 @@ type Project = {
     slug: string
     runs: { id: string; status: string; branch: string; url: string | null }[]
   }[]
-  notes_: { id: string; title: string; updatedAt: string }[]
   meetings: { id: string; title: string; startsAt: string }[]
   actionItems: {
     id: string
@@ -55,6 +62,7 @@ const route = useRoute()
 const timer = useTimer()
 const auth = useAuth()
 const project = ref<Project | null>(null)
+const editing = ref(false)
 const digesting = ref(false)
 const error = ref('')
 
@@ -66,6 +74,11 @@ const healthLabel: Record<string, string> = {
 
 async function load() {
   project.value = await api.get<Project>(`/api/projects/${route.params.id}`)
+}
+
+async function saved() {
+  editing.value = false
+  await load()
 }
 
 async function refreshDigest() {
@@ -91,6 +104,12 @@ onMounted(load)
       :subtitle="project.client?.name ?? 'Internes Projekt'"
     >
       <template #actions>
+        <span class="badge" :class="statusTone(project.status)">
+          {{ statusLabel(project.status) }}
+        </span>
+        <button class="btn-ghost" @click="editing = !editing">
+          {{ editing ? 'Bearbeiten beenden' : 'Bearbeiten' }}
+        </button>
         <button class="btn-ghost" @click="timer.start(project!.id)">▶ Timer starten</button>
         <button
           v-if="auth.config?.features.ai"
@@ -104,6 +123,14 @@ onMounted(load)
     </PageHeader>
 
     <p v-if="error" class="mb-4 text-sm text-bad">{{ error }}</p>
+
+    <ProjectForm
+      v-if="editing"
+      class="mb-4"
+      :project-id="project.id"
+      @saved="saved"
+      @cancel="editing = false"
+    />
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard label="Erfasst" :value="formatDuration(project.trackedSec) + ' h'" />
@@ -246,14 +273,7 @@ onMounted(load)
     </div>
 
     <div class="mt-4 grid gap-4 lg:grid-cols-2">
-      <section class="card">
-        <h2 class="eyebrow mb-3">Notizen</h2>
-        <ul class="space-y-1 text-sm">
-          <li v-for="n in project.notes_" :key="n.id">
-            <RouterLink to="/notes" class="hover:text-blue">{{ n.title }}</RouterLink>
-          </li>
-        </ul>
-      </section>
+      <ProjectNotes :project-id="project.id" />
 
       <section class="card">
         <h2 class="eyebrow mb-3">Meetings</h2>

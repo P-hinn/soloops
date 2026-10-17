@@ -7,7 +7,12 @@
 - Put it behind a reverse proxy with TLS; `SERVICE_TOKEN` appears in the ICS
   feed as a query parameter and has no business travelling over plain HTTP.
 - `.env` is in `.gitignore` and should stay there.
-- PDFs sit unencrypted in the `./data` volume — treat backups accordingly.
+- PDFs sit unencrypted in the `./data` volume — treat backups accordingly. So
+  do the files filed at a customer, in `./data/dateien`.
+- A file at a customer can be anything that was uploaded, so it is handed out
+  as a download and never sniffed, unless its type is on the allowlist in
+  `isInlineSafe`. Rendering an uploaded HTML page or SVG in place would run
+  its script against soloops' own origin.
 - Mail bodies sit in Postgres in plain text. If you don't want that, don't
   connect a mailbox; there is no half-way version.
 - The IMAP password is encrypted with `JWT_SECRET`. Rotate that key and the

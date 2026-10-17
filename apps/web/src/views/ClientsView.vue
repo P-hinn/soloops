@@ -6,6 +6,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import ContractDialog from '@/components/contracts/ContractDialog.vue'
 import ContactList from '@/components/clients/ContactList.vue'
 import ContractList from '@/components/clients/ContractList.vue'
+import AttachmentList from '@/components/clients/AttachmentList.vue'
 import { useAuth } from '@/stores/auth'
 
 type Client = {
@@ -22,7 +23,13 @@ type Client = {
   paymentTermDays: number
   lexofficeContactId: string | null
   archived: boolean
-  _count: { projects: number; invoices: number; contacts: number; contracts: number }
+  _count: {
+    projects: number
+    invoices: number
+    contacts: number
+    contracts: number
+    attachments: number
+  }
 }
 
 const auth = useAuth()
@@ -33,14 +40,16 @@ const clients = ref<Client[]>([])
  * One at a time: the row below the table is wide, and two of them open at
  * once read as a mistake.
  */
-const open = ref<{ clientId: string; panel: 'contacts' | 'contracts' } | null>(null)
+type Panel = 'contacts' | 'contracts' | 'files'
 
-function toggle(clientId: string, panel: 'contacts' | 'contracts') {
+const open = ref<{ clientId: string; panel: Panel } | null>(null)
+
+function toggle(clientId: string, panel: Panel) {
   open.value =
     open.value?.clientId === clientId && open.value.panel === panel ? null : { clientId, panel }
 }
 
-const unfolded = (clientId: string, panel: 'contacts' | 'contracts') =>
+const unfolded = (clientId: string, panel: Panel) =>
   open.value?.clientId === clientId && open.value.panel === panel
 /** The customer a contract is being sent to, while the dialog is open. */
 const contractFor = ref<Client | null>(null)
@@ -221,6 +230,7 @@ onMounted(load)
             <th>Kontakt</th>
             <th class="text-right">Personen</th>
             <th class="text-right">Verträge</th>
+            <th class="text-right">Dateien</th>
             <th class="text-right">Satz</th>
             <th class="text-right">Projekte</th>
             <th class="text-right">Rechnungen</th>
@@ -257,6 +267,15 @@ onMounted(load)
                 </button>
               </td>
               <td class="text-right tabular-nums">
+                <button
+                  class="text-xs text-blue hover:underline"
+                  :title="unfolded(c.id, 'files') ? 'Zuklappen' : 'Dateien zeigen und anhängen'"
+                  @click="toggle(c.id, 'files')"
+                >
+                  {{ c._count.attachments || '+' }}
+                </button>
+              </td>
+              <td class="text-right tabular-nums">
                 {{ c.hourlyRateCents ? formatMoney(c.hourlyRateCents) : '—' }}
               </td>
               <td class="text-right tabular-nums">{{ c._count.projects }}</td>
@@ -284,18 +303,23 @@ onMounted(load)
               </td>
             </tr>
             <tr v-if="unfolded(c.id, 'contacts')" class="bg-ink/[0.02]">
-              <td colspan="9" class="p-0">
+              <td colspan="10" class="p-0">
                 <ContactList :client-id="c.id" @changed="load" />
               </td>
             </tr>
             <tr v-if="unfolded(c.id, 'contracts')" class="bg-ink/[0.02]">
-              <td colspan="9" class="p-0">
+              <td colspan="10" class="p-0">
                 <ContractList :client-id="c.id" @changed="load" />
+              </td>
+            </tr>
+            <tr v-if="unfolded(c.id, 'files')" class="bg-ink/[0.02]">
+              <td colspan="10" class="p-0">
+                <AttachmentList :client-id="c.id" @changed="load" />
               </td>
             </tr>
           </template>
           <tr v-if="!clients.length">
-            <td colspan="9" class="py-8 text-center text-muted">Noch keine Kunden.</td>
+            <td colspan="10" class="py-8 text-center text-muted">Noch keine Kunden.</td>
           </tr>
         </tbody>
       </table>

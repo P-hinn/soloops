@@ -90,7 +90,8 @@ missing, the API refuses to start and says what.
 
 ## Backup
 
-Two things have to come along: the database and `./data` (invoice PDFs). The
+Two things have to come along: the database and `./data` (invoice PDFs, signed
+contracts and the files filed at a customer). The
 `.env` belongs in your password manager, not in the backup archive.
 
 ```bash

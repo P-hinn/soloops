@@ -32,6 +32,7 @@ import timeRoutes from './routes/time.js'
 import activityRoutes from './routes/activity.js'
 import invoiceRoutes from './routes/invoices.js'
 import accountingRoutes from './routes/accounting.js'
+import reserveRoutes from './routes/reserve.js'
 import dashboardRoutes from './routes/dashboard.js'
 import searchRoutes from './routes/search.js'
 import leadRoutes from './routes/leads.js'
@@ -42,6 +43,7 @@ import onboardingRoutes from './routes/onboarding.js'
 import automationRoutes from './routes/automations.js'
 import automationConnectorRoutes from './routes/automationConnector.js'
 import contractRoutes from './routes/contracts.js'
+import attachmentRoutes from './routes/attachments.js'
 import settingsRoutes from './routes/settings.js'
 import syncRoutes from './routes/sync.js'
 
@@ -162,6 +164,7 @@ await app.register(timeRoutes, { prefix: '/api/time' })
 await app.register(activityRoutes, { prefix: '/api/activity' })
 await app.register(invoiceRoutes, { prefix: '/api/invoices' })
 await app.register(accountingRoutes, { prefix: '/api/accounting' })
+await app.register(reserveRoutes, { prefix: '/api/reserve' })
 await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
 await app.register(searchRoutes, { prefix: '/api/search' })
 await app.register(leadRoutes, { prefix: '/api/leads' })
@@ -175,6 +178,7 @@ await app.register(automationRoutes, { prefix: '/api/automations' })
 // much easier to keep true when the two cannot share a hook by accident.
 await app.register(automationConnectorRoutes, { prefix: '/api/automations/connector' })
 await app.register(contractRoutes, { prefix: '/api/contracts' })
+await app.register(attachmentRoutes, { prefix: '/api/attachments' })
 await app.register(settingsRoutes, { prefix: '/api/settings' })
 await app.register(syncRoutes, { prefix: '/api/sync' })
 

@@ -4,55 +4,43 @@ import { RouterLink } from 'vue-router'
 import { api } from '@/api'
 import { formatDuration } from '@soloops/shared'
 import PageHeader from '@/components/PageHeader.vue'
+import ProjectForm from '@/components/projects/ProjectForm.vue'
+import { statusLabel, statusTone, type ProjectFields } from '@/lib/projects'
 import { useTimer } from '@/stores/timer'
 
-type Project = {
+type Project = ProjectFields & {
   id: string
-  key: string
-  name: string
-  status: string
-  color: string
   dueOn: string | null
   client?: { id: string; name: string; company: string | null } | null
   trackedSec: number
   unbilledSec: number
 }
-type Client = { id: string; name: string }
 
 const timer = useTimer()
 const projects = ref<Project[]>([])
-const clients = ref<Client[]>([])
-const showForm = ref(false)
-const form = ref({ key: '', name: '', clientId: '', description: '', color: '#6366f1' })
-
-const statusTone: Record<string, string> = {
-  LEAD: 'badge-blue',
-  ACTIVE: 'badge-good',
-  PAUSED: 'badge-warn',
-  DONE: '',
-  ARCHIVED: '',
-}
-
-const statusLabel: Record<string, string> = {
-  LEAD: 'Lead',
-  ACTIVE: 'aktiv',
-  PAUSED: 'pausiert',
-  DONE: 'fertig',
-  ARCHIVED: 'archiviert',
-}
+/**
+ * What the form is on: a project id, or `null` for a new one. Closed is
+ * `undefined` — "new project" and "no form" are two different states.
+ */
+const editing = ref<string | null | undefined>(undefined)
+/** The archive is its own view: the list otherwise fills up with dead projects. */
+const archive = ref(false)
 
 async function load() {
-  projects.value = await api.get<Project[]>('/api/projects')
+  projects.value = await api.get<Project[]>(
+    '/api/projects',
+    archive.value ? { status: 'ARCHIVED' } : undefined,
+  )
 }
 
-async function create() {
-  await api.post('/api/projects', {
-    ...form.value,
-    key: form.value.key.toUpperCase(),
-    clientId: form.value.clientId || null,
-  })
-  showForm.value = false
-  form.value = { key: '', name: '', clientId: '', description: '', color: '#6366f1' }
+async function toggleArchive() {
+  archive.value = !archive.value
+  editing.value = undefined
+  await load()
+}
+
+async function saved() {
+  editing.value = undefined
   await load()
 }
 
@@ -60,49 +48,35 @@ async function startTimer(projectId: string) {
   await timer.start(projectId)
 }
 
-onMounted(async () => {
-  clients.value = await api.get<Client[]>('/api/clients')
-  await load()
-})
+onMounted(load)
 </script>
 
 <template>
   <div>
-    <PageHeader title="Projekte" :subtitle="`${projects.length} Projekte`">
+    <PageHeader
+      title="Projekte"
+      :subtitle="archive ? `${projects.length} archiviert` : `${projects.length} Projekte`"
+    >
       <template #actions>
-        <button class="btn-primary" @click="showForm = !showForm">Neues Projekt</button>
+        <button class="btn-ghost" @click="toggleArchive">
+          {{ archive ? 'Aktive' : 'Archiv' }}
+        </button>
+        <button class="btn-primary" @click="editing = editing === null ? undefined : null">
+          Neues Projekt
+        </button>
       </template>
     </PageHeader>
 
-    <form v-if="showForm" class="card mb-4 grid gap-3 md:grid-cols-4" @submit.prevent="create">
-      <div>
-        <label class="label">Kürzel</label>
-        <input v-model="form.key" class="input uppercase" placeholder="ACME-DWH" required />
-      </div>
-      <div class="md:col-span-2">
-        <label class="label">Name</label>
-        <input v-model="form.name" class="input" required />
-      </div>
-      <div>
-        <label class="label">Kunde</label>
-        <select v-model="form.clientId" class="input">
-          <option value="">Intern</option>
-          <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-      </div>
-      <div class="md:col-span-3">
-        <label class="label">Beschreibung</label>
-        <input v-model="form.description" class="input" />
-      </div>
-      <div class="flex items-end gap-2">
-        <input
-          v-model="form.color"
-          type="color"
-          class="h-9 w-12 rounded border border-line bg-paper"
-        />
-        <button class="btn-primary">Anlegen</button>
-      </div>
-    </form>
+    <!-- `key` so switching from one project to another rebuilds the draft
+         instead of showing the previously edited one. -->
+    <ProjectForm
+      v-if="editing !== undefined"
+      :key="editing ?? 'new'"
+      class="mb-4"
+      :project-id="editing"
+      @saved="saved"
+      @cancel="editing = undefined"
+    />
 
     <div class="border-t border-line-strong">
       <table class="table">
@@ -127,9 +101,7 @@ onMounted(async () => {
             </td>
             <td class="text-soft">{{ p.client?.company ?? p.client?.name ?? 'intern' }}</td>
             <td>
-              <span class="badge" :class="statusTone[p.status]">{{
-                statusLabel[p.status] ?? p.status
-              }}</span>
+              <span class="badge" :class="statusTone(p.status)">{{ statusLabel(p.status) }}</span>
             </td>
             <td class="text-right tabular-nums">{{ formatDuration(p.trackedSec) }} h</td>
             <td
@@ -139,11 +111,14 @@ onMounted(async () => {
               {{ formatDuration(p.unbilledSec) }} h
             </td>
             <td class="text-right">
-              <button class="btn-xs" @click="startTimer(p.id)">▶ Timer</button>
+              <button class="btn-xs" title="Bearbeiten" @click="editing = p.id">✎</button>
+              <button class="btn-xs ml-1" @click="startTimer(p.id)">▶ Timer</button>
             </td>
           </tr>
           <tr v-if="!projects.length">
-            <td colspan="6" class="py-8 text-center text-muted">Noch keine Projekte.</td>
+            <td colspan="6" class="py-8 text-center text-muted">
+              {{ archive ? 'Nichts archiviert.' : 'Noch keine Projekte.' }}
+            </td>
           </tr>
         </tbody>
       </table>

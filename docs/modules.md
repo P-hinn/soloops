@@ -105,8 +105,20 @@ It never overwrites your own estimate — when the two differ by more than 15
 points the UI shows the gap, because that is exactly where thinking pays off.
 Anything untouched for more than two weeks gets flagged.
 
+**Projects.** Key, name, customer, status, colour, description, dates, hourly
+rate and budget are editable afterwards — in the list and in the project
+header, through the same form, so the two cannot drift apart. The form reads
+the project from its own endpoint rather than from the table row: the row does
+not carry rate, budget and description, and sending them back from there would
+wipe them. Status `ARCHIVED` takes a project out of the list; _Archiv_ in the
+header brings the archived ones back, which is where a project gets revived.
+
 **Notes.** Markdown, tags, project references, German Postgres full-text search
-(GIN index over title + body, created at API startup).
+(GIN index over title + body, created at API startup). Notes of a project are
+written and edited in the project view as well — the detour via _Notizen_, where
+the note had to be found again and assigned to the project by hand, was the
+reason project notes stayed empty. The notes page stays the place for search
+across all of them.
 
 **Project digests with AI.** One status report per project: traffic light,
 next steps with urgency, risks, a billing hint. Produced through structured
@@ -169,6 +181,25 @@ cancelled.
 finalized documents (`finalize=true`), monthly revenue net/VAT/gross for the
 advance VAT return.
 
+**Tax reserve.** _Rücklage_ answers the one question a monthly invoice run
+leaves open: of what came in, how much is actually mine? Per month you type a
+single number — gross revenue — and the page breaks it down live, before
+anything is saved: discount off, VAT taken **out** of the gross (not added on
+top), the income/trade tax rate set aside from the net, fixed business costs
+subtracted, and what is left is the payout. The invoices of that month are
+offered next to the field as a suggestion with one click to adopt, never
+written in by themselves — this is documentation you keep, so the number stays
+yours.
+
+Rates and cost items hang off the **year**, not off the settings: a rate
+corrected in 2027 must not silently rewrite what 2026 was reserved against.
+A new year starts from the last one (rates and cost items copied) the moment
+the first value is entered — looking at a year creates nothing. Every year
+stays readable, and the CSV export (semicolon, decimal comma, rates in the
+header) is the copy that outlives the application. The arithmetic itself lives
+in `@soloops/shared`, so the browser calculates while you type with the same
+formula the API stores with.
+
 **Contracts.** Every contract is filed at its customer, in the _Verträge_
 column of the customer list: type, title, what it is worth, from when until
 when, and the PDF. Two ways one gets there.
@@ -191,6 +222,24 @@ date is something to be reminded of.
 _Verträge_ then answers the two questions that span customers: what is still
 waiting for a signature, and what runs out in the next thirty days. Expiry is
 derived on read from the end date — no job walks the table at midnight.
+
+**Files.** Everything that is not a contract, in the _Dateien_ column next to
+it: the briefing, the logo the customer sent, the scan of a signed handover
+protocol, the subcontractor's invoice. Picked or dropped on the panel, several
+at once, each one its own row with the size, the day and — where it belongs to
+one — the project. They can be renamed afterwards, because "Scan_0043.pdf"
+says nothing a year later, and the download is offered under that name.
+
+soloops knows nothing about what is inside them, so there is no type and no
+status — the row is the file, and deleting takes both. The bytes live in
+`/data/dateien`, under a name built from the customer, the day and the row's
+own id; what a request sends is never a path. Anything that could run a script
+from soloops' own origin — HTML, SVG — is downloaded rather than shown in
+place, see `isInlineSafe` in @soloops/shared. 50 MB per file.
+
+Over MCP they can be listed, renamed and deleted (`soloops_list_attachments`
+and friends); uploading needs the app, because the bytes come from a file
+picker.
 
 **Automations.** A full n8n under _Automatisierungen_ — its drag-and-drop
 canvas embedded in soloops, soloops nodes in its palette, templates to start

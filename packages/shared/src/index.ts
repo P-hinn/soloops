@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export * from './api.js'
+export * from './reserve.js'
 
 // ---------------------------------------------------------------------------
 // Shared enums
@@ -229,6 +230,117 @@ export const CONTRACT_STATE_LABELS: Record<ContractState, string> = {
 }
 
 // ---------------------------------------------------------------------------
+// Attachments — files filed at a customer by hand
+// ---------------------------------------------------------------------------
+
+/**
+ * What a file filed at a customer may weigh.
+ *
+ * Generous, because the thing that gets uploaded is whatever the customer
+ * sent: a photographed contract is a few megabytes, a design file is more.
+ * The interface checks it before the upload so the answer is immediate, the
+ * route checks it because the interface is not the only caller.
+ */
+export const ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
+
+/**
+ * What may be changed about a file after it was uploaded.
+ *
+ * Not the file itself: the stored name, its size and its content type are
+ * what was uploaded, and a patch that could claim a different name would be
+ * a patch that points a record at somebody else's bytes. Replacing a file
+ * means uploading a new one.
+ */
+export const attachmentInput = z.object({
+  title: z.string().min(1).transform(cut(200)),
+  projectId: z.string().nullish(),
+  notes: z.string().nullish(),
+})
+
+/**
+ * The extension of an uploaded name, with the dot and in lower case.
+ *
+ * Letters and digits only and at most twelve of them: it ends up in a file
+ * name on disk, so ".pdf" has to come through and "....\0" must not. An
+ * empty string for everything else, which is a file without an extension.
+ */
+export function extensionOf(name: string): string {
+  const match = /\.([A-Za-z0-9]{1,12})$/.exec(name.trim())
+  return match?.[1] ? `.${match[1].toLowerCase()}` : ''
+}
+
+/**
+ * The name a file is offered under on save.
+ *
+ * The title, because that is what the file is called in soloops — renaming an
+ * attachment to "Briefing" is the whole point of having a title next to the
+ * uploaded name — plus the uploaded extension, because a download without one
+ * opens in nothing.
+ *
+ * Letters rather than \w, so "Müller" survives; the whitespace collapse runs
+ * last and is what keeps a newline out of the Content-Disposition header the
+ * API builds from this.
+ */
+export function downloadName(title: string, originalName: string): string {
+  const ext = extensionOf(originalName)
+  const base =
+    title
+      .replace(/[^\p{L}\p{N}\s.-]/gu, '')
+      .replace(/\s+/g, '-')
+      .replace(/^[.-]+/, '')
+      .slice(0, 120) || 'datei'
+  return base.toLowerCase().endsWith(ext) ? base : `${base}${ext}`
+}
+
+/**
+ * What a browser may render in place.
+ *
+ * The files are served from the same origin as the interface, so an uploaded
+ * HTML page or SVG rendered in place would run its script with the session in
+ * front of it. Those are downloaded instead; nothing on this list can execute
+ * anything.
+ *
+ * A list of what is safe stays safe when a new type shows up — a list of what
+ * is dangerous does not. The interface reads it to decide between a new tab
+ * and a download, the API to decide between `inline` and `attachment`.
+ */
+export const ATTACHMENT_INLINE_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'text/plain',
+] as const
+
+export function isInlineSafe(mime: string): boolean {
+  // The charset half of "text/plain; charset=utf-8" says nothing about this.
+  const type = (mime.split(';')[0] ?? '').trim().toLowerCase()
+  return (ATTACHMENT_INLINE_TYPES as readonly string[]).includes(type)
+}
+
+/** Bytes as a person reads them: "847 KB", "2,4 MB". */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+  if (bytes < 1024) return `${Math.round(bytes)} B`
+  const units = ['KB', 'MB', 'GB']
+  let value = bytes / 1024
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  // One decimal below ten, none above: "9,4 MB" is worth knowing, "9,4 KB"
+  // next to "847 KB" reads as precision nobody asked for.
+  const digits = value < 10 && unit > 0 ? 1 : 0
+  return `${value.toLocaleString('de-DE', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })} ${units[unit]}`
+}
+
+// ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
 
@@ -414,6 +526,7 @@ export type LoginInput = z.infer<typeof loginInput>
 export type ClientInput = z.infer<typeof clientInput>
 export type ContactInput = z.infer<typeof contactInput>
 export type ContractInput = z.infer<typeof contractInput>
+export type AttachmentInput = z.infer<typeof attachmentInput>
 export type ProjectInput = z.infer<typeof projectInput>
 export type EventInput = z.infer<typeof eventInput>
 export type MeetingInput = z.infer<typeof meetingInput>

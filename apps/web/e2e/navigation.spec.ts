@@ -12,6 +12,7 @@ const PAGES = [
   ['Zeiten', '/time'],
   ['Rechnungen', '/invoices'],
   ['Buchhaltung', '/accounting'],
+  ['Rücklage', '/reserve'],
   ['Verträge', '/contracts'],
   ['Kunden', '/clients'],
   ['Automatisierungen', '/automations'],
